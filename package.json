@@ -1,0 +1,17 @@
+{
+  "name": "mis-estudios",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/preview.mjs"
+  },
+  "dependencies": {
+    "@tesseract.js-data/spa": "1.0.0",
+    "pdfjs-dist": "6.5.438",
+    "tesseract.js": "7.0.0"
+  }
+}
