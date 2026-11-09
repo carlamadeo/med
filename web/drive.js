@@ -10,6 +10,7 @@ const marker = 'estudio-v1';
 const pdf = 'application/pdf';
 const metadataType = 'application/json';
 const idPattern = /^[\w-]+$/;
+const sessionKey = 'mis-estudios:drive-session:' + GOOGLE_CLIENT_ID;
 let accessToken = '';
 let expires = 0;
 let folderId = '';
@@ -17,6 +18,24 @@ let connection = null;
 
 export const configured = /^\d+-[\w-]+\.apps\.googleusercontent\.com$/.test(GOOGLE_CLIENT_ID);
 export const connected = () => Boolean(accessToken) && Date.now() < expires;
+
+export function restoreSession() {
+  if (!configured) return false;
+  try {
+    const session = JSON.parse(window.sessionStorage.getItem(sessionKey));
+    if (typeof session?.accessToken !== 'string' || !session.accessToken ||
+        !Number.isFinite(session.expires) || session.expires <= Date.now()) {
+      disconnect();
+      return false;
+    }
+    accessToken = session.accessToken;
+    expires = session.expires;
+    return true;
+  } catch {
+    disconnect();
+    return false;
+  }
+}
 
 export class DriveSessionError extends Error {
   constructor() {
@@ -44,13 +63,20 @@ export function connect() {
       scope,
       include_granted_scopes: false,
       callback(response) {
-        if (response.error || !response.access_token || !oauth.hasGrantedAllScopes(response, scope)) {
+        const duration = Number(response.expires_in) * 1000 - 15000;
+        if (response.error || typeof response.access_token !== 'string' || !response.access_token ||
+            !Number.isFinite(duration) || duration <= 0 || !oauth.hasGrantedAllScopes(response, scope)) {
           reject(new Error('Google Drive necesita tu autorización para abrir el archivo.'));
           return;
         }
         accessToken = response.access_token;
-        expires = Date.now() + Number(response.expires_in) * 1000 - 15000;
+        expires = Date.now() + duration;
         folderId = '';
+        try {
+          window.sessionStorage.setItem(sessionKey, JSON.stringify({ accessToken, expires }));
+        } catch {
+          // Si el navegador bloquea el almacenamiento, el acceso sigue en memoria.
+        }
         resolve();
       },
       error_callback() {
@@ -66,10 +92,18 @@ export function disconnect() {
   accessToken = '';
   expires = 0;
   folderId = '';
+  try {
+    window.sessionStorage.removeItem(sessionKey);
+  } catch {
+    // El almacenamiento puede estar deshabilitado en este navegador.
+  }
 }
 
 async function request(url, options = {}) {
-  if (!connected()) throw new DriveSessionError();
+  if (!connected()) {
+    disconnect();
+    throw new DriveSessionError();
+  }
   const destination = new URL(url);
   if (destination.origin !== 'https://www.googleapis.com') throw new Error('Google Drive devolvió una dirección inválida.');
   const token = accessToken;

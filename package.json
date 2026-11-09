@@ -6,6 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "test": "node --test",
     "build": "node scripts/build.mjs",
     "start": "node scripts/preview.mjs"
   },

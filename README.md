@@ -23,4 +23,4 @@ GOOGLE_CLIENT_ID='tu-id.apps.googleusercontent.com' npm run build
 npm start
 ```
 
-El acceso se mantiene en la pestaña. Si cerrás la página o vence la sesión, podés conectar Drive de nuevo. Los PDFs que guardes también se pueden abrir desde la carpeta de Drive. Al eliminar un estudio desde la app, pasa a la papelera de Drive.
+El acceso se conserva al recargar la misma pestaña y los estudios se cargan automáticamente, mientras el permiso de Google siga vigente. Se guarda temporalmente en `sessionStorage`, con su vencimiento original; no se renueva al recargar. Al pulsar **Salir**, se borra de la pestaña. Si cerrás la pestaña, vence el permiso o Google lo rechaza, tenés que conectar Drive de nuevo. Si el navegador bloquea el almacenamiento de sesión, el acceso se mantiene solo hasta recargar. Los PDFs que guardes también se pueden abrir desde la carpeta de Drive. Al eliminar un estudio desde la app, pasa a la papelera de Drive.

@@ -1,5 +1,5 @@
 import { analyzePdf, validatePdf } from './detect.js';
-import { connect, connected, configured, disconnect, DriveSessionError, listStudies, reportURL, reserveId, saveStudy, trashStudy, viewerURL } from './drive.js';
+import { connect, connected, configured, disconnect, DriveSessionError, listStudies, reportURL, reserveId, restoreSession, saveStudy, trashStudy, viewerURL } from './drive.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const editor = $('#editor');
@@ -350,6 +350,9 @@ async function start() {
     if (!configured) {
       $('#connect').disabled = true;
       $('#access-copy').textContent = 'Para abrir el archivo, primero hay que configurar el acceso a Google Drive.';
+    } else if (restoreSession()) {
+      setAccess(true);
+      await load();
     }
   } catch {
     $('#connect').disabled = true;
