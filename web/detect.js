@@ -1,4 +1,4 @@
-import { extractFields } from './extract.js';
+import { extractFields, extractSignatureDoctor } from './extract.js';
 
 const vendor = (path) => new URL('./vendor/' + path, import.meta.url).href;
 
@@ -15,6 +15,41 @@ function pageText(items) {
     previous = { y, end: x + item.width };
   }
   return text;
+}
+
+function signatureArea(item, viewport) {
+  const [,,,, x, y] = item.transform;
+  const [left, top] = viewport.convertToViewportPoint(x, y);
+  const scale = viewport.scale;
+  return {
+    left: Math.max(0, Math.floor(left - 12 * scale)),
+    top: Math.max(0, Math.floor(top + 2 * scale)),
+    right: Math.min(viewport.width, Math.ceil(left + (Math.max(item.width, 160) + 10) * scale)),
+    bottom: Math.min(viewport.height, Math.ceil(top + 110 * scale)),
+  };
+}
+
+async function recognizePage(worker, pdfjs, page, anchor) {
+  const original = page.getViewport({ scale: 1 });
+  const scale = anchor ? 4 : Math.min(3, 2100 / Math.max(original.width, original.height));
+  const viewport = page.getViewport({ scale });
+  const area = anchor ? signatureArea(anchor, viewport) : {
+    left: 0, top: 0, right: viewport.width, bottom: viewport.height,
+  };
+  if (area.right <= area.left || area.bottom <= area.top) return '';
+  const canvas = globalThis.document.createElement('canvas');
+  canvas.width = Math.ceil(area.right - area.left);
+  canvas.height = Math.ceil(area.bottom - area.top);
+  try {
+    await page.render({
+      canvas, viewport, annotationMode: pdfjs.AnnotationMode.DISABLE,
+      transform: [1, 0, 0, 1, -area.left, -area.top],
+    }).promise;
+    const { data } = await worker.recognize(canvas);
+    return data.text;
+  } finally {
+    canvas.width = canvas.height = 0;
+  }
 }
 
 export async function validatePdf(file) {
@@ -46,42 +81,51 @@ export async function analyzePdf(file, signal, onScan) {
     signal.throwIfAborted();
     const document = await loading.promise;
     const pages = [];
+    const signatures = [];
     for (let number = 1; number <= Math.min(document.numPages, 6); number++) {
       signal.throwIfAborted();
       const page = await document.getPage(number);
-      pages.push(pageText((await page.getTextContent()).items));
+      const { items } = await page.getTextContent();
+      pages.push(pageText(items));
+      const anchor = items.find((item) => /firmad[oa]\s+(?:electr[oó]nicamente|digitalmente)\s+por\s*:/i.test(item.str));
+      if (anchor) signatures.push({ page, anchor });
     }
     const found = extractFields(pages.join('\f'));
     if (Object.keys(found).length === 3) return found;
     const scanned = pages.slice(0, 3).flatMap((text, index) =>
       text.replace(/[^\p{L}\d]/gu, '').length < 70 ? [index + 1] : []);
-    if (!scanned.length) return found;
+    if (!scanned.length && (found.doctor || !signatures.length)) return found;
 
     onScan();
     const { default: { createWorker } } = await import('./vendor/ocr/tesseract.esm.min.js');
     signal.throwIfAborted();
-    worker = await createWorker('spa', 1, {
-      workerPath: vendor('ocr/worker.min.js'), workerBlobURL: false,
-      corePath: vendor('ocr/core/'), langPath: vendor('ocr/lang/'),
-    });
-    for (const number of scanned) {
+    try {
+      worker = await createWorker('spa', 1, {
+        workerPath: vendor('ocr/worker.min.js'), workerBlobURL: false,
+        corePath: vendor('ocr/core/'), langPath: vendor('ocr/lang/'),
+      });
       signal.throwIfAborted();
-      const page = await document.getPage(number);
-      const original = page.getViewport({ scale: 1 });
-      const scale = Math.min(3, 2100 / Math.max(original.width, original.height));
-      const viewport = page.getViewport({ scale });
-      const canvas = globalThis.document.createElement('canvas');
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      try {
-        await page.render({ canvas, viewport, annotationMode: pdfjs.AnnotationMode.DISABLE }).promise;
-        const { data } = await worker.recognize(canvas);
-        pages[number - 1] += '\n' + data.text;
-      } finally {
-        canvas.width = canvas.height = 0;
+      for (const number of scanned) {
+        signal.throwIfAborted();
+        const page = await document.getPage(number);
+        pages[number - 1] += '\n' + await recognizePage(worker, pdfjs, page);
       }
+      const result = extractFields(pages.join('\f'));
+      if (!result.doctor && signatures.length) {
+        await worker.setParameters({ tessedit_pageseg_mode: '11' });
+        const text = [];
+        for (const { page, anchor } of signatures.slice(0, 2)) {
+          signal.throwIfAborted();
+          text.push(await recognizePage(worker, pdfjs, page, anchor));
+        }
+        const doctor = extractSignatureDoctor(text.join('\n'));
+        if (doctor) result.doctor = doctor;
+      }
+      return result;
+    } catch {
+      signal.throwIfAborted();
+      return extractFields(pages.join('\f'));
     }
-    return extractFields(pages.join('\f'));
   } finally {
     signal.removeEventListener('abort', stop);
     stop();

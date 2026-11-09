@@ -219,7 +219,7 @@ fields.report.addEventListener('change', async () => {
   }
   try {
     const found = await analyzePdf(file, signal, () => {
-      if (active()) status('Leyendo el escaneo. Puede demorar unos segundos…');
+      if (active()) status('Leyendo el texto de una imagen. Puede demorar unos segundos…');
     });
     if (!active()) return;
     if (found.type) found.title = found.type;
