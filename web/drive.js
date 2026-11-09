@@ -153,9 +153,11 @@ function record(file) {
   try {
     const entry = JSON.parse(file.description);
     const viewer = viewerURL(entry.viewer || '');
-    if (!entry.title || !validDate(entry.date) || !entry.type) throw new Error();
+    const types = entry.types ?? (entry.type ? [entry.type] : []);
+    if (!entry.title || !validDate(entry.date) || !Array.isArray(types) || !types.length ||
+        types.some((type) => typeof type !== 'string' || !type.trim())) throw new Error();
     return {
-      id: file.id, revision: file.version, title: entry.title, date: entry.date, type: entry.type,
+      id: file.id, revision: file.version, title: entry.title, date: entry.date, types: [...new Set(types)],
       doctor: entry.doctor || '', portal: entry.portal || '', viewer,
       reportName: file.mimeType === pdf ? entry.reportName || 'Informe.pdf' : '',
     };

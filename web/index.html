@@ -101,17 +101,19 @@
       </div>
       <div class="attachments report-upload">
         <label>Informe en PDF <small>Opcional · hasta 20 MB</small><input name="report" type="file" accept=".pdf,application/pdf"></label>
-        <p id="detection" class="hint" role="status">Buscamos la fecha, el tipo y el médico en el PDF.</p>
+        <p id="detection" class="hint" role="status">Buscamos la fecha, los tipos y el médico en el PDF.</p>
         <div id="current-report" hidden>
           <span id="current-report-name"></span>
           <label class="checkbox"><input name="removeReport" type="checkbox"> Quitar PDF actual</label>
         </div>
       </div>
       <label>Nombre del estudio <input name="title" maxlength="160" required placeholder="Ej. Ecografía abdominal"></label>
-      <div class="two">
-        <label>Fecha del estudio <input name="date" type="date" min="1900-01-01" max="9999-12-31" required></label>
-        <label>Tipo de estudio <select name="type" required><option value="">Elegí un tipo</option></select></label>
-      </div>
+      <label>Fecha del estudio <input name="date" type="date" min="1900-01-01" max="9999-12-31" required></label>
+      <fieldset class="study-types" aria-describedby="types-hint">
+        <legend>Tipos de estudio</legend>
+        <p class="hint" id="types-hint">Elegí uno o varios.</p>
+        <div class="type-options" id="study-types"></div>
+      </fieldset>
       <div class="two">
         <label>Médico o profesional <small>Opcional</small><input name="doctor" maxlength="120" placeholder="Ej. Dra. Ana Pérez"></label>
         <label>Portal o institución <small>Opcional</small><input name="portal" maxlength="120" placeholder="Ej. Hospital o laboratorio"></label>
@@ -152,7 +154,7 @@
           <h3 class="record-title"></h3>
           <p class="record-meta"><time></time><span class="record-doctor"></span><span class="record-portal"></span></p>
         </div>
-        <span class="type-badge"></span>
+        <div class="type-badges" aria-label="Tipos de estudio"></div>
       </div>
       <div class="record-controls">
         <div class="record-links">

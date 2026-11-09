@@ -145,3 +145,54 @@ test('invalid token lifetimes or missing permission do not create a saved sessio
     assert.equal(storage.has(sessionKey), false);
   }
 });
+
+function studyFile(entry) {
+  return {
+    id: 'test-study', version: '1', mimeType: 'application/json',
+    appProperties: { misEstudios: 'estudio-v1' },
+    description: JSON.stringify({ title: 'Informe de prueba', date: '2024-03-18', ...entry }),
+  };
+}
+
+test('Drive reads old single-type studies and new studies with multiple types', async (t) => {
+  const drive = await reloadDrive();
+  await drive.connect();
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ files: [
+    studyFile({ type: 'Mamografía' }),
+    studyFile({ types: ['Mamografía', 'Ecografía', 'Mamografía'] }),
+  ] }));
+  const studies = await drive.listStudies();
+  assert.deepEqual(studies.map((study) => study.types), [['Mamografía'], ['Mamografía', 'Ecografía']]);
+});
+
+test('editing an old study saves multiple types and they survive reloading the library', async (t) => {
+  const drive = await reloadDrive();
+  await drive.connect();
+  let file = studyFile({ type: 'Mamografía' });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (options.method === 'PATCH') {
+      const metadata = JSON.parse(options.body);
+      const entry = JSON.parse(metadata.description);
+      assert.deepEqual(entry.types, ['Mamografía', 'Ecografía']);
+      assert.equal(entry.type, undefined);
+      file = { ...file, description: metadata.description, version: '2' };
+    }
+    return Response.json(new URL(url).pathname.endsWith('/test-study') ? file : { files: [file] });
+  });
+  const [previous] = await drive.listStudies();
+  const saved = await drive.saveStudy({ previous, entry: {
+    title: previous.title, date: previous.date, types: ['Mamografía', 'Ecografía'],
+  } });
+  assert.deepEqual(saved.types, ['Mamografía', 'Ecografía']);
+  assert.equal(saved.revision, '2');
+  assert.deepEqual((await drive.listStudies())[0].types, saved.types);
+});
+
+test('invalid type lists do not make an unreadable study appear valid', async (t) => {
+  const drive = await reloadDrive();
+  await drive.connect();
+  for (const types of [[], [''], [42], 'Mamografía']) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json({ files: [studyFile({ types })] }));
+    await assert.rejects(drive.listStudies(), /ficha no se puede leer/);
+  }
+});

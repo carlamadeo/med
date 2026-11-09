@@ -45,6 +45,11 @@ function strongest(candidates) {
   return values.size === 1 ? values.values().next().value : undefined;
 }
 
+function strongestTypes(candidates) {
+  const top = Math.max(...candidates.map((item) => item.score));
+  return [...new Set(candidates.filter((item) => item.score === top).map((item) => item.value))];
+}
+
 function doctorName(text) {
   const value = text.split(/\s{2,}/)[0].replace(registration, '').trim();
   const name = value.replace(honorific, '').replace(/,\s*/g, ' ');
@@ -59,7 +64,7 @@ export function extractSignatureDoctor(text) {
 }
 
 export function extractFields(text) {
-  const candidates = { date: [], type: [], doctor: [] };
+  const candidates = { date: [], types: [], doctor: [] };
   for (const page of text.split('\f')) {
     const lines = page.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     for (const [index, line] of lines.entries()) {
@@ -82,7 +87,7 @@ export function extractFields(text) {
         const heading = folded.replace(strongTypeLabel, '').replace(/^informe\s+(?:de\s+)?/, '');
         if (heading.length <= 105) {
           for (const [value, pattern] of typePatterns) {
-            if (pattern.test(heading)) candidates.type.push({ value, score: labeled ? 3 : 1 });
+            if (pattern.test(heading)) candidates.types.push({ value, score: labeled ? 3 : 1 });
           }
         }
       }
@@ -100,7 +105,7 @@ export function extractFields(text) {
     }
   }
   return Object.fromEntries(Object.entries(candidates).flatMap(([key, items]) => {
-    const value = strongest(items);
-    return value ? [[key, value]] : [];
+    const value = key === 'types' ? strongestTypes(items) : strongest(items);
+    return value?.length ? [[key, value]] : [];
   }));
 }
