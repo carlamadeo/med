@@ -25,6 +25,8 @@ const typePatterns = [
   ['Tomografía', /^(?:tomograf[ií]as?|tac|tc\s+(?:de|multicorte))\b/],
 ];
 const doctorLabel = /^(?:m[eé]dic[oa](?:\s+(?:informante|responsable|tratante|firmante))?|profesional(?:\s+(?:informante|responsable|firmante))?|dr\.?\s*\/\s*dra\.?|informado por|firmado(?: digitalmente)? por|firma(?: del profesional)?)\s*[:=-]\s*(.*)$/iu;
+const headerDoctorLabel = /^(?:(?:m[eé]dic[oa]|profesional)(?:\s+(?:solicitante|tratante|derivante))?|solicitante|derivante)\s*[:=-]\s*(.*)$/iu;
+const genericDoctorTitle = /^dr\.?\s*\/\s*(?:dra\.?|a)(?:\s*[:=-]\s*|\s+)(.*)$/iu;
 const honorific = /^dr(?:a)?\.?\s+/iu;
 const registration = /(?:[\s,]+(?:m\.?\s*[np]\.?|matr[ií]cula|especialidad)\s*[:.\d]|[\s,]+\d|\s*[|;]).*$/iu;
 const normalize = (value) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -94,6 +96,13 @@ export function extractFields(text) {
 
       const label = doctorLabel.exec(line);
       const signature = honorific.test(line) && (registration.test(line) || /^(?:m\.?\s*[np]\.?|matricula)\s*[:.\d]/.test(normalize(lines[index + 1] || '')));
+      const header = headerDoctorLabel.exec(line) || genericDoctorTitle.exec(line);
+      const bareHeader = index < 12 && honorific.test(line) && !signature;
+      if (header || bareHeader) {
+        const next = lines[index + 1] || '';
+        const value = doctorName(header ? header[1] || (honorific.test(next) ? next : '') : line);
+        if (value) candidates.doctor.push({ value, score: 4 });
+      }
       if (label || signature) {
         const next = lines[index + 1] || '';
         const value = doctorName(label ? label[1] || (honorific.test(next) ? next : '') : line);

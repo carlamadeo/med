@@ -9,13 +9,13 @@ test('a breast report supplies its date and both types without using the birth d
   const found = extractFields([
     'Sr./a APELLIDO, PACIENTE',
     'Fecha de Nac: 12/07/1980',
-    'Dr./a PROFESIONAL SOLICITANTE',
+    'Dr./a PEREZ ANA',
     'Fecha: 18/03/2024 Orden: 123456789',
     'MAMOGRAFIA BILATERAL CON PROLONGACION AXILAR',
     'ESTUDIO REALIZADO CON MAMOGRAFO FULL DIGITAL',
     'ECOGRAFIA MAMARIA BILATERAL Y REGIONES AXILARES',
   ].join('\n'));
-  assert.deepEqual(found, { date: '2024-03-18', types: ['Mamografía', 'Ecografía'] });
+  assert.deepEqual(found, { date: '2024-03-18', types: ['Mamografía', 'Ecografía'], doctor: 'PEREZ ANA' });
   const types = JSON.parse(await readFile(new URL('../web/types.json', import.meta.url), 'utf8'));
   assert.ok(found.types.every((type) => types.includes(type)));
 });
@@ -37,6 +37,26 @@ test('OCR of a signature supplies the professional, without accepting other foot
   assert.equal(extractSignatureDoctor('Dra. Ana Ejemplo\nM.N. 123456 M.P. 654321'), 'Dra. Ana Ejemplo');
   assert.equal(extractSignatureDoctor('El presente informe fue realizado por el médico\nPágina 1'), undefined);
   assert.equal(extractSignatureDoctor('Dra. Ana Ejemplo\nDr. Juan Prueba'), undefined);
+});
+
+test('the doctor in the header takes priority over the doctor who signs the report', () => {
+  for (const header of ['Dr./a PEREZ ANA', 'Dr./a: PEREZ ANA', 'Dr./Dra.: PEREZ ANA',
+    'Médico: PEREZ ANA', 'Médico solicitante: PEREZ ANA', 'Profesional tratante: PEREZ ANA']) {
+    const text = [header, 'Fecha: 18/03/2024', 'Firmado por: Dra. Julia Ejemplo', 'M.N. 123456'].join('\n');
+    assert.equal(extractFields(text).doctor, 'PEREZ ANA', header);
+  }
+  assert.equal(extractFields('Dra. Ana Pérez\nFirmado por: Dra. Julia Ejemplo').doctor, 'Dra. Ana Pérez');
+});
+
+test('a signature remains a fallback when the header does not name a doctor', () => {
+  assert.equal(extractFields('Fecha: 18/03/2024\nFirmado por: Dra. Julia Ejemplo').doctor, 'Dra. Julia Ejemplo');
+  assert.equal(extractFields('Dra. Julia Ejemplo\nM.N. 123456').doctor, 'Dra. Julia Ejemplo');
+  assert.equal(extractFields('Dr./a\nFecha: 18/03/2024').doctor, undefined);
+  assert.equal(extractFields('Médico:\nEcografía abdominal').doctor, undefined);
+});
+
+test('conflicting header names are left for the user to review', () => {
+  assert.equal(extractFields('Dr./a PEREZ ANA\nDr./a LOPEZ JUAN\nFirmado por: Dra. Julia Ejemplo').doctor, undefined);
 });
 
 test('signature image crops follow nested transforms and ignore logos and full-page scans', () => {
