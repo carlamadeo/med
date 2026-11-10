@@ -16,10 +16,13 @@ const unrelatedDate = /\b(?:nacimiento|nac\.?|emision|impresion|validacion|gener
 const strongTypeLabel = /^(?:tipo(?:\s+de\s+estudio)?|estudio(?:\s+realizado)?|procedimiento|examen|practica)\s*[:=-]\s*/;
 const typePatterns = [
   ['Análisis de laboratorio', /^(?:laboratorio$|(?:analisis|resultados?|informe|estudios?)\s+(?:de\s+)?laboratorio|hemograma|bioquimica|urocultivo|analisis de sangre|deteccion\s+de\s+(?:antigenos?|anticuerpos?))\b/],
+  ['Colonoscopía', /^(?:colonoscop[ií]as?|videocolonoscop[ií]as?)\b/],
+  ['Ecografía TV', /^(?:ecograf[ií]as?|ultrasonidos?|eco)\s+(?:tv|transvaginal(?:es)?)\b/],
   ['Ecografía', /^(?:ecograf[ií]as?|ultrasonidos?|ecodoppler|eco\s+doppler|ecografico)\b/],
   ['Electrocardiograma', /^(?:electrocardiogramas?|ecg|ekg)\b/],
-  ['Endoscopía', /^(?:endoscop[ií]as?|videoendoscop[ií]as?|colonoscop[ií]as?|videocolonoscop[ií]as?)\b/],
+  ['Endoscopía', /^(?:endoscop[ií]as?|videoendoscop[ií]as?)\b/],
   ['Mamografía', /^(?:mamograf[ií]as?|mastograf[ií]as?)\b/],
+  ['PAP', /^(?:pap|p\.\s*a\.\s*p\.?|papanicolaou)\b/],
   ['Radiografía', /^(?:radiograf[ií]as?|rayos\s+x|rx)\b/],
   ['Resonancia magnética', /^(?:resonancia(?:s)?\s+magnetica(?:s)?|rmn)\b/],
   ['Tomografía', /^(?:tomograf[ií]as?|tac|tc\s+(?:de|multicorte))\b/],
@@ -89,7 +92,10 @@ export function extractFields(text) {
         const heading = folded.replace(strongTypeLabel, '').replace(/^informe\s+(?:de\s+)?/, '');
         if (heading.length <= 105) {
           for (const [value, pattern] of typePatterns) {
-            if (pattern.test(heading)) candidates.types.push({ value, score: labeled ? 3 : 1 });
+            if (pattern.test(heading)) {
+              candidates.types.push({ value, score: labeled ? 3 : 1 });
+              break;
+            }
           }
         }
       }

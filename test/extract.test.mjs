@@ -33,6 +33,25 @@ test('multiple types are kept individually and repeated headings do not duplicat
   assert.equal(extractFields('Informe sin tipo identificable').types, undefined);
 });
 
+test('specific study types are detected without also selecting their broader category', async () => {
+  const types = JSON.parse(await readFile(new URL('../web/types.json', import.meta.url), 'utf8'));
+  for (const [heading, expected] of [
+    ['ECOGRAFÍA TV', 'Ecografía TV'],
+    ['ECOGRAFIA TRANSVAGINAL', 'Ecografía TV'],
+    ['COLONOSCOPIA', 'Colonoscopía'],
+    ['VIDEOCOLONOSCOPÍA', 'Colonoscopía'],
+    ['PAP', 'PAP'],
+    ['P.A.P.', 'PAP'],
+    ['PAPANICOLAOU', 'PAP'],
+  ]) {
+    assert.ok(types.includes(expected));
+    assert.deepEqual(extractFields(heading).types, [expected], heading);
+  }
+  assert.deepEqual(extractFields('ECOGRAFIA ABDOMINAL\nECOGRAFIA TV\nPAP').types,
+    ['Ecografía', 'Ecografía TV', 'PAP']);
+  assert.equal(extractFields('PAPILOMAVIRUS').types, undefined);
+});
+
 test('OCR of a signature supplies the professional, without accepting other footer text', () => {
   assert.equal(extractSignatureDoctor('Dra. Ana Ejemplo\nM.N. 123456 M.P. 654321'), 'Dra. Ana Ejemplo');
   assert.equal(extractSignatureDoctor('El presente informe fue realizado por el médico\nPágina 1'), undefined);

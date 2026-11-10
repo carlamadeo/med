@@ -278,7 +278,8 @@ fields.report.addEventListener('change', async () => {
     });
     if (!active()) return;
     if (found.types?.length) {
-      found.title = new Intl.ListFormat('es').format(found.types.map((type, i) => i ? type.toLowerCase() : type));
+      found.title = new Intl.ListFormat('es').format(found.types.map((type, i) =>
+        i && type !== type.toUpperCase() ? type[0].toLowerCase() + type.slice(1) : type));
     }
     const labels = { date: 'fecha', types: 'tipos', doctor: 'médico' };
     const applied = [];
