@@ -48,7 +48,7 @@ jobs:
           }
           let deployment = await request();
           console.log(`Estado del despliegue anterior: ${deployment.status}`);
-          if (!finished.has(deployment.status)) {
+          if (!['succeed', 'not_found'].includes(deployment.status)) {
             await request('POST');
             for (let attempt = 0; attempt < 24; attempt++) {
               await new Promise(resolve => setTimeout(resolve, 5000));
