@@ -160,6 +160,7 @@ function record(file) {
       id: file.id, revision: file.version, title: entry.title, date: entry.date, types: [...new Set(types)],
       doctor: entry.doctor || '', portal: entry.portal || '', viewer,
       reportName: file.mimeType === pdf ? entry.reportName || 'Informe.pdf' : '',
+      operationId: entry.operationId || '',
     };
   } catch {
     throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
@@ -269,6 +270,170 @@ export async function trashStudy(study) {
   await json('files/' + encodeURIComponent(study.id), { fields: 'id' }, jsonBody('PATCH', { trashed: true }));
 }
 
+const operationMarker = 'operacion-v1';
+
 export function reportURL(id) {
   return 'https://drive.google.com/file/d/' + encodeURIComponent(id) + '/view';
+}
+
+function operationFile(entry) {
+  return {
+    id: crypto.randomUUID(), version: '1', mimeType: metadataType,
+    appProperties: { [tag]: operationMarker },
+    description: JSON.stringify(entry),
+  };
+}
+
+function recordOperation(file) {
+  if (!idPattern.test(file.id) || file.trashed || file.appProperties?.[tag] !== operationMarker) throw new Error('Operación no disponible.');
+  try {
+    const entry = JSON.parse(file.description);
+    if (!entry.title || !validDate(entry.date)) throw new Error();
+    const studies = Array.isArray(entry.studies) ? entry.studies.filter((id) => typeof id === 'string' && id.trim()) : [];
+    return {
+      id: file.id, revision: file.version, title: entry.title, date: entry.date,
+      surgeon: entry.surgeon || '', institution: entry.institution || '', type: entry.type || '',
+      notes: entry.notes || '', studies,
+    };
+  } catch {
+    throw new Error('Drive tiene una operación cuya ficha no se puede leer.');
+  }
+}
+
+export async function listOperations() {
+  const records = [];
+  let pageToken = '';
+  do {
+    const response = await json('files', {
+      q: query(operationMarker), spaces: 'drive', pageSize: '100',
+      fields: 'nextPageToken,files(' + entryFields + ')',
+      ...(pageToken ? { pageToken } : {}),
+    });
+    records.push(...response.files.map(recordOperation));
+    pageToken = response.nextPageToken;
+  } while (pageToken);
+  return records.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR'));
+}
+
+export async function saveOperation({ entry, previous, newId }) {
+  if (previous) {
+    const file = await json('files/' + encodeURIComponent(previous.id), { fields: entryFields });
+    if (file.version !== previous.revision) {
+      throw new Error('Esta operación cambió en Drive. Cerrá la ficha y actualizá la lista antes de volver a editarla.');
+    }
+  }
+  const payload = { ...entry };
+  const description = JSON.stringify(payload);
+  const fileName = (entry.date + ' ' + entry.title).replace(/[\\/]/g, '-') + '.json';
+  const metadata = { name: fileName, description };
+  const path = previous ? 'files/' + encodeURIComponent(previous.id) : 'files';
+
+  if (!previous) {
+    metadata.id = newId;
+    metadata.parents = [await folder()];
+    metadata.appProperties = { [tag]: operationMarker };
+  }
+  const method = previous ? 'PATCH' : 'POST';
+  const media = new Blob([description], { type: metadataType });
+  metadata.mimeType = metadataType;
+  try {
+    return recordOperation(await upload(path, method, metadata, media, metadataType));
+  } catch (error) {
+    if (previous || error.status !== 409) throw error;
+    const existing = await json('files/' + encodeURIComponent(newId), { fields: entryFields });
+    if (existing.description !== description) throw new Error('La operación ya se guardó. Actualizá la lista para revisarla.');
+    return recordOperation(existing);
+  }
+}
+
+export async function trashOperation(operation) {
+  const file = await json('files/' + encodeURIComponent(operation.id), { fields: entryFields });
+  if (file.version !== operation.revision) {
+    throw new Error('Esta operación cambió en Drive. Actualizá la lista antes de eliminarla.');
+  }
+  await json('files/' + encodeURIComponent(operation.id), { fields: 'id' }, jsonBody('PATCH', { trashed: true }));
+}
+
+function currentStudyFile(study) {
+  return json('files/' + encodeURIComponent(study.id), { fields: entryFields });
+}
+
+function patchFile(id, body) {
+  return json('files/' + encodeURIComponent(id), { fields: entryFields }, jsonBody('PATCH', body));
+}
+
+export async function linkStudyToOperation(study, operation) {
+  const current = record(await currentStudyFile(study));
+  if (current.revision !== study.revision) {
+    throw new Error('El estudio cambió en Drive. Actualizá la lista antes de vincularlo a la operación.');
+  }
+  const currentOp = recordOperation(await json('files/' + encodeURIComponent(operation.id), { fields: entryFields }));
+  if (currentOp.revision !== operation.revision) {
+    throw new Error('La operación cambió en Drive. Actualizá la lista antes de vincular estudios.');
+  }
+
+  const entry = JSON.parse((await currentStudyFile(study)).description);
+  entry.operationId = operation.id;
+  await patchFile(study.id, { description: JSON.stringify(entry) });
+
+  const opEntry = JSON.parse((await json('files/' + encodeURIComponent(operation.id), { fields: entryFields })).description);
+  if (!opEntry.studies || !opEntry.studies.includes(study.id)) {
+    opEntry.studies = [...(opEntry.studies || []), study.id];
+    await patchFile(operation.id, { description: JSON.stringify(opEntry) });
+  }
+
+  return { ...current, operationId: operation.id };
+}
+
+export async function unlinkStudyFromOperation(study, operation) {
+  const current = record(await currentStudyFile(study));
+  if (current.revision !== study.revision) {
+    throw new Error('El estudio cambió en Drive. Actualizá la lista antes de desvincularlo.');
+  }
+  const entry = JSON.parse((await currentStudyFile(study)).description);
+  delete entry.operationId;
+  await patchFile(study.id, { description: JSON.stringify(entry) });
+
+  const opFile = await json('files/' + encodeURIComponent(operation.id), { fields: entryFields });
+  const opEntry = JSON.parse(opFile.description);
+  if (opEntry.studies && opEntry.studies.includes(study.id)) {
+    opEntry.studies = opEntry.studies.filter((id) => id !== study.id);
+    await patchFile(operation.id, { description: JSON.stringify(opEntry) });
+  }
+
+  return { ...current, operationId: undefined };
+}
+
+async function portalDirectoryFile() {
+  const { files } = await json('files', {
+    q: query('portal-directorio-v1') + " and mimeType != 'application/vnd.google-apps.folder'",
+    fields: 'files(id,version)', orderBy: 'createdTime', pageSize: '1',
+  });
+  const existing = files[0];
+  if (existing) return existing;
+  return json('files', { fields: 'id,version' }, jsonBody('POST', {
+    name: 'Directorio de portales', mimeType: metadataType, parents: [await folder()],
+    appProperties: { [tag]: 'portal-directorio-v1' },
+    description: JSON.stringify({ portals: [] }),
+  }));
+}
+
+export async function readPortals() {
+  const file = await portalDirectoryFile();
+  const content = await json('files/' + encodeURIComponent(file.id), { fields: 'description,version' });
+  let portals = [];
+  try {
+    portals = Array.isArray(JSON.parse(content.description || '{}').portals)
+      ? JSON.parse(content.description).portals
+      : [];
+  } catch {
+    portals = [];
+  }
+  return { id: file.id, revision: file.version, portals };
+}
+
+export async function writePortals(portals) {
+  const file = await portalDirectoryFile();
+  const description = JSON.stringify({ portals, updatedAt: new Date().toISOString() });
+  return json('files/' + encodeURIComponent(file.id), { fields: 'id,version' }, jsonBody('PATCH', { description }));
 }

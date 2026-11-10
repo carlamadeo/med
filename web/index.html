@@ -55,6 +55,12 @@
     <section id="library" aria-labelledby="library-title" class="library" hidden>
       <div class="section-head">
         <div class="section-title"><h2 id="library-title">Estudios guardados</h2><span class="count" id="count" hidden>0</span></div>
+        <div class="view-tabs">
+          <button class="tab-button active" data-view="chronology">Cronología</button>
+          <button class="tab-button" data-view="category">Categoría</button>
+          <button class="tab-button" data-view="portals">Enlaces externos</button>
+          <button class="tab-button" data-view="operations">Operaciones</button>
+        </div>
         <label class="search">
           <svg class="icon"><use href="#i-search"/></svg>
           <input type="search" id="search" placeholder="Buscar por nombre, médico o portal" aria-label="Buscar por nombre, médico o portal">
@@ -65,6 +71,15 @@
         <label>Tipo <select id="type"><option value="">Todos los tipos</option></select></label>
         <label>Desde <input type="date" id="from" aria-label="Fecha desde"></label>
         <label>Hasta <input type="date" id="to" aria-label="Fecha hasta"></label>
+        <label>Operación <select id="filter-operation"><option value="">Todas las operaciones</option></select></label>
+        <label>Portal <select id="filter-portal"><option value="">Todos los portales</option></select></label>
+        <label><input type="checkbox" id="filter-pdf"> Con informe PDF</label>
+        <label><input type="checkbox" id="filter-viewer"> Con visor</label>
+        <label>Ordenar <select id="filter-order">
+          <option value="date-desc">Fecha (recientes primero)</option>
+          <option value="date-asc">Fecha (antiguas primero)</option>
+          <option value="name-asc">Nombre (A-Z)</option>
+        </select></label>
         <button class="text-button" type="reset" id="clear" hidden>Limpiar filtros</button>
       </form>
       <p id="list-status" class="list-status" role="status">Cargando tus estudios…</p>
@@ -83,11 +98,28 @@
         <p id="empty-copy">Agregá tu primer estudio con su informe en PDF, el enlace al visor o ambos.</p>
         <button class="button secondary" id="empty-action" type="button"><svg class="icon"><use href="#i-plus"/></svg> Agregar estudio</button>
       </div>
-      <ul id="results" class="results" aria-label="Lista de estudios" hidden></ul>
       <div id="load-error" class="empty" hidden>
         <h3>No se pudo abrir el archivo</h3>
         <p id="load-error-message"></p>
         <button class="button secondary" id="retry" type="button">Reintentar</button>
+      </div>
+      <div id="view-chronology">
+        <ul id="results" class="results" aria-label="Lista de estudios" hidden></ul>
+      </div>
+      <div id="view-category" hidden>
+        <ul id="category-results" class="results" aria-label="Estudios por categoría" hidden></ul>
+      </div>
+      <div id="view-portals" hidden>
+        <ul id="portals-results" class="results" aria-label="Directorio de portales" hidden></ul>
+      </div>
+      <div id="view-operations" hidden>
+        <ul id="operations-results" class="results" aria-label="Operaciones" hidden></ul>
+      </div>
+      <div id="view-operation-detail" class="detail-panel" hidden>
+        <div class="detail-card">
+          <button class="icon-button detail-close" id="operation-detail-close" type="button" title="Cerrar"><svg class="icon"><use href="#i-close"/></svg></button>
+          <div id="operation-detail-content"></div>
+        </div>
       </div>
     </section>
     <footer><svg class="icon"><use href="#i-lock"/></svg> Los estudios se guardan en tu Google Drive.</footer>
@@ -113,6 +145,14 @@
         <legend>Tipos de estudio</legend>
         <p class="hint" id="types-hint">Elegí uno o varios.</p>
         <div class="type-options" id="study-types"></div>
+      </fieldset>
+      <fieldset class="operation-field" aria-describedby="operation-hint">
+        <legend>Operación</legend>
+        <p class="hint" id="operation-hint">Vinculá este estudio a una intervención quirúrgica (opcional).</p>
+        <div class="two">
+          <label>Operación <select name="operationId"><option value="">Ninguna</option></select></label>
+          <button type="button" class="button secondary" id="editor-operation-create">+ Nueva operación</button>
+        </div>
       </fieldset>
       <div class="two">
         <label>Médico o profesional <small>Opcional</small><input name="doctor" maxlength="120" placeholder="Ej. Dra. Ana Pérez"></label>
@@ -149,6 +189,31 @@
       <div class="dialog-actions">
         <button type="button" class="button quiet" data-close>Cancelar</button>
         <button type="submit" class="button danger" id="delete">Eliminar estudio</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="operation-editor" aria-labelledby="operation-editor-title">
+    <form id="operation-editor-form">
+      <div class="dialog-heading">
+        <div><h2 id="operation-editor-title">Nueva operación</h2><p>Registrá una intervención quirúrgica para agrupar estudios.</p></div>
+        <button type="button" class="icon-button" data-close aria-label="Cerrar"><svg class="icon"><use href="#i-close"/></svg></button>
+      </div>
+      <label>Nombre <input name="title" maxlength="160" required placeholder="Ej. Apendicectomía"></label>
+      <div class="two">
+        <label>Fecha <input name="date" type="date" min="1900-01-01" max="9999-12-31" required></label>
+        <label>Tipo de intervención <input name="type" maxlength="120" placeholder="Ej. Laparoscópica"></label>
+      </div>
+      <div class="two">
+        <label>Cirujano <input name="surgeon" maxlength="120" placeholder="Ej. Dra. Ana Pérez"></label>
+        <label>Institución <input name="institution" maxlength="120" placeholder="Ej. Clínica Modelo"></label>
+      </div>
+      <label>Notas <textarea name="notes" maxlength="1000" placeholder="Detalles del procedimiento, hallazgos y seguimiento..."></textarea></label>
+      <p class="form-error" id="operation-form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="button quiet" data-close>Cancelar</button>
+        <button type="button" class="button secondary" id="operation-editor-delete" hidden>Eliminar operación</button>
+        <button type="submit" class="button primary" id="operation-editor-save">Guardar operación</button>
       </div>
     </form>
   </dialog>
