@@ -6,6 +6,8 @@ const editor = $('#editor');
 const editorForm = $('#editor-form');
 const fields = editorForm.elements;
 const typeOptions = $('#study-types');
+const portalOptions = $('#portal-options');
+const portalChoices = $('#portal-choices');
 const confirmDialog = $('#confirm');
 const filters = $('#filters');
 const search = $('#search');
@@ -46,6 +48,31 @@ function setFieldValue(name, value) {
   } else fields[name].value = value;
 }
 
+function updatePortalOptions() {
+  const names = new Map();
+  for (const study of records) {
+    if (typeof study.portal !== 'string') continue;
+    const name = study.portal.trim().replace(/\s+/g, ' ');
+    if (name && !names.has(normalize(name))) names.set(normalize(name), name);
+  }
+  const sorted = [...names.values()].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  portalOptions.replaceChildren(...sorted.map((name) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = name;
+    button.addEventListener('click', () => {
+      fields.portal.value = name;
+      portalChoices.open = false;
+      fields.portal.focus();
+    });
+    item.append(button);
+    return item;
+  }));
+  portalChoices.hidden = !sorted.length;
+  if (!sorted.length) portalChoices.open = false;
+}
+
 function setAccess(active) {
   $('#access').hidden = active;
   $('#library').hidden = !active;
@@ -84,6 +111,7 @@ async function load() {
     const list = await listStudies();
     if (sequence !== loadSequence) return;
     records = list;
+    updatePortalOptions();
     loaded = true;
     render();
   } catch (error) {
@@ -182,6 +210,7 @@ function openEditor(study = null) {
   suggested.clear();
   touched.clear();
   editorForm.reset();
+  portalChoices.open = false;
   status('Buscamos la fecha, los tipos y el médico en el PDF.');
   $('.reconnect', editor).hidden = true;
   $('#form-error').hidden = true;
@@ -296,6 +325,7 @@ $('#signout').addEventListener('click', () => {
   disconnect();
   ++loadSequence;
   records = [];
+  updatePortalOptions();
   loaded = false;
   results.replaceChildren();
   listStatus.hidden = false;
@@ -337,6 +367,7 @@ editorForm.addEventListener('submit', async (event) => {
     ++loadSequence;
     const newRecord = !editing;
     records = [...records.filter((item) => item.id !== study.id), study];
+    updatePortalOptions();
     editor.close();
     if (newRecord) filters.reset();
     render();
@@ -358,6 +389,7 @@ $('#delete-form').addEventListener('submit', async (event) => {
     await trashStudy(deleting);
     ++loadSequence;
     records = records.filter((item) => item.id !== deleting.id);
+    updatePortalOptions();
     confirmDialog.close();
     render();
     await load();

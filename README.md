@@ -4,6 +4,8 @@ Archivo personal de informes médicos para usar desde el celular o la computador
 
 Al elegir un PDF, la página lee hasta las primeras seis páginas en el navegador y sugiere la fecha del estudio, sus tipos y el profesional. Para el médico, se prioriza el nombre del encabezado; la firma se usa como respaldo si no se encuentra allí. Podés seleccionar uno o varios tipos para el mismo informe: por ejemplo, **Mamografía** y **Ecografía**. Cada estudio aparece al filtrar por cualquiera de sus tipos. Los estudios guardados con un solo tipo siguen funcionando. Si falta información, intenta leer con OCR en español las páginas escaneadas entre las primeras tres y los sellos de firma que aparecen como imágenes en las primeras seis. Revisá los datos antes de guardar. Si no encuentra un dato, el campo queda disponible para completarlo a mano. El PDF se sube a Drive al pulsar **Guardar estudio**.
 
+El campo **Portal o institución** permite escribir un nombre nuevo o elegir entre las instituciones de todos tus estudios guardados. Las sugerencias se ordenan alfabéticamente y no repiten nombres por diferencias de mayúsculas, tildes o espacios. Un nombre nuevo aparece después de guardar el estudio; al conectar Drive en otro dispositivo, también estará disponible allí.
+
 ## Publicar
 
 1. Creá un repositorio en tu cuenta de GitHub y subí este código a la rama `main`. El sitio de Pages puede ser público: publica la interfaz, mientras que los datos de cada cuenta quedan en Drive. Para publicar desde un repositorio privado, verificá que tu plan de GitHub admita Pages en repositorios privados.

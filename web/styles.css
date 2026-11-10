@@ -89,7 +89,7 @@ dialog form, .attachments { display: grid; gap: 13px; }
 .dialog-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .dialog-heading p { margin-top: 6px; font-size: .88rem; color: var(--muted); }
 .dialog-heading .icon-button { margin: -7px -7px 0 0; }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 10px; }
 .two > * { min-width: 0; }
 small, .hint { font-size: .78rem; color: var(--muted); font-weight: 450; }
 .attachments { background: #faf8fd; border: 1px solid var(--edge); padding: 12px; border-radius: 11px; }
@@ -97,6 +97,11 @@ input[type=file] { width: 100%; font-size: .87rem; }
 input::file-selector-button { font: inherit; margin-right: 8px; padding: 4px 8px; border: 0; border-radius: 5px; background: var(--tint); color: var(--brand-dark); cursor: pointer; }
 #current-report { color: var(--muted); font-size: .83rem; overflow-wrap: anywhere; }
 .checkbox { display: flex; align-items: center; margin-top: 4px; }
+.portal-choices { margin-top: 7px; font-size: .84rem; }
+.portal-choices summary { color: var(--brand-dark); cursor: pointer; min-height: 32px; padding: 5px 0; font-weight: 650; }
+.portal-choices ul { list-style: none; margin: 4px 0 0; padding: 4px; max-height: 200px; overflow-y: auto; border: 1px solid var(--input-edge); border-radius: 8px; background: var(--surface); }
+.portal-choices button { display: block; width: 100%; min-height: 44px; padding: 8px; border: 0; border-radius: 5px; background: transparent; color: var(--ink); text-align: left; overflow-wrap: anywhere; }
+.portal-choices button:hover, .portal-choices button:focus-visible { background: var(--tint); color: var(--brand-dark); }
 .study-types { margin: 0; padding: 0; border: 0; min-width: 0; }
 .study-types legend { padding: 0; font-size: .84rem; font-weight: 650; }
 .study-types .hint { margin: 3px 0 8px; }

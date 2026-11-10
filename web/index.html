@@ -116,8 +116,15 @@
       </fieldset>
       <div class="two">
         <label>Médico o profesional <small>Opcional</small><input name="doctor" maxlength="120" placeholder="Ej. Dra. Ana Pérez"></label>
-        <label>Portal o institución <small>Opcional</small><input name="portal" maxlength="120" placeholder="Ej. Hospital o laboratorio"></label>
+        <div class="portal-field">
+          <label>Portal o institución <small>Opcional</small><input name="portal" maxlength="120" placeholder="Escribí o elegí una institución" autocomplete="off" aria-describedby="portal-hint"></label>
+          <details id="portal-choices" class="portal-choices" hidden>
+            <summary>Instituciones guardadas</summary>
+            <ul id="portal-options"></ul>
+          </details>
+        </div>
       </div>
+      <p class="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una nueva. Se recuerda al guardar el estudio.</p>
       <div class="attachments">
         <label>Enlace al visor <small>Opcional</small><input name="viewer" type="url" inputmode="url" maxlength="5000" placeholder="https://…"></label>
         <p class="hint">El visor se abre en el portal original. Puede pedirte que inicies sesión.</p>
