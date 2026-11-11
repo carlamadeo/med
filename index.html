@@ -7,13 +7,12 @@
   <title>Mis estudios · Archivo médico personal</title>
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/ 'wasm-unsafe-eval'; style-src 'self' https://accounts.google.com/gsi/; img-src 'self' blob: data:; font-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <script src="https://accounts.google.com/gsi/client" defer></script>
-  <script type="module" src="./app.js"></script>
 </head>
 <body>
-  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <a href="#main" class="skiplink">Saltar al contenido</a>
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" id="icon-symbols">
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 14h8m-8 3h5"/></symbol>
@@ -24,17 +23,20 @@
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 6 3 3M5 19l4-.8L19 8a2.1 2.1 0 0 0-3-3L6 15z"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5"/></symbol>
   </svg>
-  <header class="top">
+
+  <header class="top" role="banner">
     <div class="wrap top-inner">
       <a class="brand" href="./" aria-label="Inicio de Mis estudios">
-        <img src="./icon.svg" alt="" width="38" height="38"> Mis estudios
+        <img src="/icon.svg" alt="" width="38" height="38"> Mis estudios
       </a>
-      <div class="account-actions"><button class="text-button" id="signout" type="button" hidden>Salir</button>
-      <span class="private"><svg class="icon"><use href="#i-lock"/></svg> Archivo privado</span></div>
+      <div class="account-actions">
+        <button class="text-button" id="signout" type="button" hidden>Salir</button>
+        <span class="private"><svg class="icon"><use href="#i-lock"/></svg> Archivo privado</span>
+      </div>
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="wrap" id="main" role="main">
     <section class="intro" aria-labelledby="page-title">
       <div>
         <p class="eyebrow">MI ARCHIVO MÉDICO</p>
@@ -176,5 +178,7 @@
       </div>
     </li>
   </template>
+
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
