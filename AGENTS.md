@@ -18,6 +18,8 @@ Use Node.js 24 or later and run `npm ci` to install dependencies.
 
 Follow `.prettierrc`: two-space indentation, single quotes, semicolons, and a 100-character print width. Use TypeScript type-only imports where appropriate, as enforced by ESLint. Follow existing names: PascalCase for components (for example, `StudyRow.tsx`) and descriptive kebab-case for many domain, data, and test files. Keep CSS consistent with Stylelint and the existing design tokens.
 
+**Code hygiene:** Remove unused exports, functions, and CSS selectors when refactoring. Delete empty modules instead of leaving them as empty files. Run `npm run lint` and `npm run typecheck` before committing; they catch unused code via ESLint/TypeScript.
+
 ## Testing Guidelines
 
 Add Vitest tests as `*.test.ts` or `*.test.tsx` and Playwright tests under `test/e2e/` as `*.spec.ts`. Coverage thresholds for domain, data, and core are 80% lines, functions, and statements, and 70% branches. Exercise relevant offline and synchronization behavior when changing persistence or Drive integration.

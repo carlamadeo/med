@@ -1,3 +1,5 @@
+import { createInputGroup } from './InputGroup';
+
 export interface SelectOption {
   value: string;
   label: string;
@@ -76,42 +78,5 @@ export function Select(props: SelectProps): HTMLSelectElement {
 }
 
 export function createSelectGroup(props: SelectProps & { helpText?: string; errorText?: string } = { options: [] }): HTMLDivElement {
-  const { helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...selectProps } = props;
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'input-group';
-
-  const selectId = id || `select-${crypto.randomUUID()}`;
-  const describedBy: string[] = [];
-
-  if (helpText) {
-    const helpId = `${selectId}-help`;
-    const helpEl = document.createElement('p');
-    helpEl.id = helpId;
-    helpEl.className = 'hint';
-    helpEl.textContent = helpText;
-    wrapper.appendChild(helpEl);
-    describedBy.push(helpId);
-  }
-
-  if (errorText) {
-    const errorId = `${selectId}-error`;
-    const errorEl = document.createElement('p');
-    errorEl.id = errorId;
-    errorEl.className = 'form-error';
-    errorEl.setAttribute('role', 'alert');
-    errorEl.textContent = errorText;
-    wrapper.appendChild(errorEl);
-    describedBy.push(errorId);
-    selectProps.error = true;
-  }
-
-  const select = createSelect({ ...selectProps, id: selectId });
-  if (describedBy.length) {
-    const combined = [...(ariaDescribedBy ? [ariaDescribedBy] : []), ...describedBy].join(' ');
-    select.setAttribute('aria-describedby', combined);
-  }
-  wrapper.appendChild(select);
-
-  return wrapper;
+  return createInputGroup(props, createSelect, 'select');
 }

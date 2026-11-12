@@ -76,43 +76,4 @@ export function Input(props: InputProps): HTMLInputElement {
   return createInput(props);
 }
 
-export function createInputGroup(props: InputProps & { helpText?: string; errorText?: string } = {}): HTMLDivElement {
-  const { helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...inputProps } = props;
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'input-group';
-
-  const inputId = id || `input-${crypto.randomUUID()}`;
-  const describedBy: string[] = [];
-
-  if (helpText) {
-    const helpId = `${inputId}-help`;
-    const helpEl = document.createElement('p');
-    helpEl.id = helpId;
-    helpEl.className = 'hint';
-    helpEl.textContent = helpText;
-    wrapper.appendChild(helpEl);
-    describedBy.push(helpId);
-  }
-
-  if (errorText) {
-    const errorId = `${inputId}-error`;
-    const errorEl = document.createElement('p');
-    errorEl.id = errorId;
-    errorEl.className = 'form-error';
-    errorEl.setAttribute('role', 'alert');
-    errorEl.textContent = errorText;
-    wrapper.appendChild(errorEl);
-    describedBy.push(errorId);
-    inputProps.error = true;
-  }
-
-  const input = createInput({ ...inputProps, id: inputId });
-  if (describedBy.length) {
-    const combined = [...(ariaDescribedBy ? [ariaDescribedBy] : []), ...describedBy].join(' ');
-    input.setAttribute('aria-describedby', combined);
-  }
-  wrapper.appendChild(input);
-
-  return wrapper;
-}
+export { createInputGroup } from './InputGroup';
