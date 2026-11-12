@@ -34,14 +34,11 @@ export const filters = signal<Filters>({
 });
 
 export const loading = signal(false);
-export const analysisLoading = signal(false);
-export const analysisProgress = signal({ page: 0, total: 0 });
 export const error = signal<string | null>(null);
 export const isSignedIn = signal(false);
 export const editingStudy = signal<Study | null>(null);
 export const isEditorOpen = signal(false);
 export const deletingStudyId = signal<string | null>(null);
-export const toasts = signal<{ id: string; message: string; type: 'info' | 'success' | 'error' }[]>([]);
 
 export const pendingChanges = signal<OutboxEntry[]>([]);
 export const syncMessage = signal('');
@@ -105,14 +102,6 @@ export function setStudies(list: Study[]): void {
   studies.value = list;
 }
 
-export function addStudy(study: Study): void {
-  studies.value = [study, ...studies.value];
-}
-
-export function updateStudy(updated: Study): void {
-  studies.value = studies.value.map((s) => (s.id === updated.id ? updated : s));
-}
-
 export function deleteStudy(id: string): void {
   studies.value = studies.value.filter((s) => s.id !== id);
 }
@@ -123,10 +112,6 @@ export function setOperations(list: Operation[]): void {
 
 export function setPortals(list: Portal[]): void {
   portals.value = list;
-}
-
-export function setView(v: ViewMode): void {
-  view.value = v;
 }
 
 export function setFilters(partial: Partial<Filters>): void {
@@ -140,14 +125,6 @@ export function clearFilters(): void {
 
 export function setLoading(v: boolean): void {
   loading.value = v;
-}
-
-export function setAnalysisLoading(v: boolean): void {
-  analysisLoading.value = v;
-}
-
-export function setAnalysisProgress(page: number, total: number): void {
-  analysisProgress.value = { page, total };
 }
 
 export function setError(msg: string | null): void {
@@ -172,28 +149,8 @@ export function setDeletingStudyId(id: string | null): void {
   deletingStudyId.value = id;
 }
 
-export function addToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
-  const id = crypto.randomUUID();
-  toasts.value = [...toasts.value, { id, message, type }];
-  setTimeout(() => {
-    toasts.value = toasts.value.filter((t) => t.id !== id);
-  }, 4000);
-}
-
-export function removeToast(id: string): void {
-  toasts.value = toasts.value.filter((t) => t.id !== id);
-}
-
 export function setPendingChanges(list: OutboxEntry[]): void {
   pendingChanges.value = list;
-}
-
-export function setSyncMessage(msg: string): void {
-  syncMessage.value = msg;
-}
-
-export function setSyncing(v: boolean): void {
-  syncing.value = v;
 }
 
 export function setOffline(v: boolean): void {
