@@ -1,7 +1,7 @@
 /** Lista virtualizada de estudios que coinciden con los filtros activos. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Virtualizer, elementScroll, observeElementOffset, observeElementRect } from '@tanstack/virtual-core';
-import { filteredStudies } from '../state/store';
+import { filteredStudies, sortOrder, view } from '../state/store';
 import { StudyRow } from './StudyRow';
 import type { Study } from '@domain/models';
 
@@ -14,6 +14,7 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
   const items = filteredStudies.value;
   const container = useRef<HTMLDivElement>(null);
   const printResults = useRef<HTMLUListElement>(null);
+  const pendingFocus = useRef<number | null>(null);
   const [, refresh] = useState(0);
   const virtualizer = useRef<Virtualizer<HTMLDivElement, HTMLLIElement>>();
   const options = {
@@ -35,7 +36,13 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
     list._willUpdate();
     return cleanup;
   }, [list]);
-  useLayoutEffect(() => { list._willUpdate(); });
+  useLayoutEffect(() => {
+    list._willUpdate();
+    if (pendingFocus.current !== null) {
+      const row = container.current?.querySelector<HTMLLIElement>(`li[data-index="${pendingFocus.current}"]`);
+      if (row) { row.focus(); pendingFocus.current = null; }
+    }
+  });
   useEffect(() => {
     const prepare = () => {
       const target = printResults.current;
@@ -58,12 +65,27 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
   if (!items.length) return <p id="list-status" className="list-status" role="status">No hay estudios que mostrar</p>;
   return (
     <><div ref={container} className="virtual-results" style={{ height: '60vh', overflowY: 'auto' }}>
-      <ul id="results" className="results" aria-label="Lista de estudios" style={{ height: list.getTotalSize(), position: 'relative' }}>
+      <ul id="results" className="results" aria-label="Lista de estudios" style={{ height: list.getTotalSize(), position: 'relative' }} onKeyDown={(event) => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        const target = event.target;
+        if (!(target instanceof HTMLLIElement) || !target.matches('li.record')) return;
+        const index = Number(target.dataset.index) + (event.key === 'ArrowDown' ? 1 : -1);
+        if (index < 0 || index >= items.length) return;
+        event.preventDefault();
+        const next = container.current?.querySelector<HTMLLIElement>(`li[data-index="${index}"]`);
+        if (next) next.focus();
+        else { pendingFocus.current = index; list.scrollToIndex(index, { align: 'auto' }); }
+      }}>
         {list.getVirtualItems().map((item) => {
           const study = items[item.index];
           if (!study) return null;
+          const month = study.date.slice(0, 7);
+          const isChronological = view.value === 'cronologia' && (sortOrder.value === 'date-desc' || sortOrder.value === 'date-asc');
+          const firstOfMonth = isChronological && month !== items[item.index - 1]?.date.slice(0, 7);
+          const [year, monthNumber] = month.split('-').map(Number);
+          const monthLabel = firstOfMonth && year && monthNumber ? `${year} · ${new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(new Date(year, monthNumber - 1, 1))}` : undefined;
           return <StudyRow key={study.id} study={study} onEdit={onEdit} onDelete={onDelete}
-            virtualIndex={item.index} virtualStart={item.start} measure={list.measureElement} />;
+            virtualIndex={item.index} virtualStart={item.start} measure={list.measureElement} monthLabel={monthLabel} />;
         })}
       </ul>
     </div><ul ref={printResults} className="print-results" aria-hidden="true" /></>

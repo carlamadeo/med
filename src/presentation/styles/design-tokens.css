@@ -10,8 +10,8 @@
   --color-text-tertiary: #8a849e;
   --color-text-inverse: #faf9fc;
 
-  --color-brand: #7c5cfa;
-  --color-brand-hover: #9177fa;
+  --color-brand: #6948ea;
+  --color-brand-hover: #5334d1;
   --color-brand-active: #6448e8;
   --color-brand-light: #f0ebfb;
   --color-brand-focus: #7c5cfa;
@@ -104,8 +104,8 @@ html[data-theme='light'] {
   --color-text-secondary: #524d63;
   --color-text-tertiary: #6f6981;
   --color-text-inverse: #faf9fc;
-  --color-brand: #7c5cfa;
-  --color-brand-hover: #6948ea;
+  --color-brand: #6948ea;
+  --color-brand-hover: #5334d1;
   --color-brand-active: #5334d1;
   --color-brand-light: #f0ebfb;
   --color-border: #e4e1eb;

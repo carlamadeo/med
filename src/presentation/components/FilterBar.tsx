@@ -1,6 +1,8 @@
 /**
  * Barra de filtros: búsqueda, tipo, rango de fechas, operación, portal, solo PDF/visor y limpiar.
  */
+import { useState } from 'preact/hooks';
+import { driveAuth } from '@data';
 import { filters, operations, portals, sortOrder, categoryTypes } from '../state/store';
 import type { Operation, Portal, Filters } from '@domain/models';
 
@@ -11,6 +13,42 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps) {
+  const [historyOwner, setHistoryOwner] = useState<string | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  const [saved, setSaved] = useState<string[]>([]);
+  const [historyError, setHistoryError] = useState('');
+  const read = (store: Storage, key: string): string[] => {
+    try {
+      const value: unknown = JSON.parse(store.getItem(key) ?? '[]');
+      return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 10) : [];
+    } catch { return []; }
+  };
+  const keys = (owner: string) => ({ recent: `mis-estudios:recent:${owner}`, saved: `mis-estudios:saved:${owner}` });
+  const refreshHistory = () => {
+    const owner = driveAuth.cachedAccountId();
+    if (!owner) { setHistoryOwner(null); return; }
+    const key = keys(owner);
+    setHistoryOwner(owner);
+    setRecent(read(sessionStorage, key.recent));
+    setSaved(read(localStorage, key.saved));
+  };
+  const remember = (kind: 'recent' | 'saved') => {
+    const owner = driveAuth.cachedAccountId();
+    const query = filters.value.query.trim();
+    if (!owner || !query) return;
+    const key = keys(owner);
+    const store = kind === 'recent' ? sessionStorage : localStorage;
+    const list = [query, ...read(store, key[kind]).filter((item) => item !== query)].slice(0, 10);
+    try { store.setItem(key[kind], JSON.stringify(list)); setHistoryError(''); refreshHistory(); }
+    catch { setHistoryError('No se pudo guardar la búsqueda en este dispositivo.'); }
+  };
+  const removeSaved = (query: string) => {
+    const owner = driveAuth.cachedAccountId();
+    if (!owner) return;
+    const key = keys(owner).saved;
+    try { localStorage.setItem(key, JSON.stringify(read(localStorage, key).filter((item) => item !== query))); refreshHistory(); }
+    catch { setHistoryError('No se pudo quitar la búsqueda guardada.'); }
+  };
   const hasActiveFilters =
     categoryTypes.value.length || filters.value.query ||
     filters.value.type ||
@@ -30,7 +68,7 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
   };
 
   return (
-    <form id="filters" className="filters" autocomplete="off" onSubmit={(e) => e.preventDefault()}>
+    <form id="filters" className="filters" autocomplete="off" onSubmit={(e) => { e.preventDefault(); remember('recent'); }}>
       <span className="filter-caption">
         <svg className="icon"><use href="#i-filter" /></svg> Filtros
       </span>
@@ -43,9 +81,21 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
           placeholder="Buscar por título o médico"
           value={filters.value.query}
           onInput={(e) => handleChange({ query: (e.target as HTMLInputElement).value })}
+          onFocus={refreshHistory}
           aria-label="Buscar estudios"
         />
       </label>
+
+      <details className="search-history" onToggle={refreshHistory}>
+        <summary>Búsquedas</summary>
+        <p>Las búsquedas guardadas quedan en este navegador hasta que las quites.</p>
+        <button type="button" id="save-search" disabled={!filters.value.query.trim() || !driveAuth.cachedAccountId()} onClick={() => remember('saved')}>Guardar búsqueda actual</button>
+        {historyOwner && historyOwner === driveAuth.cachedAccountId() && <>
+          <div id="recent-searches"><strong>Recientes</strong>{recent.map((query) => <button key={query} type="button" onClick={() => handleChange({ query })}>{query}</button>)}</div>
+          <div id="saved-searches"><strong>Guardadas</strong>{saved.map((query) => <span key={query}><button type="button" data-search onClick={() => handleChange({ query })}>{query}</button><button type="button" data-remove aria-label={`Quitar búsqueda ${query}`} onClick={() => removeSaved(query)}>×</button></span>)}</div>
+        </>}
+        {historyError && <p role="alert">{historyError}</p>}
+      </details>
 
       <label htmlFor="type">
         Tipo
@@ -75,7 +125,7 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
           value={filters.value.operationId}
           onChange={(e) => handleChange({ operationId: (e.target as HTMLSelectElement).value })}
         >
-          <option value="">Todas las operaciones</option>
+          <option value="">Todas</option>
           {operations.value.map((op: Operation) => (
             <option key={op.id} value={op.id}>
               {op.name}
@@ -91,7 +141,7 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
           value={filters.value.portal}
           onChange={(e) => handleChange({ portal: (e.target as HTMLSelectElement).value })}
         >
-          <option value="">Todos los portales</option>
+          <option value="">Todos</option>
           {portals.value.map((p: Portal) => (
             <option key={p.name} value={p.name}>
               {p.displayName}

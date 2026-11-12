@@ -68,6 +68,71 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
 }
 
 export const storage = {
+  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache'): Promise<T[] | null> {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readonly');
+    const matches = (await tx.store.get('cacheOwner'))?.value === owner;
+    const value = matches ? (await tx.store.get(key))?.value : undefined;
+    await tx.done;
+    return Array.isArray(value) ? value as T[] : null;
+  },
+
+  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache', value: T[]): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readwrite');
+    if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({ key, value });
+    await tx.done;
+  },
+  /** Cache ownership and data are checked in the same transaction across tabs. */
+  async bindStudySession(owner: string): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'pdf-blobs', 'meta'], 'readwrite');
+    const meta = tx.objectStore('meta');
+    if ((await meta.get('cacheOwner'))?.value !== owner) {
+      await Promise.all([tx.objectStore('studies').clear(), tx.objectStore('pdf-blobs').clear(), meta.clear()]);
+      await meta.put({ key: 'cacheOwner', value: owner });
+    }
+    await tx.done;
+  },
+
+  async readSessionStudies(owner: string): Promise<StudyRecord[] | null> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readonly');
+    const matches = (await tx.objectStore('meta').get('cacheOwner'))?.value === owner;
+    const records = matches ? await tx.objectStore('studies').getAll() : null;
+    await tx.done;
+    return records;
+  },
+
+  async readCompleteSessionStudies(owner: string): Promise<{ records: StudyRecord[]; lastSync: number } | null> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readonly');
+    const meta = tx.objectStore('meta');
+    const matches = (await meta.get('cacheOwner'))?.value === owner;
+    const lastSync = matches ? (await meta.get('lastSync'))?.value : undefined;
+    const records = typeof lastSync === 'number' ? await tx.objectStore('studies').getAll() : null;
+    await tx.done;
+    return records && typeof lastSync === 'number' ? { records, lastSync } : null;
+  },
+
+  async writeSessionStudies(owner: string, records: StudyRecord[], replace = false): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readwrite');
+    if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) {
+      const store = tx.objectStore('studies');
+      if (replace) await store.clear();
+      await Promise.all(records.map((record) => store.put(record)));
+      if (replace) await tx.objectStore('meta').put({ key: 'lastSync', value: Date.now() });
+    }
+    await tx.done;
+  },
+
+  async deleteSessionStudy(owner: string, id: string): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readwrite');
+    if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) await tx.objectStore('studies').delete(id);
+    await tx.done;
+  },
   async getStudies(): Promise<StudyRecord[]> {
     const db = await getDB();
     return db.getAll('studies');

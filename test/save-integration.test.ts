@@ -26,6 +26,7 @@ it('creates a study in Drive from the editor', async () => {
   });
   await vi.waitFor(() => expect(JSON.parse(fakeDriveFile('generated-1')!.description).title).toBe('Estudio editado'));
   await vi.waitFor(() => expect($<HTMLDialogElement>('#editor').open).toBe(false));
+  await vi.waitFor(() => expect(document.querySelector('#results li[data-id="generated-1"] .edit')).not.toBeNull());
   await act(() => { document.querySelector<HTMLButtonElement>('#results [data-id="generated-1"] .edit')!.click(); });
   touchRemote('generated-1');
   await act(() => {

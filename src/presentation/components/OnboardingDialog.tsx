@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 const STORAGE_KEY = 'mis-estudios-onboarding-seen';
 
 export function OnboardingDialog() {
   const [open, setOpen] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (!window.localStorage.getItem(STORAGE_KEY)) setOpen(true);
   }, []);
+
+  useLayoutEffect(() => {
+    if (open && dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, [open]);
 
   const close = () => {
     window.localStorage.setItem(STORAGE_KEY, 'true');
@@ -16,7 +21,7 @@ export function OnboardingDialog() {
 
   if (!open) return null;
   return (
-    <dialog className="dialog onboarding" open aria-labelledby="onboarding-title">
+    <dialog ref={dialog} className="dialog onboarding" aria-labelledby="onboarding-title" onCancel={(event) => { event.preventDefault(); close(); }}>
       <div className="dialog-heading">
         <div>
           <p className="eyebrow">EMPEZÁ EN TRES PASOS</p>

@@ -74,8 +74,9 @@ class DriveError extends Error {
 
 /** The study changed in Drive after the caller loaded it (another device or tab). */
 export class DriveConflictError extends Error {
-  constructor() {
-    super('Este estudio cambió en Drive. Cerrá la ficha y actualizá la lista antes de volver a editarlo.');
+  constructor(subject: 'estudio' | 'operación' | 'portal' = 'estudio') {
+    const prefix = subject === 'operación' ? 'Esta operación' : subject === 'portal' ? 'Este portal' : 'Este estudio';
+    super(`${prefix} cambió en Drive. Cerrá la ficha y actualizá la lista antes de volver a editar.`);
   }
 }
 
@@ -89,6 +90,7 @@ export class DriveClient {
   constructor(private config: Config = CONFIG) {}
 
   private accessToken = '';
+  private verifiedAccountId: string | null = null;
   private expires = 0;
   private folderId = '';
   private connection: Promise<void> | null = null;
@@ -126,6 +128,7 @@ export class DriveClient {
       }
       this.accessToken = session.accessToken;
       this.expires = session.expires;
+      this.verifiedAccountId = typeof session.accountId === 'string' && session.accountId ? session.accountId : null;
       this.emitAuthChange();
       return true;
     } catch {
@@ -162,6 +165,7 @@ export class DriveClient {
             return;
           }
           this.accessToken = response.access_token;
+          this.verifiedAccountId = null;
           this.expires = Date.now() + duration;
           this.folderId = '';
           try {
@@ -193,6 +197,7 @@ export class DriveClient {
 
   private disconnect(): void {
     this.accessToken = '';
+    this.verifiedAccountId = null;
     this.expires = 0;
     this.folderId = '';
     try {
@@ -205,10 +210,42 @@ export class DriveClient {
 
   async getAccessToken(): Promise<string> {
     if (!this.connected) {
+      this.disconnect();
       throw new DriveSessionError();
     }
     return this.accessToken;
   }
+
+  async assertSession(token: string): Promise<void> {
+    if (await this.getAccessToken() !== token) throw new DriveSessionError();
+  }
+
+  async cacheOwner(): Promise<string> {
+    const token = await this.getAccessToken();
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    const owner = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    await this.assertSession(token);
+    await storage.bindStudySession(owner);
+    return owner;
+  }
+
+  async getAccountId(): Promise<string> {
+    const token = await this.getAccessToken();
+    const response = await this.request(this.url(DRIVE_ROOT, 'about', { fields: 'user(permissionId,me)' })).then((r) => r.json() as Promise<{ user?: { permissionId?: unknown; me?: unknown } }>);
+    if (await this.getAccessToken() !== token) throw new DriveSessionError();
+    if (response.user?.me !== true || typeof response.user.permissionId !== 'string' || !response.user.permissionId) {
+      throw new Error('No se pudo verificar la cuenta de Google Drive.');
+    }
+    this.verifiedAccountId = response.user.permissionId;
+    try {
+      const key = getSessionKey(this.config.GOOGLE_CLIENT_ID);
+      const session = JSON.parse(window.sessionStorage.getItem(key) ?? '{}') as { accessToken?: string; accountId?: string };
+      if (session.accessToken === token) { session.accountId = this.verifiedAccountId; window.sessionStorage.setItem(key, JSON.stringify(session)); }
+    } catch { /* Session may be unavailable; keep the verified identity in memory. */ }
+    return response.user.permissionId;
+  }
+
+  cachedAccountId(): string | null { return this.connected ? this.verifiedAccountId : null; }
 
   async request(url: string, options: RequestInit = {}): Promise<Response> {
     if (!this.connected) {
@@ -284,6 +321,7 @@ export class DriveClient {
 
   async getFolderId(): Promise<string> {
     if (this.folderId) return this.folderId;
+    const token = await this.getAccessToken();
     const response = await this.request(
       this.url(DRIVE_ROOT, 'files', {
         q: `${this.query(FOLDER_MARKER)} and mimeType = 'application/vnd.google-apps.folder'`,
@@ -295,10 +333,12 @@ export class DriveClient {
 
     const existing = response.files?.[0];
     if (existing) {
+      await this.assertSession(token);
       this.folderId = existing.id;
       return this.folderId;
     }
 
+    await this.assertSession(token);
     const created = await this.request(
       this.url(DRIVE_ROOT, 'files', { fields: 'id' }),
       this.jsonBody('POST', {
@@ -308,8 +348,15 @@ export class DriveClient {
       })
     ).then((r) => r.json() as Promise<DriveFileResponse>);
 
+    await this.assertSession(token);
     this.folderId = created.id;
     return this.folderId;
+  }
+
+  async isAlreadyTrashed(id: string, marker: string): Promise<boolean> {
+    const file = await this.request(this.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }))
+      .then((response) => response.json() as Promise<DriveFileResponse>);
+    return file.id === id && file.appProperties?.[TAG] === marker && file.trashed === true;
   }
 
   async reserveId(): Promise<string> {
@@ -387,10 +434,20 @@ export class DriveAuthRepository implements AuthRepository {
   async getAccessToken(): Promise<string> {
     return this.client.getAccessToken();
   }
+
+  async getAccountId(): Promise<string> {
+    return this.client.getAccountId();
+  }
+
+  cachedAccountId(): string | null { return this.client.cachedAccountId(); }
 }
 
 export class DriveStudyRepository implements StudyRepository {
   constructor(private client: DriveClient = new DriveClient()) {}
+
+  private async cacheOwner(): Promise<string> {
+    return this.client.cacheOwner();
+  }
 
   private studyToRecord(study: Study): StudyRecord {
     return {
@@ -431,10 +488,11 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   async list(options: { force?: boolean } = {}): Promise<Study[]> {
-    if (!options.force) {
-      const cached = await storage.getStudies();
-      if (cached.length && !(await storage.isStale())) {
-        return cached.map(this.recordToStudy);
+    const owner = await this.cacheOwner();
+    if (!options.force || !navigator.onLine) {
+      const cached = await storage.readCompleteSessionStudies(owner);
+      if (cached && (!navigator.onLine || Date.now() - cached.lastSync <= 24 * 60 * 60 * 1000)) {
+        return cached.records.map(this.recordToStudy);
       }
     }
 
@@ -455,8 +513,7 @@ export class DriveStudyRepository implements StudyRepository {
       pageToken = response.nextPageToken ?? '';
     } while (pageToken);
 
-    await storage.replaceStudies(records.map(this.studyToRecord));
-    await storage.setLastSync();
+    await storage.writeSessionStudies(owner, records.map(this.studyToRecord), true);
     return records;
   }
 
@@ -468,7 +525,8 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   async get(id: string): Promise<Study> {
-    const cached = await storage.getStudy(id);
+    const owner = await this.cacheOwner();
+    const cached = (await storage.readSessionStudies(owner))?.find((record) => record.id === id);
     if (cached) return this.recordToStudy(cached);
     return this.fetchFile(id);
   }
@@ -478,6 +536,8 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   async save(draft: StudyDraft): Promise<Study> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.cacheOwner();
     const isUpdate = Boolean(draft.driveFileId);
     // On edit we must start from what Drive has now, not from what the form remembers.
     const existing = draft.driveFileId ? await this.fetchFile(draft.driveFileId) : null;
@@ -506,6 +566,7 @@ export class DriveStudyRepository implements StudyRepository {
     // Same rule as the original: no new file and no PDF to drop means only the ficha changes.
     if (existing && !draft.file && !(draft.removeReport && existing.hasPdf)) {
       // Leave the stored file (and its mimeType) untouched.
+      await this.client.assertSession(token);
       response = await this.client
         .request(
           this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }),
@@ -521,6 +582,7 @@ export class DriveStudyRepository implements StudyRepository {
         metadata.parents = [await this.client.getFolderId()];
         metadata.appProperties = { [TAG]: MARKER };
       }
+      await this.client.assertSession(token);
       const path = isUpdate ? `files/${encodeURIComponent(id)}` : 'files';
       try {
         response = await this.client.upload(path, isUpdate ? 'PATCH' : 'POST', metadata, media, mediaType);
@@ -537,17 +599,25 @@ export class DriveStudyRepository implements StudyRepository {
     }
 
     const saved = this.client.parseRecord(response);
-    await storage.setStudies([this.studyToRecord(saved)]);
+    await storage.writeSessionStudies(owner, [this.studyToRecord(saved)]);
     return saved;
   }
 
   async delete(id: string, revision: string): Promise<void> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.cacheOwner();
+    if (await this.client.isAlreadyTrashed(id, MARKER)) {
+      await this.client.assertSession(token);
+      await storage.deleteSessionStudy(owner, id);
+      return;
+    }
     if ((await this.fetchFile(id)).revision !== revision) throw new DriveConflictError();
+    await this.client.assertSession(token);
     await this.client.request(
       this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: 'id' }),
       this.client.jsonBody('PATCH', { trashed: true })
     );
-    await storage.deleteStudy(id);
+    await storage.deleteSessionStudy(owner, id);
   }
 
   async getPdfFile(fileId: string): Promise<File> {
@@ -572,6 +642,11 @@ export class DriveOperationRepository {
   }
 
   async list(): Promise<Operation[]> {
+    const owner = await this.client.cacheOwner();
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<Operation>(owner, 'operationsCache');
+      if (cached) return cached;
+    }
     const result: Operation[] = [];
     let pageToken = '';
     do {
@@ -581,6 +656,7 @@ export class DriveOperationRepository {
       result.push(...(response.files ?? []).map((file) => this.parse(file)));
       pageToken = response.nextPageToken ?? '';
     } while (pageToken);
+    await storage.writeSessionDirectory(owner, 'operationsCache', result);
     return result;
   }
 
@@ -590,6 +666,8 @@ export class DriveOperationRepository {
   }
 
   async save(draft: OperationDraft): Promise<Operation> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
     const name = draft.name.trim();
     if (!name) throw new Error('Ingresá un nombre para la operación.');
     if (draft.date && !isValidDate(draft.date)) throw new Error('Ingresá una fecha válida.');
@@ -598,20 +676,45 @@ export class DriveOperationRepository {
     let response: DriveFileResponse;
     if (draft.id) {
       const existing = await this.get(draft.id);
-      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError();
+      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError('operación');
+      await this.client.assertSession(token);
       response = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { name, description })).then((r) => r.json() as Promise<DriveFileResponse>);
     } else {
-      const id = await this.client.reserveId();
-      response = await this.client.upload('files', 'POST', { id, name, description, mimeType: JSON_MIME, parents: [await this.client.getFolderId()], appProperties: { [TAG]: OPERATION_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+      const id = draft.createId ?? await this.client.reserveId();
+      const folder = await this.client.getFolderId();
+      await this.client.assertSession(token);
+      try {
+        response = await this.client.upload('files', 'POST', { id, name, description, mimeType: JSON_MIME, parents: [folder], appProperties: { [TAG]: OPERATION_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+      } catch (err) {
+        if (!draft.createId || !(err instanceof DriveError) || err.status !== 409) throw err;
+        response = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>);
+        if (response.description !== description) throw new DriveConflictError('operación');
+      }
     }
-    return this.parse(response);
+    const saved = this.parse(response);
+    await this.client.assertSession(token);
+    const cached = await storage.readSessionDirectory<Operation>(owner, 'operationsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'operationsCache', [...cached.filter((item) => item.id !== saved.id), saved]);
+    return saved;
   }
 
-  async delete(id: string): Promise<void> {
-    await this.get(id);
+  async delete(id: string, revision: string): Promise<void> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    if (await this.client.isAlreadyTrashed(id, OPERATION_MARKER)) {
+      await this.client.assertSession(token);
+      const cached = await storage.readSessionDirectory<Operation>(owner, 'operationsCache');
+      if (cached) await storage.writeSessionDirectory(owner, 'operationsCache', cached.filter((item) => item.id !== id));
+      return;
+    }
+    if (!revision || (await this.get(id)).revision !== revision) throw new DriveConflictError('operación');
     const studies = await new DriveStudyRepository(this.client).list({ force: true });
     if (studies.some((study) => study.operationId === id)) throw new Error('Desvinculá los estudios antes de eliminar esta operación.');
+    await this.client.assertSession(token);
     await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true }));
+    await this.client.assertSession(token);
+    const cached = await storage.readSessionDirectory<Operation>(owner, 'operationsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'operationsCache', cached.filter((item) => item.id !== id));
   }
 }
 
@@ -626,17 +729,25 @@ export class DrivePortalRepository {
     } catch { throw new Error('Drive tiene un portal cuya ficha no se puede leer.'); }
   }
   async list(): Promise<Portal[]> {
+    const owner = await this.client.cacheOwner();
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<Portal>(owner, 'portalsCache');
+      if (cached) return cached;
+    }
     const items: Portal[] = []; let pageToken = '';
     do {
       const response = await this.client.request(this.client.url(DRIVE_ROOT, 'files', { q: this.client.query(PORTAL_MARKER), spaces: 'drive', pageSize: '100', fields: `nextPageToken,files(${ENTRY_FIELDS})`, ...(pageToken ? { pageToken } : {}) })).then((r) => r.json() as Promise<DriveFileResponse>);
       items.push(...(response.files ?? []).map((file) => this.parse(file))); pageToken = response.nextPageToken ?? '';
     } while (pageToken);
+    await storage.writeSessionDirectory(owner, 'portalsCache', items);
     return items;
   }
   private async get(id: string): Promise<Portal> {
     return this.parse(await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>));
   }
   async save(draft: PortalDraft): Promise<Portal> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
     const displayName = draft.displayName.trim();
     if (!displayName) throw new Error('Ingresá un nombre para el portal.');
     const payload = { name: draft.name.trim() || displayName, displayName, url: viewerURL(draft.url.trim()), notes: draft.notes?.trim() ?? '' };
@@ -644,19 +755,44 @@ export class DrivePortalRepository {
     let file: DriveFileResponse;
     if (draft.id) {
       const existing = await this.get(draft.id);
-      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError();
+      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError('portal');
+      await this.client.assertSession(token);
       file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { name: displayName, description })).then((r) => r.json() as Promise<DriveFileResponse>);
     } else {
-      const id = await this.client.reserveId();
-      file = await this.client.upload('files', 'POST', { id, name: displayName, description, mimeType: JSON_MIME, parents: [await this.client.getFolderId()], appProperties: { [TAG]: PORTAL_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+      const id = draft.createId ?? await this.client.reserveId();
+      const folder = await this.client.getFolderId();
+      await this.client.assertSession(token);
+      try {
+        file = await this.client.upload('files', 'POST', { id, name: displayName, description, mimeType: JSON_MIME, parents: [folder], appProperties: { [TAG]: PORTAL_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+      } catch (err) {
+        if (!draft.createId || !(err instanceof DriveError) || err.status !== 409) throw err;
+        file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>);
+        if (file.description !== description) throw new DriveConflictError('portal');
+      }
     }
-    return this.parse(file);
+    const saved = this.parse(file);
+    await this.client.assertSession(token);
+    const cached = await storage.readSessionDirectory<Portal>(owner, 'portalsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'portalsCache', [...cached.filter((item) => item.id !== saved.id), saved]);
+    return saved;
   }
   async delete(portal: Portal): Promise<void> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
     if (!portal.id) throw new Error('Portal no disponible.');
+    if (await this.client.isAlreadyTrashed(portal.id, PORTAL_MARKER)) {
+      await this.client.assertSession(token);
+      const cached = await storage.readSessionDirectory<Portal>(owner, 'portalsCache');
+      if (cached) await storage.writeSessionDirectory(owner, 'portalsCache', cached.filter((item) => item.id !== portal.id));
+      return;
+    }
     const existing = await this.get(portal.id);
-    if (!portal.revision || existing.revision !== portal.revision) throw new DriveConflictError();
+    if (!portal.revision || existing.revision !== portal.revision) throw new DriveConflictError('portal');
+    await this.client.assertSession(token);
     await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(portal.id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true }));
+    await this.client.assertSession(token);
+    const cached = await storage.readSessionDirectory<Portal>(owner, 'portalsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'portalsCache', cached.filter((item) => item.id !== portal.id));
   }
 }
 

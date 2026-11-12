@@ -52,6 +52,7 @@ export interface OperationDraft {
   name: string;
   color?: string;
   id?: string;
+  createId?: string;
   date?: string;
   surgeon?: string;
   institution?: string;
@@ -71,6 +72,7 @@ export interface Portal {
 
 export interface PortalDraft {
   id?: string;
+  createId?: string;
   name: string;
   displayName: string;
   url: string;

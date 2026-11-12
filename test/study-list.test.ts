@@ -25,3 +25,23 @@ it('prepares all filtered studies for printing and removes the temporary copy af
   window.dispatchEvent(new Event('afterprint'));
   expect(root.querySelector('.print-results')?.children).toHaveLength(0);
 });
+
+it('moves focus between studies with arrow keys', async () => {
+  const base = { date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1' };
+  setStudies([{ ...base, id: 'one', driveFileId: 'one', title: 'Uno' }, { ...base, id: 'two', driveFileId: 'two', title: 'Dos' }]);
+  document.body.append(root);
+  await act(() => { render(h(StudyList, { onEdit: () => {}, onDelete: () => {} }), root); });
+  const rows = [...root.querySelectorAll<HTMLLIElement>('#results li')];
+  rows[0]!.focus();
+  await act(async () => { rows[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+  await vi.waitFor(() => expect(document.activeElement).toBe(rows[1]));
+  root.remove();
+});
+
+it('groups chronological studies by year and month', async () => {
+  const base = { types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1' };
+  setStudies([{ ...base, id: 'one', driveFileId: 'one', title: 'Primero', date: '2024-01-01' }, { ...base, id: 'two', driveFileId: 'two', title: 'Segundo', date: '2024-02-01' }]);
+  await act(() => { render(h(StudyList, { onEdit: () => {}, onDelete: () => {} }), root); });
+  const groups = [...root.querySelectorAll('.month-heading')].map((item) => item.textContent?.toLowerCase());
+  expect(groups).toEqual(['2024 · febrero', '2024 · enero']);
+});

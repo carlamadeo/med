@@ -1,6 +1,8 @@
 import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
+import { createHash, randomBytes } from 'crypto';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -32,10 +34,40 @@ function dropGoogleScriptWithoutClientId(): Plugin {
   };
 }
 
+/** Vite injects HMR styles; give those styles a fresh nonce only in the local dev server. */
+function devStyleNonce(): Plugin {
+  return {
+    name: 'dev-style-nonce',
+    apply: 'serve',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        const nonce = randomBytes(18).toString('base64');
+        return html.replace('<head>', `<head><meta property="csp-nonce" nonce="${nonce}">`)
+          .replace("style-src 'self'", `style-src 'self' 'nonce-${nonce}'`);
+      },
+    },
+  };
+}
+
+function offlineShell(): Plugin {
+  return {
+    name: 'offline-shell',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const assets = ['index.html', 'types.json', 'icon.svg', ...Object.keys(bundle).filter((name) => name.startsWith('assets/'))].sort();
+      const template = readFileSync(resolve(__dirname, 'src/core/service-worker.template'), 'utf8');
+      const version = createHash('sha256').update(JSON.stringify(assets)).update(template).update(readFileSync(resolve(__dirname, 'index.html'))).update(readFileSync(resolve(__dirname, 'public/types.json'))).update(readFileSync(resolve(__dirname, 'public/icon.svg'))).update(readFileSync(resolve(__dirname, 'package-lock.json'))).update(clientId).digest('hex').slice(0, 16);
+      const source = template.replace('__CACHE_NAME__', '`mis-estudios-shell:${new URL(self.registration.scope).pathname}:' + version + '`').replace('__ASSETS__', JSON.stringify(assets));
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+    },
+  };
+}
+
 export default defineConfig({
   // Relative URLs, like the original build, so the app can be hosted from any sub-path (GitHub Pages).
   base: './',
-  plugins: [requireClientIdOnCI(), dropGoogleScriptWithoutClientId()],
+  plugins: [requireClientIdOnCI(), dropGoogleScriptWithoutClientId(), devStyleNonce(), offlineShell()],
   // Also expose GOOGLE_CLIENT_ID (not just VITE_*) to import.meta.env.
   envPrefix: ['VITE_', 'GOOGLE_CLIENT_ID'],
   resolve: {
@@ -50,12 +82,12 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    minify: 'esbuild',
+    minify: true,
     cssCodeSplit: true,
     modulePreload: { polyfill: true },
     rollupOptions: {
       // pdf.js and Tesseract are loaded from vendor/ by URL (see scripts/vendor.mjs), not bundled.
-      output: { manualChunks: { preact: ['preact', '@preact/signals'] } },
+      output: { manualChunks: (id) => /node_modules\/(?:preact|@preact\/signals)/.test(id) ? 'preact' : undefined },
     },
   },
   // http://localhost:4173 is the origin the README tells users to authorize in Google Cloud.

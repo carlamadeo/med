@@ -11,6 +11,7 @@ import { clearFilters } from '@presentation/state/store';
 import { addRemoteStudy, clearFakeDrive, fakeDriveFile, resetFakeDrive, SEED_PDF_ID, touchRemote } from './fake-drive';
 import { $, closeDialogs, mountPage, reloadLibrary, rowIds, text, TYPES, typeInto } from './page';
 import { server } from './server';
+import { gis } from './fake-google';
 
 const FILES = 'https://www.googleapis.com/drive/v3/files';
 const field = (name: string) => $<HTMLInputElement>(`#editor-form [name="${name}"]`);
@@ -182,6 +183,29 @@ describe('the list', () => {
 describe('filters', () => {
   const search = (value: string) => act(() => typeInto('#search', value));
 
+  it('records a recent search and restores an explicitly saved search', async () => {
+    await vi.waitFor(() => expect(driveAuth.cachedAccountId()).toBe('account-one'));
+    search('Ecografía');
+    act(() => { $<HTMLFormElement>('#filters').requestSubmit(); });
+    expect(document.querySelector('#recent-searches')?.textContent).toContain('Ecografía');
+    act(() => { $<HTMLButtonElement>('#save-search').click(); });
+    search('otra búsqueda');
+    act(() => { document.querySelector<HTMLButtonElement>('#saved-searches button[data-search]')!.click(); });
+    expect($<HTMLInputElement>('#search').value).toBe('Ecografía');
+    act(() => { document.querySelector<HTMLButtonElement>('#saved-searches button[data-remove]')!.click(); });
+  });
+
+  it('does not show saved searches from a different Drive account', async () => {
+    await vi.waitFor(() => expect(driveAuth.cachedAccountId()).toBe('account-one'));
+    search('consulta privada');
+    act(() => { $<HTMLButtonElement>('#save-search').click(); });
+    await act(async () => { await driveAuth.signOut(); gis.tokenResponse.access_token = 'other-account-token'; await driveAuth.signIn(); });
+    await vi.waitFor(() => expect(driveAuth.cachedAccountId()).toBe('other-account'));
+    act(() => { $<HTMLInputElement>('#search').focus(); });
+    expect(document.querySelector('#saved-searches')?.textContent).not.toContain('consulta privada');
+    localStorage.removeItem('mis-estudios:saved:account-one');
+  });
+
   it('searches title, doctor and portal ignoring accents and case, and says how many were found', () => {
     search('ECOGRAFIA');
 
@@ -306,6 +330,29 @@ describe('the editor', () => {
     first.checked = true;
     first.dispatchEvent(new Event('input', { bubbles: true }));
     expect(first.validationMessage).toBe('');
+  });
+
+  it('clears type validation when another study is opened', () => {
+    edit('study-2');
+    const first = document.querySelector<HTMLInputElement>('#study-types input')!;
+    for (const input of document.querySelectorAll<HTMLInputElement>('#study-types input')) input.checked = false;
+    first.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(first.validationMessage).not.toBe('');
+    act(() => { $<HTMLDialogElement>('#editor').close(); });
+    edit('study-1');
+    expect(first.validationMessage).toBe('');
+  });
+
+  it('does not save a preserved draft into a different reconnected account', async () => {
+    await driveAuth.getAccountId();
+    edit('study-1');
+    typeInto('#editor-form [name=title]', 'Borrador privado');
+    await act(async () => { await driveAuth.signOut(); });
+    gis.tokenResponse.access_token = 'other-account-token';
+    await act(async () => { await driveAuth.signIn(); });
+    submitEditor();
+    await vi.waitFor(() => expect(text('#form-error')).toContain('otra cuenta'));
+    expect(fakeDriveFile('study-1')?.description).not.toContain('Borrador privado');
   });
 
   it('asks for a name when the title is only spaces', async () => {
@@ -546,6 +593,16 @@ describe('keyboard shortcuts', () => {
 });
 
 describe('operations', () => {
+  it('creates an operation inside the study editor without losing study fields', async () => {
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
+    typeInto('#editor-title-field', 'Estudio en preparación');
+    act(() => { $<HTMLButtonElement>('#create-operation').click(); });
+    typeInto('#new-operation-name', 'Cirugía nueva');
+    await act(async () => { $<HTMLButtonElement>('#save-new-operation').click(); });
+    await vi.waitFor(() => expect($<HTMLSelectElement>('#operation-id').selectedOptions[0]?.textContent).toBe('Cirugía nueva'));
+    expect($<HTMLInputElement>('#editor-title-field').value).toBe('Estudio en preparación');
+  });
+
   it('creates an operation and associates a study from the editor', async () => {
     act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
     typeInto('#operation-name', 'Cirugía de rodilla');
@@ -560,6 +617,21 @@ describe('operations', () => {
     act(() => { select.dispatchEvent(new Event('change', { bubbles: true })); });
     await act(async () => { submitEditor(); });
     await vi.waitFor(() => expect(JSON.parse(fakeDriveFile('study-1')!.description).operationId).toBe(option.value));
+  });
+
+  it('links and unlinks an existing study from an operation detail', async () => {
+    act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
+    typeInto('#operation-name', 'Operación con estudios');
+    await act(async () => { $<HTMLFormElement>('#operation-form').requestSubmit(); });
+    await vi.waitFor(() => expect(document.querySelector('#operations-list')?.textContent).toContain('Operación con estudios'));
+    const item = [...document.querySelectorAll<HTMLLIElement>('#operations-list li')].find((li) => li.textContent?.includes('Operación con estudios'))!;
+    act(() => { item.querySelector<HTMLButtonElement>('[data-detail]')!.click(); });
+    const detail = $('#operation-detail');
+    const checkbox = detail.querySelector<HTMLInputElement>('[data-study-id="study-1"]')!;
+    await act(async () => { checkbox.click(); });
+    await vi.waitFor(() => expect(JSON.parse(fakeDriveFile('study-1')!.description).operationId).toBeTruthy());
+    await act(async () => { checkbox.click(); });
+    await vi.waitFor(() => expect(JSON.parse(fakeDriveFile('study-1')!.description).operationId).toBe(''));
   });
 });
 

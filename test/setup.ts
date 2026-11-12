@@ -8,7 +8,10 @@ import { server } from './server';
 
 // jsdom ships its own Blob/File, which Node's fetch (undici) serializes as "[object Blob]" when used
 // as a request body. Browsers don't have this problem; use Node's classes so uploads reach MSW intact.
-Object.assign(globalThis, { Blob: NodeBlob, File: NodeFile });
+// Vitest's jsdom Request wrapper captures window.Blob dynamically. With native Blob/File below it
+// mistakes Node's Blob for a jsdom wrapper, so use the native Request underneath that wrapper.
+const NativeRequest = Object.getPrototypeOf(Request) as typeof Request;
+Object.assign(globalThis, { Blob: NodeBlob, File: NodeFile, Request: NativeRequest });
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());

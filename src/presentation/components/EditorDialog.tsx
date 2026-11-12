@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { analyzePdf, validatePdf } from '@data/pdf-analysis';
+import { driveOperationRepo } from '@data';
 import type { StudyDraft } from '@domain/models';
 import { portalNames } from '@domain/library';
 import {
@@ -22,6 +23,7 @@ interface EditorDialogProps {
   busy: boolean;
   availableTypes: string[];
   onSave: (draft: StudyDraft) => Promise<void>;
+  verifyOwner: () => Promise<void>;
   sessionLost?: boolean;
   onReconnect?: () => void;
 }
@@ -32,6 +34,7 @@ export function EditorDialog({
   busy,
   availableTypes,
   onSave,
+  verifyOwner,
   sessionLost = false,
   onReconnect,
 }: EditorDialogProps) {
@@ -50,6 +53,11 @@ export function EditorDialog({
   const [progress, setProgress] = useState<number | null>(null);
   const [removeReport, setRemoveReport] = useState(false);
   const [reportName, setReportName] = useState(study?.reportName ?? '');
+  const [operationId, setOperationId] = useState(study?.operationId ?? '');
+  const [creatingOperation, setCreatingOperation] = useState(false);
+  const [operationBusy, setOperationBusy] = useState(false);
+  const [operationError, setOperationError] = useState('');
+  const editorGeneration = useRef(0);
 
   const setStatus = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.textContent = value; };
   const setStatusState = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.dataset.state = value; };
@@ -62,6 +70,8 @@ export function EditorDialog({
   const touched = useRef<Set<'date' | 'types' | 'doctor' | 'title'>>(new Set());
   const suggested = useRef<Map<'date' | 'types' | 'doctor' | 'title', string>>(new Map());
 
+  useEffect(() => { if (sessionLost) editorGeneration.current += 1; }, [sessionLost]);
+
   // Open/close dialog imperatively - subscribe to signal directly
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -71,6 +81,10 @@ export function EditorDialog({
       if (isEditorOpen.value) {
         if (dialog.open) return;
         const current = editingStudy.value;
+        editorGeneration.current += 1;
+        setCreatingOperation(false);
+        setOperationError('');
+        setOperationId(current?.operationId ?? '');
         if (!dialog.open) dialog.showModal();
         (current ? formRef.current?.querySelector<HTMLInputElement>('[name=title]') : reportInputRef.current)?.focus();
         // Reset DOM values immediately, before a user can choose a new file or type.
@@ -88,6 +102,8 @@ export function EditorDialog({
         if (operation) operation.value = current?.operationId ?? '';
         setTypes(current?.types ?? []);
         reportFileRef.current = null;
+        if (reportInputRef.current) reportInputRef.current.value = '';
+        formRef.current?.querySelector<HTMLInputElement>('[name=types]')?.setCustomValidity('');
         setRemoveReport(false);
         setReportName(current?.reportName ?? '');
         setStatus('Buscamos la fecha, los tipos y el médico en el PDF.');
@@ -100,7 +116,7 @@ export function EditorDialog({
     };
 
     // Subscribe to signal changes
-    const closed = () => { analysisCtrl.current?.abort(); setEditorOpen(false); };
+    const closed = () => { editorGeneration.current += 1; analysisCtrl.current?.abort(); setEditorOpen(false); };
     const markTouched = (event: Event) => {
       const name = (event.target as HTMLInputElement).name;
       if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') { touched.current.add(name); suggested.current.delete(name); }
@@ -258,6 +274,25 @@ export function EditorDialog({
     suggested.current.delete('types');
   };
 
+  const createOperation = async () => {
+    const form = formRef.current;
+    if (!form || operationBusy) return;
+    if (!navigator.onLine) { setOperationError('Sin conexión, creá la operación desde la vista Operaciones y vinculala después de sincronizar.'); return; }
+    const data = new FormData(form);
+    const generation = editorGeneration.current;
+    setOperationBusy(true); setOperationError('');
+    try {
+      await verifyOwner();
+      const saved = await driveOperationRepo.save({ name: String(data.get('newOperationName') ?? ''), date: String(data.get('newOperationDate') ?? ''), surgeon: String(data.get('newOperationSurgeon') ?? ''), institution: String(data.get('newOperationInstitution') ?? ''), type: String(data.get('newOperationType') ?? ''), notes: String(data.get('newOperationNotes') ?? '') });
+      if (editorGeneration.current === generation && isEditorOpen.value) {
+        operations.value = [...operations.value, saved];
+        setOperationId(saved.id); setCreatingOperation(false);
+      }
+    } catch (err) {
+      if (editorGeneration.current === generation && isEditorOpen.value) setOperationError(err instanceof Error ? err.message : 'No se pudo guardar la operación.');
+    } finally { setOperationBusy(false); }
+  };
+
   return (
     <dialog
       id="editor"
@@ -265,7 +300,7 @@ export function EditorDialog({
       className="dialog editor"
       aria-labelledby="editor-title"
       data-busy={busy ? 'true' : 'false'}
-      onCancel={(event) => { if (busy) event.preventDefault(); }}
+      onCancel={(event) => { if (busy || operationBusy) event.preventDefault(); }}
     >
       <form ref={formRef} id="editor-form" onInput={(event) => {
         const name = (event.target as HTMLInputElement).name;
@@ -294,7 +329,7 @@ export function EditorDialog({
           operationId: String(data.get('operationId') ?? ''),
         });
       }}>
-      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
+      <fieldset disabled={busy || operationBusy} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="dialog-heading">
         <div>
           <h2 id="editor-title">{isEdit ? 'Editar estudio' : 'Agregar estudio'}</h2>
@@ -428,11 +463,24 @@ export function EditorDialog({
       </div>
       <p className="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una nueva. Se recuerda al guardar el estudio.</p>
       <label>Operación <small>Opcional</small>
-        <select id="operation-id" name="operationId" defaultValue={study?.operationId ?? ''}>
+        <select id="operation-id" name="operationId" value={operationId} onChange={(event) => setOperationId(event.currentTarget.value)}>
           <option value="">Sin operación</option>
           {operations.value.map((op) => <option key={op.id} value={op.id}>{op.name}</option>)}
         </select>
       </label>
+      <button id="create-operation" type="button" className="button quiet" onClick={() => { setCreatingOperation(!creatingOperation); setOperationError(''); }}>Crear operación nueva</button>
+      {creatingOperation && <fieldset disabled={operationBusy}>
+        <legend>Nueva operación</legend>
+        <label>Nombre <input id="new-operation-name" name="newOperationName" maxLength={120} /></label>
+        <label>Fecha <input name="newOperationDate" type="date" /></label>
+        <label>Cirujano <input name="newOperationSurgeon" /></label>
+        <label>Institución <input name="newOperationInstitution" /></label>
+        <label>Intervención <input name="newOperationType" /></label>
+        <label>Notas <textarea name="newOperationNotes" /></label>
+        {operationError && <p role="alert">{operationError}</p>}
+        <button type="button" id="save-new-operation" onClick={() => void createOperation()}>{operationBusy ? 'Guardando…' : 'Guardar operación'}</button>
+        <button type="button" onClick={() => setCreatingOperation(false)}>Cancelar</button>
+      </fieldset>}
       <div className="attachments">
         <label>
           Enlace al visor <small>Opcional</small>

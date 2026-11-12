@@ -132,6 +132,7 @@ function parseMultipart(body: string, contentType: string): { metadata: Record<s
 }
 
 export const driveHandlers = [
+  http.get(`${API}/drive/v3/about`, ({ request }) => HttpResponse.json({ user: { permissionId: request.headers.get('Authorization') === 'Bearer other-account-token' ? 'other-account' : 'account-one', me: true } })),
   // Must precede ':id' so "generateIds" is not read as a file id.
   http.get(`${API}/drive/v3/files/generateIds`, () => HttpResponse.json({ ids: [`generated-${++idCounter}`] })),
 

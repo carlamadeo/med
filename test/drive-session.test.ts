@@ -22,6 +22,70 @@ function reload() {
 const storedSession = () => window.sessionStorage.getItem(SESSION_KEY);
 
 describe('session', () => {
+  it('does not keep a folder returned after the account changed', async () => {
+    const client = new DriveClient();
+    const auth = new DriveAuthRepository(client);
+    await auth.signIn();
+    let release!: () => void;
+    let started!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const began = new Promise<void>((resolve) => { started = resolve; });
+    let calls = 0;
+    server.use(http.get(FILES_URL, async () => {
+      calls += 1;
+      if (calls === 1) { started(); await pending; return HttpResponse.json({ files: [{ id: 'old-folder' }] }); }
+      return HttpResponse.json({ files: [{ id: 'new-folder' }] });
+    }));
+    const oldRequest = client.getFolderId();
+    await began;
+    await auth.signOut();
+    gis.tokenResponse.access_token = 'other-account-token';
+    await auth.signIn();
+    release();
+    await expect(oldRequest).rejects.toBeInstanceOf(DriveSessionError);
+    expect(await client.getFolderId()).toBe('new-folder');
+  });
+  it('identifies the Drive account independently of the access token and refuses stale identity after account change', async () => {
+    const first = reload();
+    await first.auth.signIn();
+    expect(await first.auth.getAccountId()).toBe('account-one');
+    const refreshed = reload();
+    expect(refreshed.auth.restoreSession()).toBe(true);
+    expect(refreshed.auth.cachedAccountId()).toBe('account-one');
+    await first.auth.signOut();
+    gis.tokenResponse.access_token = 'renewed-token';
+    await first.auth.signIn();
+    expect(await first.auth.getAccountId()).toBe('account-one');
+    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify({ accessToken: 'other-account-token', expires: Date.now() + 3_600_000 }));
+    const second = reload();
+    expect(second.auth.restoreSession()).toBe(true);
+    expect(second.auth.cachedAccountId()).toBeNull();
+    expect(await second.auth.getAccountId()).toBe('other-account');
+  });
+
+  it('keeps a verified account identity available if Drive is temporarily unreachable', async () => {
+    const session = reload();
+    await session.auth.signIn();
+    await session.auth.getAccountId();
+    server.use(http.get('https://www.googleapis.com/drive/v3/about', () => HttpResponse.error()));
+    await expect(session.auth.getAccountId()).rejects.toThrow();
+    expect(session.auth.cachedAccountId()).toBe('account-one');
+  });
+  it('does not expose a previous session cache after a different token is restored', async () => {
+    const first = reload();
+    await first.auth.signIn();
+    await first.studies.list();
+    resetFakeDrive();
+    const remote = fakeDriveFile('study-1')!;
+    const description = JSON.parse(remote.description) as Record<string, unknown>;
+    description.title = 'Ficha de otra sesión';
+    remote.description = JSON.stringify(description);
+    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify({ accessToken: 'different-session-token', expires: Date.now() + 3_600_000 }));
+    const second = reload();
+    expect(second.auth.restoreSession()).toBe(true);
+    expect((await second.studies.list()).find((study) => study.id === 'study-1')?.title).toBe('Ficha de otra sesión');
+  });
+
   it('a refresh restores access and loads Drive without another authorization or extending expiry', async () => {
     const first = reload();
     expect(first.auth.restoreSession()).toBe(false);
@@ -78,11 +142,12 @@ describe('session', () => {
   it('expiry while the page is open clears the session before calling Drive', async () => {
     const { auth, studies } = reload();
     await auth.signIn();
+    await studies.list();
     const { expires } = JSON.parse(storedSession()!) as { expires: number };
     vi.spyOn(Date, 'now').mockReturnValue(expires + 1);
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
-    await expect(studies.list({ force: true })).rejects.toBeInstanceOf(DriveSessionError);
+    await expect(studies.list()).rejects.toBeInstanceOf(DriveSessionError);
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(storedSession()).toBeNull();

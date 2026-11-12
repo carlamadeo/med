@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { storage } from '@core/storage';
 import { DriveConflictError, driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo } from '@data';
-import { addRemoteStudy, fakeDriveFile, SEED_JSON_ID, SEED_PDF_ID, touchRemote, uploadLog } from './fake-drive';
+import { addRemoteStudy, clearFakeDrive, fakeDriveFile, SEED_JSON_ID, SEED_PDF_ID, touchRemote, uploadLog } from './fake-drive';
 
 const baseDraft = {
   title: 'Nuevo estudio',
@@ -21,14 +21,37 @@ describe('DriveOperationRepository', () => {
     expect((await driveOperationRepo.list()).find((op) => op.id === created.id)).toMatchObject({ name: 'Rodilla', surgeon: 'Dra. Pérez' });
     const updated = await driveOperationRepo.save({ ...created, name: 'Rodilla izquierda' });
     expect((await driveOperationRepo.get(updated.id)).name).toBe('Rodilla izquierda');
-    await driveOperationRepo.delete(updated.id);
+    await driveOperationRepo.delete(updated.id, updated.revision!);
     expect((await driveOperationRepo.list()).some((op) => op.id === updated.id)).toBe(false);
+  });
+
+  it('accepts a retry when the same operation is already in the trash', async () => {
+    const op = await driveOperationRepo.save({ name: 'Operación' });
+    await driveOperationRepo.delete(op.id, op.revision!);
+    await expect(driveOperationRepo.delete(op.id, op.revision!)).resolves.toBeUndefined();
+  });
+
+  it('returns the cached directory when offline', async () => {
+    await driveOperationRepo.list();
+    const operation = await driveOperationRepo.save({ name: 'Intervención' });
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect((await driveOperationRepo.list()).map((item) => item.id)).toContain(operation.id);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('reuses a reserved ID on a retried operation creation', async () => {
+    const draft = { name: 'Intervención', createId: 'reserved-operation' };
+    const first = await driveOperationRepo.save(draft);
+    const retried = await driveOperationRepo.save(draft);
+    expect(retried.id).toBe(first.id);
+    expect((await driveOperationRepo.list()).filter((item) => item.id === first.id)).toHaveLength(1);
   });
 
   it('refuses to delete an operation linked to a study', async () => {
     const op = await driveOperationRepo.save({ name: 'Intervención' });
     await driveStudyRepo.save({ ...baseDraft, operationId: op.id });
-    await expect(driveOperationRepo.delete(op.id)).rejects.toThrow('Desvinculá');
+    await expect(driveOperationRepo.delete(op.id, op.revision!)).rejects.toThrow('Desvinculá');
     expect((await driveOperationRepo.list()).some((item) => item.id === op.id)).toBe(true);
   });
 
@@ -36,12 +59,18 @@ describe('DriveOperationRepository', () => {
     const op = await driveOperationRepo.save({ name: 'Intervención' });
     touchRemote(op.id);
     await expect(driveOperationRepo.save({ ...op, name: 'Cambio antiguo' })).rejects.toBeInstanceOf(DriveConflictError);
+    await expect(driveOperationRepo.delete(op.id, op.revision!)).rejects.toBeInstanceOf(DriveConflictError);
     expect((await driveOperationRepo.get(op.id)).name).toBe('Intervención');
   });
 });
 
 describe('DrivePortalRepository', () => {
   beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+  it('accepts a retry when the same portal is already in the trash', async () => {
+    const portal = await drivePortalRepo.save({ name: 'hospital', displayName: 'Hospital', url: '' });
+    await drivePortalRepo.delete(portal);
+    await expect(drivePortalRepo.delete(portal)).resolves.toBeUndefined();
+  });
   it('persists portal changes and removes a portal in Drive', async () => {
     const portal = await drivePortalRepo.save({ name: 'hospital', displayName: 'Hospital', url: 'https://example.com', notes: 'Resultados' });
     expect((await drivePortalRepo.list()).find((p) => p.id === portal.id)).toMatchObject({ displayName: 'Hospital', notes: 'Resultados' });
@@ -49,6 +78,21 @@ describe('DrivePortalRepository', () => {
     expect((await drivePortalRepo.list()).find((p) => p.id === updated.id)?.url).toBe('https://example.org/');
     await drivePortalRepo.delete(updated);
     expect((await drivePortalRepo.list()).some((p) => p.id === updated.id)).toBe(false);
+  });
+  it('returns the cached directory when offline', async () => {
+    await drivePortalRepo.list();
+    const portal = await drivePortalRepo.save({ name: 'hospital', displayName: 'Hospital', url: 'https://example.com' });
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect((await drivePortalRepo.list()).map((item) => item.id)).toContain(portal.id);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+  it('reuses a reserved ID on a retried portal creation', async () => {
+    const draft = { name: 'clinica', displayName: 'Clínica', url: 'https://example.com', createId: 'reserved-portal' };
+    const first = await drivePortalRepo.save(draft);
+    const retried = await drivePortalRepo.save(draft);
+    expect(retried.id).toBe(first.id);
+    expect((await drivePortalRepo.list()).filter((item) => item.id === first.id)).toHaveLength(1);
   });
   it('rejects unsafe links and edits based on stale data', async () => {
     await expect(drivePortalRepo.save({ name: 'x', displayName: 'X', url: 'javascript:alert(1)' })).rejects.toThrow();
@@ -129,6 +173,30 @@ describe('DriveStudyRepository', () => {
       addRemoteStudy('remote-1', 'Agregado desde otro dispositivo');
 
       expect(await driveStudyRepo.list()).toHaveLength(2);
+    });
+
+    it('serves an older session cache while offline', async () => {
+      await driveStudyRepo.list();
+      await storage.setMeta('lastSync', Date.now() - 25 * 60 * 60 * 1000);
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      expect(await driveStudyRepo.list({ force: true })).toHaveLength(2);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('serves a previously synchronized empty library while offline', async () => {
+      clearFakeDrive();
+      expect(await driveStudyRepo.list({ force: true })).toEqual([]);
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      expect(await driveStudyRepo.list({ force: true })).toEqual([]);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('accepts a retry when the same study is already in the trash', async () => {
+      const study = (await driveStudyRepo.list())[0]!;
+      await driveStudyRepo.delete(study.id, study.revision!);
+      await expect(driveStudyRepo.delete(study.id, study.revision!)).resolves.toBeUndefined();
     });
 
     it('bypasses a fresh cache when forced', async () => {

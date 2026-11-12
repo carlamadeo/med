@@ -32,7 +32,7 @@ h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(2.45rem, 6vw, 3.65rem); line-height: 1.06; letter-spacing: -.07em; font-weight: 770; }
 .lead { margin-top: 12px; max-width: 43ch; color: var(--muted); font-size: 1.03rem; }
 .button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; border: 1px solid transparent; padding: 9px 15px; font-size: .9rem; font-weight: 710; text-decoration: none; white-space: nowrap; }
-.primary { background: var(--brand); color: #fff; box-shadow: 0 2px 4px #4e2c9026; }
+.primary { background: var(--brand); color: var(--color-text-inverse); box-shadow: 0 2px 4px #4e2c9026; }
 .primary:hover { background: var(--brand-dark); }
 .secondary { color: var(--brand-dark); background: #fff; border-color: #d8c9f5; }
 .secondary:hover, .quiet:hover, .icon-button:hover { background: var(--tint); }
@@ -41,7 +41,7 @@ h1 { font-size: clamp(2.45rem, 6vw, 3.65rem); line-height: 1.06; letter-spacing:
 .danger:hover { background: #7c1935; }
 .library { padding: 22px; background: var(--surface); border: 1px solid var(--edge); border-radius: 20px; box-shadow: 0 8px 28px #30234b08; }
 .section-head, .section-title, .search { display: flex; align-items: center; }
-.section-head { justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.section-head { align-items: stretch; flex-direction: column; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
 .section-title { gap: 9px; }
 h2 { font-size: 1.27rem; letter-spacing: -.035em; line-height: 1.2; }
 .count { font-size: .77rem; padding: 2px 8px; border-radius: 18px; color: var(--brand-dark); background: var(--tint); font-weight: 750; }
@@ -50,7 +50,7 @@ h2 { font-size: 1.27rem; letter-spacing: -.035em; line-height: 1.2; }
 input:not([type="checkbox"]), select { min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--input-edge); color: var(--color-text-primary); background-color: var(--color-surface); border-color: var(--color-border-strong); }
 input::placeholder { color: var(--color-text-tertiary); }
 .search input { width: 100%; padding-left: 38px; }
-.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; padding: 12px 14px; border: 1px solid #eeeaf3; border-radius: 12px; background: var(--color-surface-hover); border-color: var(--color-border); }
+.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; width: 100%; padding: 12px 14px; border: 1px solid #eeeaf3; border-radius: 12px; background: var(--color-surface-hover); border-color: var(--color-border); }
 .filter-caption { display: flex; align-items: center; gap: 6px; align-self: center; color: var(--muted); font-size: .84rem; font-weight: 720; margin-right: 2px; }
 .filters label { flex: 1 1 130px; max-width: 220px; }
 label { display: grid; gap: 5px; font-weight: 650; font-size: .84rem; }
@@ -217,4 +217,26 @@ input::file-selector-button { font: inherit; margin-right: 8px; padding: 4px 8px
   .print-results li, .directory li { break-inside: avoid; border-bottom: 1px solid #aaa; padding: 0.5rem 0; }
   .print-results h3 { margin: 0; }
   .print-results p { margin: 0.25rem 0; }
+  #operation-detail li[data-linked="false"], #operation-detail input { display: none; }
 }
+
+.offline-notice, .pending-changes {
+  margin: 0 0 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--color-surface-hover);
+}
+
+.pending-changes h2 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.pending-changes p { margin: 0.25rem 0; color: var(--color-text-secondary); }
+.pending-changes ul { display: grid; gap: 0.75rem; margin: 0.75rem 0 0; padding: 0; list-style: none; }
+.pending-changes li { overflow-wrap: anywhere; }
+.pending-changes summary { cursor: pointer; color: var(--color-brand); }
+.pending-changes .button { margin-top: 0.35rem; }
+.month-heading { margin: 0 0 0.7rem; color: var(--color-text-secondary); font-size: 0.85rem; font-weight: 700; text-transform: capitalize; }
+
+.search-history { grid-column: 1 / -1; flex: 1 1 100%; color: var(--color-text-secondary); font-size: 0.9rem; }
+.search-history summary { cursor: pointer; color: var(--color-brand); font-weight: 700; }
+.search-history div { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+.search-history button { padding: 0.35rem 0.6rem; border: 1px solid var(--color-border-strong); border-radius: 0.5rem; background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }

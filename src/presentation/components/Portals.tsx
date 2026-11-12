@@ -1,8 +1,11 @@
 import { useState } from 'preact/hooks';
-import { drivePortalRepo } from '@data';
-import { normalize } from '@domain/utils';
+import { driveAuth, drivePortalRepo } from '@data';
+import { Outbox } from '@data/outbox';
+import { normalize, viewerURL } from '@domain/utils';
 import type { Portal } from '@domain/models';
 import { filters, portals, studies, view } from '../state/store';
+
+const outbox = new Outbox();
 
 export function Portals() {
   const [editing, setEditing] = useState<Portal | null>(null);
@@ -13,7 +16,19 @@ export function Portals() {
     const displayName = String(data.get('name') ?? '').trim();
     setBusy(true); setMessage('');
     try {
-      const saved = await drivePortalRepo.save({ id: editing?.id, revision: editing?.revision, name: editing?.name ?? displayName, displayName, url: String(data.get('url') ?? ''), notes: String(data.get('notes') ?? '') });
+      if (!displayName) throw new Error('Ingresá un nombre para el portal.');
+      const draft = { id: editing?.id, revision: editing?.revision, name: editing?.name ?? displayName, displayName, url: viewerURL(String(data.get('url') ?? '').trim()), notes: String(data.get('notes') ?? '') };
+      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
+      if (draft.id && (await outbox.list(owner)).some((item) => item.portalId === draft.id)) throw new Error('Este portal ya tiene un cambio pendiente.');
+      if (!navigator.onLine) {
+        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        await outbox.enqueuePortalSave(owner, draft);
+        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+        setEditing(null); form.reset(); setMessage('Portal guardado en este dispositivo; se sincronizará al volver la conexión.');
+        return;
+      }
+      const saved = await drivePortalRepo.save(draft);
       portals.value = [...portals.value.filter((p) => p.id !== saved.id), saved];
       setEditing(null); form.reset();
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar el portal.'); }
@@ -22,7 +37,19 @@ export function Portals() {
   async function remove(portal: Portal) {
     if (!window.confirm(`¿Eliminar el portal ${portal.displayName}?`)) return;
     setBusy(true); setMessage('');
-    try { await drivePortalRepo.delete(portal); portals.value = portals.value.filter((p) => p.id !== portal.id); }
+    try {
+      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
+      if ((await outbox.list(owner)).some((item) => item.portalId === portal.id)) throw new Error('Este portal ya tiene un cambio pendiente.');
+      if (!navigator.onLine) {
+        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        await outbox.enqueuePortalDelete(owner, portal);
+        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+        setMessage('Eliminación pendiente de sincronización.');
+        return;
+      }
+      await drivePortalRepo.delete(portal); portals.value = portals.value.filter((p) => p.id !== portal.id);
+    }
     catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo eliminar el portal.'); }
     finally { setBusy(false); }
   }

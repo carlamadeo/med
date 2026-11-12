@@ -1,0 +1,35 @@
+/* Generated at build time. Only public application assets are cached. */
+const cacheName = __CACHE_NAME__;
+const assets = __ASSETS__;
+const scopeURL = new URL(self.registration.scope);
+const urls = assets.map((path) => new URL(path, scopeURL).href);
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(urls)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', (event) => {
+  const prefix = `mis-estudios-shell:${scopeURL.pathname}:`;
+  event.waitUntil(caches.keys().then((names) => Promise.all(names.filter((name) => name.startsWith(prefix) && name !== cacheName).map((name) => caches.delete(name)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== scopeURL.origin) return;
+  const shell = url.pathname === scopeURL.pathname || url.pathname === new URL('index.html', scopeURL).pathname;
+  if (event.request.mode === 'navigate' && shell) {
+    event.respondWith(fetch(event.request).catch(async () => (await caches.open(cacheName)).match(new URL('index.html', scopeURL).href)));
+  } else if (urls.includes(url.href)) {
+    event.respondWith(caches.open(cacheName).then(async (cache) => (await cache.match(url.href, { ignoreVary: true })) || fetch(event.request)));
+  } else if (!url.search && !event.request.headers.has('Authorization') &&
+    ['vendor/pdf/', 'vendor/ocr/'].some((prefix) => url.pathname.startsWith(new URL(prefix, scopeURL).pathname))) {
+    event.respondWith(caches.open(cacheName).then(async (cache) => {
+      const cached = await cache.match(url.href, { ignoreVary: true });
+      if (cached) return cached;
+      const response = await fetch(event.request);
+      if (response.ok && response.type === 'basic') {
+        try { await cache.put(url.href, response.clone()); } catch { /* A full cache must not break an online read. */ }
+      }
+      return response;
+    }));
+  }
+});

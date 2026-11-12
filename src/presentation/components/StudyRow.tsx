@@ -25,11 +25,13 @@ interface StudyRowProps {
   virtualIndex?: number;
   virtualStart?: number;
   measure?: (element: HTMLLIElement | null) => void;
+  monthLabel?: string;
 }
 
-export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, measure }: StudyRowProps) {
+export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, measure, monthLabel }: StudyRowProps) {
   return (
-    <li className="record" data-id={study.id} data-index={virtualIndex} ref={measure} style={virtualStart === undefined ? undefined : { position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualStart}px)` }}>
+    <li className="record" data-id={study.id} data-index={virtualIndex} tabIndex={0} ref={measure} style={virtualStart === undefined ? undefined : { position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualStart}px)` }}>
+      {monthLabel && <p className="month-heading">{monthLabel}</p>}
       <div className="record-main">
         <span className="file-icon">
           <svg className="icon"><use href="#i-file" /></svg>
