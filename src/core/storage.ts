@@ -206,11 +206,6 @@ export const storage = {
     await db.delete('portals', name);
   },
 
-  async setPdfBlob(studyId: string, blob: Blob): Promise<void> {
-    const db = await getDB();
-    await db.put('pdf-blobs', { studyId, blob, timestamp: Date.now() });
-  },
-
   async getMeta(key: string): Promise<unknown> {
     const db = await getDB();
     const record = await db.get('meta', key);
@@ -226,10 +221,6 @@ export const storage = {
     const lastSync = (await this.getMeta('lastSync')) as number | undefined;
     if (!lastSync) return true;
     return Date.now() - lastSync > maxAgeMs;
-  },
-
-  async setLastSync(): Promise<void> {
-    await this.setMeta('lastSync', Date.now());
   },
 };
 

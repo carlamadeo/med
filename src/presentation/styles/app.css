@@ -127,10 +127,6 @@ input::file-selector-button { font: inherit; margin-right: 8px; padding: 4px 8px
   input:not([type="checkbox"], [type="file"]), select { font-size: 16px; }
 }
 
-.account-actions { display: flex; align-items: center; gap: 8px; }
-.access { display: grid; justify-items: center; text-align: center; align-content: center; gap: 14px; min-height: 262px; }
-.access p { max-width: 43ch; color: var(--muted); }
-.access .form-error { color: #8e2340; }
 .report-upload { gap: 7px; background: var(--color-brand-light); border-color: var(--color-border-strong); }
 .report-upload .hint { min-height: 1.2em; }
 #detection[data-state="review"] { color: var(--brand-dark); font-weight: 620; }

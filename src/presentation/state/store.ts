@@ -45,7 +45,6 @@ export const syncMessage = signal('');
 export const syncing = signal(false);
 export const offline = signal(!navigator.onLine);
 export const directoryWarning = signal(false);
-export const loadSequence = { current: 0 };
 
 // ------------------------------------------------------------------
 // Derivados
@@ -102,22 +101,6 @@ export function setStudies(list: Study[]): void {
   studies.value = list;
 }
 
-export function deleteStudy(id: string): void {
-  studies.value = studies.value.filter((s) => s.id !== id);
-}
-
-export function setOperations(list: Operation[]): void {
-  operations.value = list;
-}
-
-export function setPortals(list: Portal[]): void {
-  portals.value = list;
-}
-
-export function setFilters(partial: Partial<Filters>): void {
-  filters.value = { ...filters.value, ...partial };
-}
-
 export function clearFilters(): void {
   categoryTypes.value = [];
   filters.value = { query: '', type: '', from: '', to: '', operationId: '', portal: '', onlyPdf: false, onlyViewer: false };
@@ -149,16 +132,8 @@ export function setDeletingStudyId(id: string | null): void {
   deletingStudyId.value = id;
 }
 
-export function setPendingChanges(list: OutboxEntry[]): void {
-  pendingChanges.value = list;
-}
-
 export function setOffline(v: boolean): void {
   offline.value = v;
-}
-
-export function setDirectoryWarning(v: boolean): void {
-  directoryWarning.value = v;
 }
 
 // ------------------------------------------------------------------

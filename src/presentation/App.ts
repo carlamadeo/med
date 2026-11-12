@@ -8,7 +8,36 @@ import { analyzePdf, validatePdf } from '@data/pdf-analysis';
 import { filterStudies, portalNames, reportUrl } from '@domain/library';
 import type { Study, StudyDraft } from '@domain/models';
 import { getStudyTypes, viewerURL } from '@domain/utils';
-import { createStudyCardSkeleton } from './components/Skeleton';
+
+function createStudyCardSkeleton(): HTMLLIElement {
+  const li = document.createElement('li');
+  li.className = 'record skeleton-card';
+
+  li.innerHTML = `
+    <div class="record-main">
+      <div class="skeleton skeleton-icon"></div>
+      <div class="record-text">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-subtitle"></div>
+      </div>
+      <div class="type-badges">
+        <div class="skeleton skeleton-badge"></div>
+        <div class="skeleton skeleton-badge skeleton-badge-short"></div>
+      </div>
+    </div>
+    <div class="record-controls">
+      <div class="record-links">
+        <div class="skeleton skeleton-link"></div>
+      </div>
+      <div class="record-actions">
+        <div class="skeleton skeleton-action"></div>
+        <div class="skeleton skeleton-action"></div>
+      </div>
+    </div>
+  `;
+
+  return li;
+}
 
 type DetectableField = 'date' | 'types' | 'doctor' | 'title';
 const DETECTABLE: DetectableField[] = ['date', 'types', 'doctor', 'title'];

@@ -248,10 +248,11 @@ export function LibraryPage() {
     setEditingStudy(study);
   }
 
-  async function verifyEditorOwner(): Promise<void> {
+  async function verifyEditorOwner(): Promise<boolean> {
     const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
     const original = await editorOwner.current;
-    if (!original || original !== owner) throw new Error('Este borrador pertenece a otra cuenta o no se pudo verificar su cuenta original. Reconectá la cuenta con la que lo abriste.');
+    if (!original || original !== owner) { setEditorError('Este borrador pertenece a otra cuenta o no se pudo verificar su cuenta original. Reconectá la cuenta con la que lo abriste.'); return false; }
+    return true;
   }
 
   async function saveStudy(draft: StudyDraft): Promise<void> {
@@ -259,20 +260,21 @@ export function LibraryPage() {
     setSaving(true);
     setEditorError(null);
     try {
-      if (!draft.title) throw new Error('Ingresá un nombre para el estudio.');
-      if (!draft.types.length) throw new Error('Elegí al menos un tipo de estudio.');
+      if (!draft.title) { setEditorError('Ingresá un nombre para el estudio.'); setSaving(false); return; }
+      if (!draft.types.length) { setEditorError('Elegí al menos un tipo de estudio.'); setSaving(false); return; }
       try { draft.viewer = viewerURL(draft.viewer); }
-      catch { throw new Error('Pegá un enlace al visor que empiece con https:// o http://.'); }
+      catch { setEditorError('Pegá un enlace al visor que empiece con https:// o http://.'); setSaving(false); return; }
       if (draft.file) await validatePdf(draft.file);
-      await verifyEditorOwner();
+      const ownerOk = await verifyEditorOwner();
+      if (!ownerOk) { setSaving(false); return; }
       const pendingOwner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
       const pending = pendingOwner ? await outbox.list(pendingOwner) : [];
-      if (draft.driveFileId && pending.some((item) => item.studyId === draft.driveFileId)) throw new Error('Este estudio ya tiene un cambio pendiente.');
-      if (draft.operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === draft.operationId)) throw new Error('La operación tiene una eliminación pendiente.');
+      if (draft.driveFileId && pending.some((item) => item.studyId === draft.driveFileId)) { setEditorError('Este estudio ya tiene un cambio pendiente.'); setSaving(false); return; }
+      if (draft.operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === draft.operationId)) { setEditorError('La operación tiene una eliminación pendiente.'); setSaving(false); return; }
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setEditorError('Este navegador no admite la sincronización segura sin conexión.'); setSaving(false); return; }
         const owner = driveAuth.cachedAccountId();
-        if (!owner) throw new Error('Conectate primero para verificar tu cuenta antes de guardar sin conexión.');
+        if (!owner) { setEditorError('Conectate primero para verificar tu cuenta antes de guardar sin conexión.'); setSaving(false); return; }
         await outbox.enqueueSave(owner, draft);
         pendingChanges.value = await outbox.list(owner);
         setEditorOpen(false);
@@ -299,19 +301,20 @@ export function LibraryPage() {
   }
 
   // --- Delete ---
-  async function deleteStudyById(studyOrId: Study | string): Promise<void> {
+async function deleteStudyById(studyOrId: Study | string): Promise<void> {
     const studyId = typeof studyOrId === 'string' ? studyOrId : studyOrId.id;
     const study = typeof studyOrId === 'string' ? studies.value.find((s) => s.id === studyId) : studyOrId;
+
     if (!study) return;
     setDeleting(true);
     setError(null);
     try {
       const pendingOwner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (pendingOwner && (await outbox.list(pendingOwner)).some((item) => item.studyId === studyId)) throw new Error('Este estudio ya tiene un cambio pendiente.');
+      if (pendingOwner && (await outbox.list(pendingOwner)).some((item) => item.studyId === studyId)) { setError('Este estudio ya tiene un cambio pendiente.'); setDeleting(false); return; }
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setError('Este navegador no admite la sincronización segura sin conexión.'); setDeleting(false); return; }
         const owner = driveAuth.cachedAccountId();
-        if (!owner) throw new Error('Conectate primero para verificar tu cuenta antes de guardar sin conexión.');
+        if (!owner) { setError('Conectate primero para verificar tu cuenta antes de guardar sin conexión.'); setDeleting(false); return; }
         await outbox.enqueueDelete(owner, studyId, study.revision);
         pendingChanges.value = await outbox.list(owner);
         setDeletingStudyId(null);
@@ -330,7 +333,6 @@ export function LibraryPage() {
       });
     } finally { setDeleting(false); }
   }
-
   return (
     <>
       <LibraryHeader onSignOut={() => void driveAuth.signOut()} />

@@ -2,17 +2,20 @@
 // Same files as the original scripts/build.mjs: pdf.js (legacy build), Tesseract and the Spanish language data.
 // They are loaded by URL at runtime (workers, WASM, fonts, language data), so they are not part of the JS bundle.
 import { cp, mkdir, readdir, rm } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const root = new URL('../', import.meta.url);
-const at = (path) => new URL(path, root);
-const target = 'public/vendor/';
-const copy = (source, to) => cp(at(source), at(target + to), { recursive: true });
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = join(__dirname, '..');
+const at = (path) => join(root, path);
+const target = join(root, 'public/vendor/');
+const copy = (source, to) => cp(at(source), join(target, to), { recursive: true });
 const pdf = 'node_modules/pdfjs-dist/';
 const ocr = 'node_modules/tesseract.js/';
 const core = 'node_modules/tesseract.js-core/';
 
-await rm(at(target), { recursive: true, force: true });
-await Promise.all(['pdf/', 'ocr/core/', 'ocr/lang/'].map((dir) => mkdir(at(target + dir), { recursive: true })));
+await rm(target, { recursive: true, force: true });
+await Promise.all(['pdf/', 'ocr/core/', 'ocr/lang/'].map((dir) => mkdir(join(target, dir), { recursive: true })));
 
 const coreFiles = (await readdir(at(core))).filter((name) => /lstm\.wasm(?:\.js)?$/.test(name) || name === 'LICENSE');
 await Promise.all([

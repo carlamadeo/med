@@ -7,6 +7,31 @@ import { operations, studies, filters, view } from '../state/store';
 
 const outbox = new Outbox();
 
+async function getOwner(): Promise<string | null> {
+  return driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+}
+
+async function checkOfflineSupport(): Promise<boolean> {
+  return !!navigator.locks;
+}
+
+async function handleOfflineOperation<T>(
+  owner: string,
+  action: () => Promise<T>,
+  offlineAction: () => Promise<void>,
+  _successMessage: string
+): Promise<T | null> {
+  if (!navigator.onLine) {
+    if (!await checkOfflineSupport()) {
+      throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+    }
+    await offlineAction();
+    window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+    return null;
+  }
+  return action();
+}
+
 export function Operations() {
   const [editing, setEditing] = useState<Operation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -21,21 +46,28 @@ export function Operations() {
     if (!draft.name.trim()) { setMessage('Ingresá un nombre para la operación.'); setBusy(false); return; }
     if (draft.date && !isValidDate(draft.date)) { setMessage('Ingresá una fecha válida.'); setBusy(false); return; }
 
-    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     if (draft.id && (await outbox.list(owner)).some((item) => item.operationId === draft.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
 
     try {
-      if (!navigator.onLine) {
-        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-        await outbox.enqueueOperationSave(owner, draft);
-        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+      const result = await handleOfflineOperation(
+        owner,
+        async () => {
+          const saved = await driveOperationRepo.save(draft);
+          operations.value = [...operations.value.filter((op) => op.id !== saved.id), saved];
+          return saved;
+        },
+        async () => {
+          await outbox.enqueueOperationSave(owner, draft);
+        },
+        'Operación guardada en este dispositivo; se sincronizará al volver la conexión.'
+      );
+      if (result === null) {
         setEditing(null); form.reset(); setMessage('Operación guardada en este dispositivo; se sincronizará al volver la conexión.');
-        return;
+      } else {
+        setEditing(null); form.reset();
       }
-      const saved = await driveOperationRepo.save(draft);
-      operations.value = [...operations.value.filter((op) => op.id !== saved.id), saved];
-      setEditing(null); form.reset();
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar la operación.'); }
     finally { setBusy(false); }
   }
@@ -45,21 +77,25 @@ export function Operations() {
     if (!window.confirm(`¿Eliminar la operación ${op.name}?`)) return;
     setBusy(true); setMessage('');
 
-    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     const pending = await outbox.list(owner);
     if (pending.some((item) => item.operationId === op.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (pending.some((item) => item.draft?.operationId === op.id)) { setMessage('Hay un estudio pendiente vinculado a esta operación.'); setBusy(false); return; }
 
     try {
-      if (!navigator.onLine) {
-        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-        await outbox.enqueueOperationDelete(owner, op.id, op.revision ?? '');
-        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
-        setMessage('Eliminación pendiente de sincronización.');
-        return;
-      }
-      await driveOperationRepo.delete(op.id, op.revision ?? ''); operations.value = operations.value.filter((item) => item.id !== op.id);
+      await handleOfflineOperation(
+        owner,
+        async () => {
+          await driveOperationRepo.delete(op.id, op.revision ?? '');
+          operations.value = operations.value.filter((item) => item.id !== op.id);
+        },
+        async () => {
+          await outbox.enqueueOperationDelete(owner, op.id, op.revision ?? '');
+        },
+        'Eliminación pendiente de sincronización.'
+      );
+      setMessage('Operación eliminada.');
     }
     catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo eliminar la operación.'); }
     finally { setBusy(false); }
@@ -68,22 +104,25 @@ export function Operations() {
   async function setLink(study: Study, operationId: string) {
     setBusy(true); setMessage('');
 
-    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     const pending = await outbox.list(owner);
     if (pending.some((item) => item.studyId === study.id)) { setMessage('Este estudio ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === operationId)) { setMessage('La operación tiene una eliminación pendiente.'); setBusy(false); return; }
 
     try {
-      if (!navigator.onLine) {
-        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-        await outbox.enqueueSave(owner, { ...study, driveFileId: study.id, operationId });
-        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
-        setMessage('Vínculo pendiente de sincronización.');
-        return;
-      }
-      const saved = await driveStudyRepo.save({ ...study, driveFileId: study.id, operationId });
-      studies.value = studies.value.map((item) => item.id === saved.id ? saved : item);
+      await handleOfflineOperation(
+        owner,
+        async () => {
+          const saved = await driveStudyRepo.save({ ...study, driveFileId: study.id, operationId });
+          studies.value = studies.value.map((item) => item.id === saved.id ? saved : item);
+        },
+        async () => {
+          await outbox.enqueueSave(owner, { ...study, driveFileId: study.id, operationId });
+        },
+        'Vínculo pendiente de sincronización.'
+      );
+      setMessage('Estudio actualizado.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'No se pudo actualizar el estudio.');
       if (err instanceof DriveConflictError) {

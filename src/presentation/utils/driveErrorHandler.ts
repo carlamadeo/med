@@ -1,5 +1,4 @@
 import { DriveConflictError, DriveSessionError } from '@data';
-import { setError } from '../state/store';
 
 export interface DriveErrorHandlers {
   onSessionLost?: () => void;
@@ -25,34 +24,4 @@ export function handleDriveError(
     handlers.onError?.(message);
   }
   handlers.finally?.();
-}
-
-export function createDriveErrorHandler(
-  defaultErrorMessage: string,
-  additionalHandlers: {
-    onSessionLost?: () => void;
-    onConflict?: () => void;
-  } = {}
-) {
-  return (err: unknown) => {
-    handleDriveError(err, {
-      onError: (message) => setError(message || defaultErrorMessage),
-      onSessionLost: additionalHandlers.onSessionLost,
-      onConflict: additionalHandlers.onConflict,
-    });
-  };
-}
-
-export async function withDriveErrorHandling<T>(
-  operation: () => Promise<T>,
-  handlers: DriveErrorHandlers = {}
-): Promise<T | null> {
-  try {
-    return await operation();
-  } catch (err) {
-    handleDriveError(err, handlers);
-    return null;
-  } finally {
-    handlers.finally?.();
-  }
 }

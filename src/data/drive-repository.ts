@@ -297,7 +297,7 @@ export class DriveClient {
       const viewer = viewerURL(entry.viewer || '');
       const types: unknown = entry.types ?? (entry.type ? [entry.type] : []);
       if (!entry.title || !isValidDate(entry.date) || !Array.isArray(types) || !types.length || types.some((t) => typeof t !== 'string' || !t.trim())) {
-        throw new Error();
+        throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
       }
       return {
         id: file.id,
@@ -314,7 +314,8 @@ export class DriveClient {
         revision: file.version,
         operationId: typeof entry.operationId === 'string' ? entry.operationId : '',
       };
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Drive tiene un estudio cuya ficha no se puede leer.') throw err;
       throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
     }
   }
@@ -356,7 +357,7 @@ export class DriveClient {
   async isAlreadyTrashed(id: string, marker: string): Promise<boolean> {
     const file = await this.request(this.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }))
       .then((response) => response.json() as Promise<DriveFileResponse>);
-    return file.id === id && file.appProperties?.[TAG] === marker && file.trashed === true;
+    return file.id === id && file.appProperties?.[TAG] === marker && file.trashed;
   }
 
   async reserveId(): Promise<string> {
@@ -636,9 +637,12 @@ export class DriveOperationRepository {
     if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== OPERATION_MARKER) throw new Error('Operación no disponible.');
     try {
       const value = JSON.parse(file.description) as OperationDraft;
-      if (typeof value.name !== 'string' || !value.name.trim()) throw new Error();
+      if (typeof value.name !== 'string' || !value.name.trim()) throw new Error('Drive tiene una operación cuya ficha no se puede leer.');
       return { id: file.id, name: value.name, date: value.date ?? '', surgeon: value.surgeon ?? '', institution: value.institution ?? '', type: value.type ?? '', notes: value.notes ?? '', color: value.color ?? '', studyIds: [], revision: file.version };
-    } catch { throw new Error('Drive tiene una operación cuya ficha no se puede leer.'); }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Drive tiene una operación cuya ficha no se puede leer.') throw err;
+      throw new Error('Drive tiene una operación cuya ficha no se puede leer.');
+    }
   }
 
   async list(): Promise<Operation[]> {
@@ -724,9 +728,12 @@ export class DrivePortalRepository {
     if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== PORTAL_MARKER) throw new Error('Portal no disponible.');
     try {
       const item = JSON.parse(file.description) as PortalDraft;
-      if (typeof item.displayName !== 'string' || !item.displayName.trim() || typeof item.name !== 'string') throw new Error();
+      if (typeof item.displayName !== 'string' || !item.displayName.trim() || typeof item.name !== 'string') throw new Error('Drive tiene un portal cuya ficha no se puede leer.');
       return { id: file.id, name: item.name, displayName: item.displayName, url: viewerURL(item.url ?? ''), notes: item.notes ?? '', revision: file.version };
-    } catch { throw new Error('Drive tiene un portal cuya ficha no se puede leer.'); }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Drive tiene un portal cuya ficha no se puede leer.') throw err;
+      throw new Error('Drive tiene un portal cuya ficha no se puede leer.');
+    }
   }
   async list(): Promise<Portal[]> {
     const owner = await this.client.cacheOwner();

@@ -24,7 +24,7 @@ interface EditorDialogProps {
   busy: boolean;
   availableTypes: string[];
   onSave: (draft: StudyDraft) => Promise<void>;
-  verifyOwner: () => Promise<void>;
+  verifyOwner: () => Promise<boolean>;
   sessionLost?: boolean;
   onReconnect?: () => void;
 }
@@ -286,7 +286,8 @@ export function EditorDialog({
     const generation = editorGeneration.current;
     setOperationBusy(true); setOperationError('');
     try {
-      await verifyOwner();
+      const ownerOk = await verifyOwner();
+      if (!ownerOk) { setOperationBusy(false); return; }
       const saved = await driveOperationRepo.save({ name: String(data.get('newOperationName') ?? ''), date: String(data.get('newOperationDate') ?? ''), surgeon: String(data.get('newOperationSurgeon') ?? ''), institution: String(data.get('newOperationInstitution') ?? ''), type: String(data.get('newOperationType') ?? ''), notes: String(data.get('newOperationNotes') ?? '') });
       if (editorGeneration.current === generation && isEditorOpen.value) {
         operations.value = [...operations.value, saved];

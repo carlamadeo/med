@@ -16,13 +16,13 @@ export function Portals() {
     const displayName = String(data.get('name') ?? '').trim();
     setBusy(true); setMessage('');
     try {
-      if (!displayName) throw new Error('Ingresá un nombre para el portal.');
+      if (!displayName) { setMessage('Ingresá un nombre para el portal.'); setBusy(false); return; }
       const draft = { id: editing?.id, revision: editing?.revision, name: editing?.name ?? displayName, displayName, url: viewerURL(String(data.get('url') ?? '').trim()), notes: String(data.get('notes') ?? '') };
       const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      if (draft.id && (await outbox.list(owner)).some((item) => item.portalId === draft.id)) throw new Error('Este portal ya tiene un cambio pendiente.');
+      if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+      if (draft.id && (await outbox.list(owner)).some((item) => item.portalId === draft.id)) { setMessage('Este portal ya tiene un cambio pendiente.'); setBusy(false); return; }
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
         await outbox.enqueuePortalSave(owner, draft);
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setEditing(null); form.reset(); setMessage('Portal guardado en este dispositivo; se sincronizará al volver la conexión.');
@@ -39,10 +39,10 @@ export function Portals() {
     setBusy(true); setMessage('');
     try {
       const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      if ((await outbox.list(owner)).some((item) => item.portalId === portal.id)) throw new Error('Este portal ya tiene un cambio pendiente.');
+      if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+      if ((await outbox.list(owner)).some((item) => item.portalId === portal.id)) { setMessage('Este portal ya tiene un cambio pendiente.'); setBusy(false); return; }
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
         await outbox.enqueuePortalDelete(owner, portal);
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Eliminación pendiente de sincronización.');

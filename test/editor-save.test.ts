@@ -8,7 +8,7 @@ it('submits a new study with its selected type', async () => {
   const root = document.createElement('div');
   document.body.append(root);
   const save = vi.fn().mockResolvedValue(undefined);
-  await act(() => { render(h(EditorDialog, { onClose: () => {}, onSave: save, verifyOwner: async () => {}, error: null, busy: false, availableTypes: ['Otro'] }), root); });
+  await act(() => { render(h(EditorDialog, { onClose: () => {}, onSave: save, verifyOwner: async () => true, error: null, busy: false, availableTypes: ['Otro'] }), root); });
   await act(() => setEditingStudy(null));
   const form = root.querySelector<HTMLFormElement>('form')!;
   (form.elements.namedItem('title') as HTMLInputElement).value = 'Estudio';

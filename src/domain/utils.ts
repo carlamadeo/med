@@ -9,11 +9,6 @@ export async function getStudyTypes(): Promise<string[]> {
   return cachedTypes;
 }
 
-/** Test hook: forget the cached catalogue so the next call hits the network again. */
-export function resetStudyTypesCache(): void {
-  cachedTypes = null;
-}
-
 /** Lowercase, accent-insensitive form used for every user-facing comparison. */
 export function normalize(str: string): string {
   return str

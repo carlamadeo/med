@@ -93,13 +93,6 @@ export interface Filters {
   onlyViewer: boolean;
 }
 
-export interface AnalysisResult {
-  text: string[];
-  scannedPages: number[];
-  signaturePages: number[];
-  suggested: Partial<StudyDraft>;
-}
-
 export interface DriveFile {
   id: string;
   name: string;
