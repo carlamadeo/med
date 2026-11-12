@@ -4,8 +4,11 @@
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { analyzePdf, validatePdf } from '@data/pdf-analysis';
+import type { StudyDraft } from '@domain/models';
+import { portalNames } from '@domain/library';
 import {
   editingStudy,
+  studies,
   isEditorOpen,
   setEditorOpen,
 } from '../state/store';
@@ -16,16 +19,25 @@ interface EditorDialogProps {
   onClose: () => void;
   error: string | null;
   busy: boolean;
+  availableTypes: string[];
+  onSave: (draft: StudyDraft) => Promise<void>;
+  sessionLost?: boolean;
+  onReconnect?: () => void;
 }
 
 export function EditorDialog({
   onClose,
   error,
   busy,
+  availableTypes,
+  onSave,
+  sessionLost = false,
+  onReconnect,
 }: EditorDialogProps) {
   const study = editingStudy.value;
   const isEdit = !!study;
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const [title, setTitle] = useState<string>(study?.title ?? '');
   const [date, setDate] = useState<string>(study?.date ?? '');
@@ -36,8 +48,8 @@ export function EditorDialog({
   const [removeReport, setRemoveReport] = useState(false);
   const [reportName, setReportName] = useState(study?.reportName ?? '');
 
-  const [status, setStatus] = useState<string>('Buscamos la fecha, los tipos y el médico en el PDF.');
-  const [statusState, setStatusState] = useState<string>('');
+  const setStatus = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.textContent = value; };
+  const setStatusState = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.dataset.state = value; };
 
   const reportInputRef = useRef<HTMLInputElement | null>(null);
   const analysisCtrl = useRef<AbortController | null>(null);
@@ -54,17 +66,25 @@ export function EditorDialog({
 
     const handleOpenChange = () => {
       if (isEditorOpen.value) {
-        dialog.showModal();
-        // Reset form when dialog opens
-        setTitle(study?.title ?? '');
-        setDate(study?.date ?? '');
-        setDoctor(study?.doctor ?? '');
-        setPortal(study?.portal ?? '');
-        setViewer(study?.viewer ?? '');
-        setTypes(study?.types ?? []);
+        if (dialog.open) return;
+        const current = editingStudy.value;
+        if (!dialog.open) dialog.showModal();
+        (current ? formRef.current?.querySelector<HTMLInputElement>('[name=title]') : reportInputRef.current)?.focus();
+        // Reset DOM values immediately, before a user can choose a new file or type.
+        for (const input of formRef.current?.querySelectorAll<HTMLInputElement>('[name=types]') ?? []) input.checked = current?.types.includes(input.value) ?? false;
+        for (const name of ['title', 'date', 'doctor', 'portal', 'viewer'] as const) {
+          const input = formRef.current?.querySelector<HTMLInputElement>(`[name="${name}"]`);
+          if (input) input.value = current?.[name] ?? '';
+        }
+        setTitle(current?.title ?? '');
+        setDate(current?.date ?? '');
+        setDoctor(current?.doctor ?? '');
+        setPortal(current?.portal ?? '');
+        setViewer(current?.viewer ?? '');
+        setTypes(current?.types ?? []);
         reportFileRef.current = null;
         setRemoveReport(false);
-        setReportName(study?.reportName ?? '');
+        setReportName(current?.reportName ?? '');
         setStatus('Buscamos la fecha, los tipos y el médico en el PDF.');
         setStatusState('');
         touched.current = new Set();
@@ -75,16 +95,24 @@ export function EditorDialog({
     };
 
     // Subscribe to signal changes
+    const closed = () => { analysisCtrl.current?.abort(); setEditorOpen(false); };
+    const markTouched = (event: Event) => {
+      const name = (event.target as HTMLInputElement).name;
+      if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') { touched.current.add(name); suggested.current.delete(name); }
+    };
+    formRef.current?.addEventListener('input', markTouched, true);
+    dialog.addEventListener('close', closed);
     const unsubscribe = isEditorOpen.subscribe(handleOpenChange);
     
-    // Initial check - read signal directly
-    handleOpenChange();
+
 
     return () => {
       unsubscribe();
+      formRef.current?.removeEventListener('input', markTouched, true);
+      dialog.removeEventListener('close', closed);
       dialog.close();
     };
-  }, [study]);
+  }, []);
 
   const handleClose = () => {
     analysisCtrl.current?.abort();
@@ -94,21 +122,20 @@ export function EditorDialog({
   };
 
   const fieldValue = (name: 'date' | 'types' | 'doctor' | 'title'): string | string[] => {
-    if (name === 'types') return types;
-    if (name === 'date') return date;
-    if (name === 'doctor') return doctor;
-    return title;
+    if (name === 'types') return [...(formRef.current?.querySelectorAll<HTMLInputElement>('[name="types"]:checked') ?? [])].map(input => input.value);
+    return formRef.current?.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value ?? '';
   };
 
   const setFieldValue = (name: 'date' | 'types' | 'doctor' | 'title', value: string | string[]): void => {
     if (name === 'types') {
+      for (const input of formRef.current?.querySelectorAll<HTMLInputElement>('[name="types"]') ?? []) input.checked = value.includes(input.value);
       setTypes(value as string[]);
-    } else if (name === 'date') {
-      setDate(value as string);
-    } else if (name === 'doctor') {
-      setDoctor(value as string);
-    } else if (name === 'title') {
-      setTitle(value as string);
+    } else {
+      const input = formRef.current?.querySelector<HTMLInputElement>(`[name="${name}"]`);
+      if (input) input.value = String(value);
+      if (name === 'date') setDate(String(value));
+      else if (name === 'doctor') setDoctor(String(value));
+      else setTitle(String(value));
     }
   };
 
@@ -136,15 +163,18 @@ export function EditorDialog({
     const controller = new AbortController();
     analysisCtrl.current = controller;
     const { signal } = controller;
-    const active = () => editingStudy.value !== null && analysisCtrl.current === controller && !signal.aborted;
+    const active = () => isEditorOpen.value && analysisCtrl.current === controller && !signal.aborted;
 
     analysisTimeout.current = setTimeout(() => {
-      controller.abort();
       if (active()) {
+        controller.abort();
         setStatus('La lectura tardó demasiado. Podés completar los campos y guardar el PDF.');
       }
     }, ANALYSIS_TIMEOUT_MS);
 
+    setStatusState('');
+    const detection = formRef.current?.querySelector<HTMLElement>('#detection');
+    if (detection) detection.dataset.state = '';
     setStatus('Leyendo el informe…');
 
     try {
@@ -152,6 +182,7 @@ export function EditorDialog({
     } catch (err) {
       clearTimeout(analysisTimeout.current!);
       if (active()) {
+        if (reportInputRef.current) reportInputRef.current.value = '';
         setStatus(err instanceof Error ? err.message : 'Elegí un archivo PDF válido.');
         setStatusState('error');
       }
@@ -183,9 +214,9 @@ export function EditorDialog({
         const value = detected[name];
         if (value?.length && isEmpty(name as 'date' | 'types' | 'doctor' | 'title') && !touched.current.has(name as 'date' | 'types' | 'doctor' | 'title')) {
           setFieldValue(name as 'date' | 'types' | 'doctor' | 'title', value);
-          suggested.current.set(name as 'date' | 'types' | 'doctor' | 'title', JSON.stringify(fieldValue(name as 'date' | 'types' | 'doctor' | 'title')));
+          suggested.current.set(name as 'date' | 'types' | 'doctor' | 'title', JSON.stringify(value));
           const label = labels[name];
-          if (label) applied.push(label);
+          if (label && name !== 'title') applied.push(label);
         }
       }
       const missing = ['date', 'types', 'doctor'].filter(n => isEmpty(n as 'date' | 'types' | 'doctor')).map(n => labels[n as 'date' | 'types' | 'doctor']);
@@ -201,25 +232,51 @@ export function EditorDialog({
     }
   };
 
-  const handleTypeChange = (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    const val = types;
-    if (target.checked) {
-      if (!val.includes(target.value)) setTypes([...val, target.value]);
-    } else {
-      setTypes(val.filter(v => v !== target.value));
-    }
+  const handleTypeChange = () => {
+    const selected = fieldValue('types') as string[];
+    const first = formRef.current?.querySelector<HTMLInputElement>('[name=types]');
+    first?.setCustomValidity(selected.length ? '' : 'Elegí al menos un tipo de estudio.');
+    setTypes(selected);
     touched.current.add('types');
     suggested.current.delete('types');
   };
 
   return (
     <dialog
+      id="editor"
       ref={dialogRef}
       className="dialog editor"
       aria-labelledby="editor-title"
-      data-busy={busy ? 'true' : undefined}
+      data-busy={busy ? 'true' : 'false'}
+      onCancel={(event) => { if (busy) event.preventDefault(); }}
     >
+      <form ref={formRef} id="editor-form" onInput={(event) => {
+        const name = (event.target as HTMLInputElement).name;
+        if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') {
+          touched.current.add(name);
+          suggested.current.delete(name);
+        }
+      }} onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget as HTMLFormElement;
+        const data = new FormData(form);
+        const selectedStudy = editingStudy.value;
+        const selectedReport = reportInputRef.current?.files?.[0];
+        void onSave({
+          title: String(data.get('title') ?? '').trim(),
+          date: String(data.get('date') ?? '').trim(),
+          doctor: String(data.get('doctor') ?? '').trim(),
+          portal: String(data.get('portal') ?? '').trim(),
+          viewer: String(data.get('viewer') ?? '').trim(),
+          types: data.getAll('types').map(String),
+          reportName: selectedReport?.name ?? '',
+          file: selectedReport ?? undefined,
+          removeReport: data.has('removeReport'),
+          driveFileId: selectedStudy?.id,
+          revision: selectedStudy?.revision,
+        });
+      }}>
+      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="dialog-heading">
         <div>
           <h2 id="editor-title">{isEdit ? 'Editar estudio' : 'Agregar estudio'}</h2>
@@ -247,9 +304,7 @@ export function EditorDialog({
             onChange={handleReportChange}
           />
         </label>
-        <p id="detection" className="hint" role="status" data-state={statusState}>
-          {status}
-        </p>
+        <p id="detection" className="hint" role="status" data-state="">Buscamos la fecha, los tipos y el médico en el PDF.</p>
         {reportName && (
           <div id="current-report">
             <span id="current-report-name">{reportName}</span>
@@ -267,7 +322,7 @@ export function EditorDialog({
           id="editor-title-field"
           name="title"
           value={title}
-          onChange={(e: Event) => { setTitle((e.currentTarget as HTMLInputElement).value); touched.current.add('title'); suggested.current.delete('title'); }}
+          onInput={(e: Event) => { setTitle((e.currentTarget as HTMLInputElement).value); touched.current.add('title'); suggested.current.delete('title'); }}
           maxLength={160}
           placeholder="Ej. Ecografía abdominal"
           required
@@ -280,24 +335,24 @@ export function EditorDialog({
           name="date"
           type="date"
           value={date}
-          onChange={(e: Event) => { setDate((e.currentTarget as HTMLInputElement).value); touched.current.add('date'); suggested.current.delete('date'); }}
+          onInput={(e: Event) => { setDate((e.currentTarget as HTMLInputElement).value); touched.current.add('date'); suggested.current.delete('date'); }}
           min="1900-01-01"
           max="9999-12-31"
           required
         />
       </label>
-      <fieldset className="study-types" aria-describedby="types-hint">
+      <fieldset id="study-types" className="study-types" aria-describedby="types-hint">
         <legend>Tipos de estudio</legend>
         <p className="hint" id="types-hint">Elegí uno o varios.</p>
         <div className="type-options">
-          {types.map(t => (
+          {availableTypes.map(t => (
             <label key={t} className="type-option">
               <input
                 type="checkbox"
                 name="types"
                 value={t}
                 checked={types.includes(t)}
-                onChange={handleTypeChange}
+                onInput={handleTypeChange}
               />
               <span>{t}</span>
             </label>
@@ -310,7 +365,7 @@ export function EditorDialog({
           <input
             name="doctor"
             value={doctor}
-            onChange={(e: Event) => { setDoctor((e.currentTarget as HTMLInputElement).value); touched.current.add('doctor'); suggested.current.delete('doctor'); }}
+            onInput={(e: Event) => { setDoctor((e.currentTarget as HTMLInputElement).value); touched.current.add('doctor'); suggested.current.delete('doctor'); }}
             maxLength={120}
             placeholder="Ej. Dra. Ana Pérez"
           />
@@ -328,6 +383,18 @@ export function EditorDialog({
               aria-describedby="portal-hint"
             />
           </label>
+          <details id="portal-choices" hidden={!portalNames(studies.value).length}>
+            <summary>Instituciones utilizadas</summary>
+            <ul id="portal-options">{portalNames(studies.value).map(name => <li key={name}>
+              <button type="button" onClick={(event) => {
+                setPortal(name);
+                const input = formRef.current?.querySelector<HTMLInputElement>('[name="portal"]');
+                if (input) { input.value = name; input.focus(); }
+                const details = event.currentTarget.closest('details');
+                if (details) details.open = false;
+              }}>{name}</button>
+            </li>)}</ul>
+          </details>
         </div>
       </div>
       <p className="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una nueva. Se recuerda al guardar el estudio.</p>
@@ -346,10 +413,8 @@ export function EditorDialog({
         </label>
         <p className="hint">El visor se abre en el portal original. Puede pedirte que inicies sesión.</p>
       </div>
-      <p className="form-error" id="form-error" role="alert">{error}</p>
-      {busy ? (
-        <button type="button" className="button secondary reconnect">Reconectar Google Drive</button>
-      ) : null}
+      <p className="form-error" id="form-error" role="alert" hidden={!error}>{error}</p>
+      <button type="button" className="button secondary reconnect" hidden={!sessionLost} onClick={onReconnect}>Reconectar Google Drive</button>
       <div className="dialog-actions">
         <button type="button" className="button quiet" data-close onClick={handleClose}>
           Cancelar
@@ -358,6 +423,8 @@ export function EditorDialog({
           {busy ? 'Guardando…' : (isEdit ? 'Guardar cambios' : 'Guardar estudio')}
         </button>
       </div>
+      </fieldset>
+      </form>
     </dialog>
   );
 }

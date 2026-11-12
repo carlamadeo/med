@@ -13,7 +13,7 @@ function formatDate(dateStr: string): string {
   if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return dateStr;
   return new Date(year, month - 1, day).toLocaleDateString('es-AR', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   });
 }
@@ -22,11 +22,14 @@ interface StudyRowProps {
   study: Study;
   onEdit: (study: Study) => void;
   onDelete: (study: Study) => void;
+  virtualIndex?: number;
+  virtualStart?: number;
+  measure?: (element: HTMLLIElement | null) => void;
 }
 
-export function StudyRow({ study, onEdit, onDelete }: StudyRowProps) {
+export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, measure }: StudyRowProps) {
   return (
-    <li className="record" data-id={study.id}>
+    <li className="record" data-id={study.id} data-index={virtualIndex} ref={measure} style={virtualStart === undefined ? undefined : { position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualStart}px)` }}>
       <div className="record-main">
         <span className="file-icon">
           <svg className="icon"><use href="#i-file" /></svg>
@@ -35,13 +38,13 @@ export function StudyRow({ study, onEdit, onDelete }: StudyRowProps) {
           <h3 className="record-title">{study.title}</h3>
           <p className="record-meta">
             <time dateTime={study.date}>{formatDate(study.date)}</time>
-            {study.doctor && <span className="record-doctor"> · {study.doctor}</span>}
-            {study.portal && <span className="record-portal"> · {study.portal}</span>}
+            {study.doctor && <span className="record-doctor">{study.doctor}</span>}
+            {study.portal && <span className="record-portal">{study.portal}</span>}
           </p>
         </div>
         <div className="type-badges" aria-label="Tipos de estudio">
           {study.types.map(type => (
-            <span key={type} className="badge badge-primary">{type}</span>
+            <span key={type} className="type-badge">{type}</span>
           ))}
         </div>
       </div>
@@ -63,6 +66,7 @@ export function StudyRow({ study, onEdit, onDelete }: StudyRowProps) {
           <button
             className="icon-button edit"
             type="button"
+            aria-label={`Editar ${study.title}`}
             title={`Editar ${study.title}`}
             onClick={() => onEdit(study)}
           >
@@ -71,6 +75,7 @@ export function StudyRow({ study, onEdit, onDelete }: StudyRowProps) {
           <button
             className="icon-button remove"
             type="button"
+            aria-label={`Eliminar ${study.title}`}
             title={`Eliminar ${study.title}`}
             onClick={() => onDelete(study)}
           >

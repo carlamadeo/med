@@ -7,9 +7,10 @@ import type { Operation, Portal, Filters } from '@domain/models';
 interface FilterBarProps {
   onClear: () => void;
   onSearch: (query: string) => void;
+  availableTypes: string[];
 }
 
-export function FilterBar({ onClear, onSearch }: FilterBarProps) {
+export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps) {
   const hasActiveFilters =
     filters.value.query ||
     filters.value.type ||
@@ -28,15 +29,15 @@ export function FilterBar({ onClear, onSearch }: FilterBarProps) {
   };
 
   return (
-    <form className="filters" autocomplete="off" onSubmit={(e) => e.preventDefault()}>
+    <form id="filters" className="filters" autocomplete="off" onSubmit={(e) => e.preventDefault()}>
       <span className="filter-caption">
         <svg className="icon"><use href="#i-filter" /></svg> Filtros
       </span>
 
-      <label htmlFor="filter-search">
+      <label htmlFor="search">
         <span className="sr-only">Buscar</span>
         <input
-          id="filter-search"
+          id="search"
           type="search"
           placeholder="Buscar por título o médico"
           value={filters.value.query}
@@ -45,14 +46,15 @@ export function FilterBar({ onClear, onSearch }: FilterBarProps) {
         />
       </label>
 
-      <label htmlFor="filter-type">
+      <label htmlFor="type">
         Tipo
         <select
-          id="filter-type"
+          id="type"
           value={filters.value.type}
           onChange={(e) => handleChange({ type: (e.target as HTMLSelectElement).value })}
         >
           <option value="">Todos los tipos</option>
+          {availableTypes.map((type) => <option key={type} value={type}>{type}</option>)}
         </select>
       </label>
 
@@ -88,24 +90,24 @@ export function FilterBar({ onClear, onSearch }: FilterBarProps) {
         </select>
       </label>
 
-      <label htmlFor="filter-from">
+      <label htmlFor="from">
         Desde
         <input
-          id="filter-from"
+          id="from"
           type="date"
           value={filters.value.from}
-          onChange={(e) => handleChange({ from: (e.target as HTMLInputElement).value })}
+          onInput={(e) => handleChange({ from: (e.target as HTMLInputElement).value })}
           aria-label="Fecha desde"
         />
       </label>
 
-      <label htmlFor="filter-to">
+      <label htmlFor="to">
         Hasta
         <input
-          id="filter-to"
+          id="to"
           type="date"
           value={filters.value.to}
-          onChange={(e) => handleChange({ to: (e.target as HTMLInputElement).value })}
+          onInput={(e) => handleChange({ to: (e.target as HTMLInputElement).value })}
           aria-label="Fecha hasta"
         />
       </label>
@@ -132,6 +134,7 @@ export function FilterBar({ onClear, onSearch }: FilterBarProps) {
 
       <button
         type="button"
+        id="clear"
         className="text-button"
         disabled={!hasActiveFilters}
         onClick={() => {

@@ -8,6 +8,7 @@
 import { signal, computed, type Signal } from '@preact/signals';
 import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, ViewMode, Filters } from '@domain/models';
 import { normalize } from '@domain/utils';
+import { compareStudies } from '@domain/library';
 
 // ------------------------------------------------------------------
 // Estado primitivo
@@ -49,8 +50,9 @@ export const filteredStudies: Signal<Study[]> = computed(() => {
   const selectedOp = ops.find((o) => o.id === operationId);
   const selectedOpStudyIds = new Set(selectedOp?.studyIds ?? []);
 
+  if (from && to && from > to) return [];
   return studies.value.filter((s) => {
-    if (query && !normalize(s.title).includes(normalize(query)) && !normalize(s.doctor).includes(normalize(query))) {
+    if (query && !normalize(s.title).includes(normalize(query)) && !normalize(s.doctor).includes(normalize(query)) && !normalize(s.portal).includes(normalize(query))) {
       return false;
     }
     if (type && !s.types.some((t) => normalize(t) === normalize(type))) {
@@ -63,7 +65,7 @@ export const filteredStudies: Signal<Study[]> = computed(() => {
     if (onlyPdf && !s.hasPdf) return false;
     if (onlyViewer && !s.viewer) return false;
     return true;
-  });
+  }).sort(compareStudies);
 });
 
 // ------------------------------------------------------------------

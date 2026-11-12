@@ -37,3 +37,9 @@ HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
   this.dispatchEvent(new Event('close'));
 };
 Element.prototype.scrollIntoView = vi.fn();
+
+// jsdom does not implement media queries.
+window.matchMedia = vi.fn().mockReturnValue({ matches: false });
+
+// jsdom has no layout; provide a viewport for the virtualized list.
+Object.defineProperties(HTMLElement.prototype, { clientHeight: { configurable: true, get: () => 600 }, clientWidth: { configurable: true, get: () => 800 } });

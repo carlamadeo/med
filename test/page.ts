@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { http, HttpResponse, type RequestHandler } from 'msw';
 import { expect, vi } from 'vitest';
 import { driveAuth } from '@data';
-import { App } from '@presentation/App';
+import { h, render } from 'preact';
+import { act } from 'preact/test-utils';
+import { LibraryPage } from '@presentation/pages/LibraryPage';
 import { installGis, resetGis } from './fake-google';
 import { server } from './server';
 
@@ -19,24 +21,26 @@ export const typesHandler = (types: string[] = TYPES) => http.get('*/types.json'
 /** Puts the real index.html in jsdom and starts the real App on it. One App per test file. */
 export async function mountPage({
   signIn = true,
-  types = typesHandler(),
+  types,
 }: { signIn?: boolean; types?: RequestHandler } = {}): Promise<void> {
   // Global beforeEach hooks have not run yet when a test file's beforeAll does.
   resetGis();
   installGis();
   document.documentElement.innerHTML = html;
-  server.use(types);
-  new App().mount();
-  if (signIn) await driveAuth.signIn();
+  server.use(types ?? typesHandler());
+  await act(() => { render(h(LibraryPage, {}), document.getElementById('app')!); });
+  if (signIn) {
+    await act(async () => { await driveAuth.signIn(); });
+    if (!types) await vi.waitFor(() => expect(document.querySelectorAll('#study-types input')).toHaveLength(TYPES.length));
+  }
 }
 
 /** Signs out and in again: the App reacts to the auth change by reloading the list from Drive. */
 export async function reloadLibrary(): Promise<void> {
-  await driveAuth.signOut();
-  await driveAuth.signIn();
+  await act(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
   // Done when the list has rendered (the status text leaves "Cargando…") or loading has failed.
   await vi.waitFor(() =>
-    expect(text('#list-status') !== 'Cargando tus estudios…' || $('#load-error').hidden === false).toBe(true)
+    expect(text('#list-status') !== 'Cargando tus estudios…').toBe(true)
   );
 }
 

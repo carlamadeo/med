@@ -2,7 +2,9 @@
  * Página principal: lista de estudios, filtros, editor y borrado.
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
  */
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { getStudyTypes, viewerURL } from '@domain/utils';
+import { validatePdf } from '@data/pdf-analysis';
 import {
   driveAuth,
   driveStudyRepo,
@@ -21,10 +23,14 @@ import {
   setError,
   setIsSignedIn,
   filters,
+  clearFilters,
+  filteredStudies,
+  isEditorOpen,
   setEditingStudy,
+  setEditorOpen,
   setDeletingStudyId,
 } from '../state/store';
-import type { Study } from '@domain/models';
+import type { Study, StudyDraft } from '@domain/models';
 import { StudyList } from '../components/StudyList';
 import { FilterBar } from '../components/FilterBar';
 import { EditorDialog } from '../components/EditorDialog';
@@ -33,6 +39,15 @@ import { EmptyState, OnboardingDialog, ThemeToggle } from '../components';
 
 export function LibraryPage() {
   const loadSequence = useRef(0);
+  const pendingId = useRef('');
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [typesReady, setTypesReady] = useState(false);
+  const [bootFailed, setBootFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [sessionLost, setSessionLost] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => { void getStudyTypes().then((types) => { setAvailableTypes(types); setTypesReady(true); }).catch(() => setBootFailed(true)); }, []);
 
   // ------------------------------------------------------------------
   // Auth
@@ -40,10 +55,14 @@ export function LibraryPage() {
 
   useEffect(() => {
     const unsub = driveAuth.onAuthChange((signedIn) => {
+      if (!signedIn && (isEditorOpen.value || deletingStudyId.value)) { setSessionLost(true); return; }
       setIsSignedIn(signedIn);
       if (signedIn) {
+        setSessionLost(false);
+        setEditorError(null);
         void loadStudies();
-      } else if (!editingStudy.value && !deletingStudyId.value) {
+      } else if (!isEditorOpen.value && !deletingStudyId.value) {
+        loadSequence.current += 1;
         setStudies([]);
         setLoading(false);
       }
@@ -53,6 +72,21 @@ export function LibraryPage() {
     }
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (!document.hidden && driveAuth.isSignedIn() && !isEditorOpen.value && !deletingStudyId.value) void loadStudies(true);
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, []);
+
+  function openEditor(study: Study | null) {
+    pendingId.current = '';
+    setEditorError(null);
+    setSessionLost(false);
+    setEditingStudy(study);
+  }
 
   // ------------------------------------------------------------------
   // List
@@ -69,33 +103,65 @@ export function LibraryPage() {
       setStudies(list);
     } catch (err) {
       if (seq !== loadSequence.current) return;
-      if (err instanceof DriveSessionError && !editingStudy.value && !deletingStudyId.value) {
+      if (err instanceof DriveSessionError && !isEditorOpen.value && !deletingStudyId.value) {
         setIsSignedIn(false);
         return;
       }
       setError(err instanceof Error ? err.message : 'No se pudo abrir el archivo.');
     } finally {
-      setLoading(false);
+      if (seq === loadSequence.current) setLoading(false);
     }
   }
 
 
+  async function saveStudy(draft: StudyDraft): Promise<void> {
+    if (saving) return;
+    setSaving(true);
+    setEditorError(null);
+    try {
+      if (!draft.title) throw new Error('Ingresá un nombre para el estudio.');
+      if (!draft.types.length) throw new Error('Elegí al menos un tipo de estudio.');
+      try { draft.viewer = viewerURL(draft.viewer); }
+      catch { throw new Error('Pegá un enlace al visor que empiece con https:// o http://.'); }
+      if (draft.file) await validatePdf(draft.file);
+      if (!draft.driveFileId) {
+        pendingId.current ||= await driveStudyRepo.reserveId();
+        draft.id = pendingId.current;
+      }
+      const saved = await driveStudyRepo.save(draft);
+      loadSequence.current += 1;
+      setStudies([...studies.value.filter((item) => item.id !== saved.id), saved]);
+      if (!draft.driveFileId) clearFilters();
+      pendingId.current = '';
+      setEditorOpen(false);
+      await loadStudies(true);
+    } catch (err) {
+      if (err instanceof DriveSessionError) setSessionLost(true);
+      setEditorError(err instanceof Error ? err.message : 'No se pudo guardar el estudio.');
+      if (err instanceof DriveConflictError) void loadStudies(true);
+    } finally { setSaving(false); }
+  }
+
   async function deleteStudyById(studyId: string): Promise<void> {
     const study = studies.value.find((s) => s.id === studyId);
     if (!study) return;
+    setDeleting(true);
+    setError(null);
     try {
       await driveStudyRepo.delete(study.id, study.revision);
       loadSequence.current += 1;
       setStudies(studies.value.filter((s) => s.id !== studyId));
       setDeletingStudyId(null);
-      await loadStudies();
+      await loadStudies(true);
     } catch (err) {
-      if (err instanceof DriveConflictError) {
-        void loadStudies();
-      }
+      if (err instanceof DriveConflictError) void loadStudies(true);
+      if (err instanceof DriveSessionError) setSessionLost(true);
       setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
-    }
+    } finally { setDeleting(false); }
   }
+
+  const hasFilters = Boolean(filters.value.query || filters.value.type || filters.value.from || filters.value.to || filters.value.operationId || filters.value.portal || filters.value.onlyPdf || filters.value.onlyViewer);
+  const invalidRange = Boolean(filters.value.from && filters.value.to && filters.value.from > filters.value.to);
 
   // ------------------------------------------------------------------
   // Render
@@ -110,14 +176,13 @@ export function LibraryPage() {
             <span>Mis estudios</span>
           </a>
           <div className="top-actions">
+            <button id="signout" type="button" className="text-button" hidden={!isSignedIn.value} onClick={() => void driveAuth.signOut()}>Salir</button>
             <span className="private"><svg className="icon" aria-hidden="true"><use href="#i-lock" /></svg> Privado</span>
             <ThemeToggle />
           </div>
         </div>
       </header>
       <main className="wrap" id="main" role="main">
-      {!isSignedIn.value ? (
-        <>
           <section className="intro" aria-labelledby="page-title">
             <div>
               <p className="eyebrow">MI ARCHIVO MÉDICO</p>
@@ -129,20 +194,23 @@ export function LibraryPage() {
             <button
               className="button primary"
               data-add
+              hidden={!isSignedIn.value}
+              disabled={!typesReady}
               type="button"
-              onClick={() => setEditingStudy(null)}
+              onClick={() => openEditor(null)}
             >
               <svg className="icon"><use href="#i-plus" /></svg> Agregar estudio
             </button>
           </section>
 
-          <section id="library" aria-labelledby="library-title" className="library">
+          <section id="library" aria-labelledby="library-title" className="library" hidden={!isSignedIn.value}>
             <div className="section-head">
               <div className="section-title">
                 <h2 id="library-title">Estudios guardados</h2>
-                <span className="count">{studies.value.length}</span>
+                <span id="count" className="count">{studies.value.length}</span>
               </div>
               <FilterBar
+                availableTypes={availableTypes}
                 onClear={() => {
                   filters.value = {
                     query: '',
@@ -178,6 +246,10 @@ export function LibraryPage() {
                   Reintentar
                 </button>
               </div>
+            ) : studies.value.length > 0 && hasFilters && filteredStudies.value.length === 0 ? (
+              <EmptyState variant="no-results" title={invalidRange ? 'La fecha «Hasta» debe ser igual o posterior a «Desde».' : 'No hay estudios con esos filtros'}
+                description="Probá con otras fechas, otro tipo de estudio o una búsqueda distinta."
+                action={<button id="empty-action" className="button secondary" type="button" onClick={clearFilters}>Limpiar filtros</button>} />
             ) : studies.value.length === 0 ? (
               <EmptyState
                 variant="no-studies"
@@ -186,34 +258,33 @@ export function LibraryPage() {
                 action={<button
                   className="button secondary"
                   id="empty-action"
+                  disabled={!typesReady}
                   type="button"
-                  onClick={() => setEditingStudy(null)}
+                  onClick={() => openEditor(null)}
                 >
                   <svg className="icon"><use href="#i-plus" /></svg> Agregar estudio
                 </button>}
               />
             ) : (
-              <StudyList
-                onEdit={setEditingStudy}
-                onDelete={(study: Study) => setDeletingStudyId(study.id)}
-              />
+              <>
+                {hasFilters && <p id="list-status" role="status">{filteredStudies.value.length} {filteredStudies.value.length === 1 ? 'estudio encontrado' : 'estudios encontrados'}</p>}
+                <StudyList onEdit={openEditor} onDelete={(study: Study) => setDeletingStudyId(study.id)} />
+              </>
             )}
           </section>
-        </>
-      ) : (
-        <section id="access" className="library access" aria-labelledby="access-title">
+        <section id="access" className="library access" aria-labelledby="access-title" hidden={isSignedIn.value}>
           <span className="file-icon">
             <svg className="icon" aria-hidden="true"><use href="#i-lock" /></svg>
           </span>
           <h2 id="access-title">Abrí tu archivo</h2>
           <p id="access-copy">
-            Conectá Google Drive para consultar y guardar tus estudios desde cualquier dispositivo.
+            {bootFailed ? 'No se pudo cargar la página. Actualizala para volver a intentar.' : 'Conectá Google Drive para consultar y guardar tus estudios desde cualquier dispositivo.'}
           </p>
           <button
             className="button primary"
             id="connect"
             type="button"
-            disabled={!driveAuth.configured}
+            disabled={!driveAuth.configured || bootFailed}
             onClick={() => void driveAuth.signIn()}
           >
             Conectar Google Drive
@@ -229,12 +300,15 @@ export function LibraryPage() {
             </p>
           )}
         </section>
-      )}
 
       <EditorDialog
-        onClose={() => setEditingStudy(null)}
-        error={error.value}
-        busy={loading.value}
+        onClose={() => setEditorOpen(false)}
+        error={editorError}
+        busy={saving}
+        availableTypes={availableTypes}
+        onSave={saveStudy}
+        sessionLost={sessionLost}
+        onReconnect={() => void driveAuth.signIn()}
       />
 
       <ConfirmDialog
@@ -243,7 +317,8 @@ export function LibraryPage() {
         onCancel={() => setDeletingStudyId(null)}
         onReconnect={() => void driveAuth.signIn()}
         error={error.value}
-        busy={loading.value}
+        busy={deleting}
+        sessionLost={sessionLost}
       />
       </main>
       <OnboardingDialog />

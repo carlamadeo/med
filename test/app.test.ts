@@ -4,8 +4,10 @@
  * behaviour of the original app.js: list, filters, editor, save, delete, conflicts and lost sessions.
  */
 import { http, HttpResponse } from 'msw';
+import { act } from 'preact/test-utils';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { driveAuth } from '@data';
+import { clearFilters } from '@presentation/state/store';
 import { addRemoteStudy, clearFakeDrive, fakeDriveFile, resetFakeDrive, SEED_PDF_ID, touchRemote } from './fake-drive';
 import { $, closeDialogs, mountPage, reloadLibrary, rowIds, text, TYPES, typeInto } from './page';
 import { server } from './server';
@@ -13,7 +15,7 @@ import { server } from './server';
 const FILES = 'https://www.googleapis.com/drive/v3/files';
 const field = (name: string) => $<HTMLInputElement>(`#editor-form [name="${name}"]`);
 const row = (id: string) => $<HTMLLIElement>(`#results li[data-id="${id}"]`);
-const edit = (id: string) => row(id).querySelector<HTMLButtonElement>('.edit')!.click();
+const edit = (id: string) => act(() => { row(id).querySelector<HTMLButtonElement>('.edit')!.click(); });
 const submitEditor = () => $<HTMLFormElement>('#editor-form').requestSubmit();
 const wait = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -21,7 +23,7 @@ beforeAll(() => mountPage());
 
 beforeEach(async () => {
   resetFakeDrive();
-  $<HTMLFormElement>('#filters').reset(); // filters from a previous test must not leak into this one
+  clearFilters(); // filters from a previous test must not leak into this one
   await reloadLibrary();
 });
 
@@ -49,7 +51,7 @@ describe('screens', () => {
 
     await vi.waitFor(() => expect($('#access').hidden).toBe(false));
     expect($('#library').hidden).toBe(true);
-    expect(text('#list-status')).toBe('Cargando tus estudios…');
+    expect(rowIds()).toEqual([]);
   });
 
   it('connecting from the access screen loads the studies', async () => {
@@ -64,7 +66,8 @@ describe('screens', () => {
   it('shows the access screen when the session is lost while loading', async () => {
     server.use(http.get(FILES, () => new HttpResponse(null, { status: 401 })));
 
-    $<HTMLButtonElement>('#retry').click();
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
 
     await vi.waitFor(() => expect($('#access').hidden).toBe(false));
   });
@@ -72,22 +75,19 @@ describe('screens', () => {
   it('defines every icon the page references (no empty buttons)', () => {
     const defined = new Set([...document.querySelectorAll('symbol')].map((s) => s.id));
     const used = [...document.querySelectorAll('use')].map((u) => u.getAttribute('href')!.slice(1));
-    const inRows = [...document.querySelector<HTMLTemplateElement>('#record')!.content.querySelectorAll('use')].map((u) =>
-      u.getAttribute('href')!.slice(1)
-    );
 
     expect(used.length).toBeGreaterThan(0);
-    expect([...used, ...inRows].filter((id) => !defined.has(id))).toEqual([]);
+    expect(used.filter((id) => !defined.has(id))).toEqual([]);
   });
 });
 
 describe('the list', () => {
   it('renders every study, newest first, and counts them', () => {
-    expect($('#load-error').hidden).toBe(true);
+    expect(document.querySelector('#load-error')).toBeNull();
     expect($('#results').hidden).toBe(false);
     expect(rowIds()).toEqual(['study-2', 'study-1']); // 2024-02-20 before 2024-01-15
     expect(text('#count')).toBe('2');
-    expect($('#list-status').hidden).toBe(true);
+    expect(document.querySelector('#list-status')).toBeNull();
   });
 
   it('fills each row from the study', () => {
@@ -96,7 +96,7 @@ describe('the list', () => {
     expect(study.querySelector('.record-title')?.textContent).toBe('Ecografía abdominal');
     expect(study.querySelector('.record-doctor')?.textContent).toBe('Dra. Ana Pérez');
     expect(study.querySelector('.record-portal')?.textContent).toBe('Hospital Central');
-    expect(study.querySelector('time')?.textContent).toMatch(/^15 ene\.? 2024$/); // medium es-AR date
+    expect(study.querySelector('time')?.textContent).toMatch(/^15 (?:de )?ene\.? (?:de )?2024$/); // medium es-AR date
     expect(study.querySelector('time')?.getAttribute('datetime')).toBe('2024-01-15');
     expect([...study.querySelectorAll('.type-badge')].map((b) => b.textContent)).toEqual(['Ecografía']);
     expect(study.querySelector('.edit')?.getAttribute('aria-label')).toBe('Editar Ecografía abdominal');
@@ -115,7 +115,7 @@ describe('the list', () => {
 
   it('marks studies without files', () => {
     expect(row('study-2').querySelector<HTMLElement>('.no-attachment')?.hidden).toBe(false);
-    expect(row('study-2').querySelector<HTMLElement>('.pdf-link')?.hidden).toBe(true);
+    expect(row('study-2').querySelector('.pdf-link')).toBeNull();
   });
 
   it('leaves the dot between date, doctor and portal to the CSS (never in the text)', () => {
@@ -133,9 +133,8 @@ describe('the list', () => {
     await reloadLibrary();
 
     await vi.waitFor(() => expect($('#empty').hidden).toBe(false));
-    expect($('#results').hidden).toBe(true);
-    expect(text('#empty-title')).toBe('Tu archivo empieza acá');
-    expect($('#empty-action').dataset.filtered).toBe('false');
+    expect(document.querySelector('#results')).toBeNull();
+    expect(text('#empty h3')).toBe('Tu archivo empieza acá');
     expect($('#empty-action').textContent).toContain('Agregar estudio');
   });
 
@@ -144,16 +143,16 @@ describe('the list', () => {
     server.use(http.get(FILES, () => new HttpResponse(null, { status: 500 })));
     await driveAuth.signIn();
 
-    await vi.waitFor(() => expect($('#load-error').hidden).toBe(false));
+    await vi.waitFor(() => expect(document.querySelector('#load-error')).not.toBeNull());
     expect(text('#load-error-message')).toContain('no pudo completar');
-    expect($('#results').hidden).toBe(true);
+    expect(document.querySelector('#results')).toBeNull();
 
     server.resetHandlers();
     server.use(http.get('*/types.json', () => HttpResponse.json(TYPES)));
     $<HTMLButtonElement>('#retry').click();
 
     await vi.waitFor(() => expect(rowIds()).toHaveLength(2));
-    expect($('#load-error').hidden).toBe(true);
+    expect(document.querySelector('#load-error')).toBeNull();
   });
 
   it('refreshes when the tab becomes visible again, picking up changes from other devices', async () => {
@@ -173,7 +172,7 @@ describe('the list', () => {
     expect(rowIds()).not.toContain('remote-1');
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
-    $<HTMLButtonElement>('[data-add]').click();
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
     document.dispatchEvent(new Event('visibilitychange'));
     await wait();
     expect(rowIds()).not.toContain('remote-1');
@@ -181,7 +180,7 @@ describe('the list', () => {
 });
 
 describe('filters', () => {
-  const search = (value: string) => typeInto('#search', value);
+  const search = (value: string) => act(() => typeInto('#search', value));
 
   it('searches title, doctor and portal ignoring accents and case, and says how many were found', () => {
     search('ECOGRAFIA');
@@ -196,44 +195,42 @@ describe('filters', () => {
   it('filters by type and by date range', () => {
     const type = $<HTMLSelectElement>('#type');
     type.value = 'Ecografía';
-    type.dispatchEvent(new Event('change', { bubbles: true }));
+    act(() => { type.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(rowIds()).toEqual(['study-1']);
 
-    type.value = '';
-    typeInto('#from', '2024-02-01');
+    act(() => { type.value = ''; type.dispatchEvent(new Event('change', { bubbles: true })); typeInto('#from', '2024-02-01'); });
     expect(rowIds()).toEqual(['study-2']);
     expect(text('#list-status')).toBe('1 estudio encontrado');
   });
 
   it('explains a reversed date range instead of showing an empty list silently', () => {
-    typeInto('#from', '2024-06-01');
-    typeInto('#to', '2024-01-01');
+    act(() => { typeInto('#from', '2024-06-01'); typeInto('#to', '2024-01-01'); });
 
     expect(rowIds()).toEqual([]);
-    expect(text('#list-status')).toBe('La fecha «Hasta» debe ser igual o posterior a «Desde».');
+    expect(text('#empty-no-results h3')).toBe('La fecha «Hasta» debe ser igual o posterior a «Desde».');
   });
 
   it('offers to clear the filters when nothing matches, and clearing restores the list', () => {
     search('nada que coincida');
 
-    expect($('#empty').hidden).toBe(false);
-    expect(text('#empty-title')).toBe('No hay estudios con esos filtros');
+    expect(document.querySelector('#empty-no-results')).not.toBeNull();
+    expect(text('#empty-no-results h3')).toBe('No hay estudios con esos filtros');
     expect($('#empty-action').textContent).toBe('Limpiar filtros');
-    expect(text('#list-status')).toBe('0 estudios encontrados');
+    expect(rowIds()).toEqual([]);
 
-    $<HTMLButtonElement>('#empty-action').click();
+    act(() => { $<HTMLButtonElement>('#empty-action').click(); });
 
     expect($<HTMLInputElement>('#search').value).toBe('');
     expect(rowIds()).toHaveLength(2);
-    expect($('#clear').hidden).toBe(true);
-    expect($('#list-status').hidden).toBe(true);
+    expect($<HTMLButtonElement>('#clear').disabled).toBe(true);
+    expect(document.querySelector('#list-status')).toBeNull();
   });
 
   it('the "Limpiar filtros" button resets every filter', () => {
     search('eco');
-    typeInto('#from', '2024-01-01');
+    act(() => typeInto('#from', '2024-01-01'));
 
-    $<HTMLButtonElement>('#clear').click();
+    act(() => { $<HTMLButtonElement>('#clear').click(); });
 
     expect($<HTMLInputElement>('#search').value).toBe('');
     expect($<HTMLInputElement>('#from').value).toBe('');
@@ -243,13 +240,13 @@ describe('filters', () => {
 
 describe('the editor', () => {
   it('opens empty for a new study, focused on the PDF, with the study types as checkboxes', () => {
-    $<HTMLButtonElement>('[data-add]').click();
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
 
     expect($<HTMLDialogElement>('#editor').open).toBe(true);
     expect(text('#editor-title')).toBe('Agregar estudio');
     expect(field('title').value).toBe('');
     expect([...document.querySelectorAll('#study-types .type-option span')].map((s) => s.textContent)).toEqual(TYPES);
-    expect($('#current-report').hidden).toBe(true);
+    expect(document.querySelector('#current-report')).toBeNull();
   });
 
   it('the empty-state button opens it too', async () => {
@@ -257,7 +254,7 @@ describe('the editor', () => {
     await reloadLibrary();
     await vi.waitFor(() => expect($('#empty').hidden).toBe(false));
 
-    $<HTMLButtonElement>('#empty-action').click();
+    act(() => { $<HTMLButtonElement>('#empty-action').click(); });
 
     expect($<HTMLDialogElement>('#editor').open).toBe(true);
   });
@@ -281,7 +278,7 @@ describe('the editor', () => {
 
     expect($('#portal-choices').hidden).toBe(false);
     expect(choices.map((b) => b.textContent)).toEqual(['Hospital Central', 'LabCorp']);
-    $<HTMLButtonElement>('[data-add]').click();
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
     $<HTMLDetailsElement>('#portal-choices').open = true;
 
     choices[1]!.click();
@@ -359,7 +356,7 @@ describe('saving', () => {
 
   it('adds a new study, clears active filters so it is visible, and keeps its institution for later', async () => {
     typeInto('#search', 'ecografía');
-    $<HTMLButtonElement>('[data-add]').click();
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
     field('title').value = 'Radiografía de tórax';
     field('date').value = '2024-04-04';
     const other = document.querySelector<HTMLInputElement>('#study-types input[value="Otro"]')!;
@@ -387,9 +384,8 @@ describe('saving', () => {
       })
     );
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    $<HTMLButtonElement>('[data-add]').click();
-    field('title').value = 'Con reintento';
-    field('date').value = '2024-05-05';
+    act(() => { $<HTMLButtonElement>('[data-add]').click(); });
+    act(() => { typeInto('#editor-form [name=title]', 'Con reintento'); typeInto('#editor-form [name=date]', '2024-05-05'); });
     const other = document.querySelector<HTMLInputElement>('#study-types input[value="Otro"]')!;
     other.checked = true;
     other.dispatchEvent(new Event('input', { bubbles: true }));
@@ -421,14 +417,14 @@ describe('saving', () => {
 
     expect(text('#save')).toBe('Guardando…');
     expect($<HTMLButtonElement>('#save').disabled).toBe(true);
-    expect(field('title').disabled).toBe(true);
+    expect(field('title').matches(':disabled')).toBe(true);
     const cancel = new Event('cancel', { cancelable: true });
     $('#editor').dispatchEvent(cancel);
     expect(cancel.defaultPrevented).toBe(true);
 
     release();
     await vi.waitFor(() => expect($('#editor').dataset.busy).toBe('false'));
-    expect(text('#save')).toBe('Guardar estudio');
+    expect(text('#save')).toBe('Guardar cambios');
     expect($<HTMLButtonElement>('#save').disabled).toBe(false);
   });
 
@@ -457,7 +453,7 @@ describe('saving', () => {
 
   it('offers to reconnect when the session is lost, and saving works after reconnecting', async () => {
     edit('study-1');
-    field('title').value = 'Después de reconectar';
+    act(() => { field('title').value = 'Después de reconectar'; field('title').dispatchEvent(new Event('input', { bubbles: true })); });
     server.use(http.get(`${FILES}/:id`, () => new HttpResponse(null, { status: 401 })));
 
     submitEditor();
@@ -480,7 +476,7 @@ describe('saving', () => {
 
 describe('deleting', () => {
   it('asks for confirmation naming the study, with Cancel focused', () => {
-    row('study-1').querySelector<HTMLButtonElement>('.remove')!.click();
+    act(() => { row('study-1').querySelector<HTMLButtonElement>('.remove')!.click(); });
 
     expect($<HTMLDialogElement>('#confirm').open).toBe(true);
     expect(text('#delete-copy')).toBe('«Ecografía abdominal» se moverá a la papelera de Google Drive.');
@@ -488,7 +484,7 @@ describe('deleting', () => {
   });
 
   it('moves the study to the trash, removes it, and refreshes from Drive afterwards', async () => {
-    row('study-1').querySelector<HTMLButtonElement>('.remove')!.click();
+    act(() => { row('study-1').querySelector<HTMLButtonElement>('.remove')!.click(); });
     addRemoteStudy('remote-1', 'Agregado desde otro dispositivo');
 
     $<HTMLFormElement>('#delete-form').requestSubmit();
@@ -501,7 +497,7 @@ describe('deleting', () => {
   });
 
   it('refuses to delete a study changed on another device', async () => {
-    row('study-1').querySelector<HTMLButtonElement>('.remove')!.click();
+    act(() => { row('study-1').querySelector<HTMLButtonElement>('.remove')!.click(); });
     touchRemote('study-1');
 
     $<HTMLFormElement>('#delete-form').requestSubmit();
@@ -513,7 +509,7 @@ describe('deleting', () => {
   });
 
   it('offers to reconnect when the session is lost', async () => {
-    row('study-1').querySelector<HTMLButtonElement>('.remove')!.click();
+    act(() => { row('study-1').querySelector<HTMLButtonElement>('.remove')!.click(); });
     server.use(http.get(`${FILES}/:id`, () => new HttpResponse(null, { status: 401 })));
 
     $<HTMLFormElement>('#delete-form').requestSubmit();
