@@ -29,6 +29,7 @@ import { StudyList } from '../components/StudyList';
 import { FilterBar } from '../components/FilterBar';
 import { EditorDialog } from '../components/EditorDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EmptyState, OnboardingDialog, ThemeToggle } from '../components';
 
 export function LibraryPage() {
   const loadSequence = useRef(0);
@@ -101,7 +102,20 @@ export function LibraryPage() {
   // ------------------------------------------------------------------
 
   return (
-    <main className="wrap" id="main" role="main">
+    <>
+      <header className="top">
+        <div className="wrap top-inner">
+          <a className="brand" href="#main" aria-label="Mis estudios, inicio">
+            <span className="file-icon" aria-hidden="true"><svg className="icon"><use href="#i-file" /></svg></span>
+            <span>Mis estudios</span>
+          </a>
+          <div className="top-actions">
+            <span className="private"><svg className="icon" aria-hidden="true"><use href="#i-lock" /></svg> Privado</span>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+      <main className="wrap" id="main" role="main">
       {!isSignedIn.value ? (
         <>
           <section className="intro" aria-labelledby="page-title">
@@ -165,60 +179,19 @@ export function LibraryPage() {
                 </button>
               </div>
             ) : studies.value.length === 0 ? (
-              <div id="empty" className="empty">
-                <div className="illustration" aria-hidden="true">
-                  <svg width="113" height="90" viewBox="0 0 113 90" fill="none">
-                    <rect x="16" y="8" width="78" height="76" rx="30" fill="#eee9ff" />
-                    <path
-                      d="M24 38v-9a5 5 0 0 1 5-5h16l8 8h27a5 5 0 0 1 5 5v8H24Z"
-                      fill="#d9cdff"
-                      stroke="#7c5bc6"
-                      strokeWidth="1.6"
-                    />
-                    <rect
-                      x="43"
-                      y="17"
-                      width="29"
-                      height="40"
-                      rx="4"
-                      transform="rotate(10 43 17)"
-                      fill="#fff"
-                      stroke="#7c5bc6"
-                      strokeWidth="1.6"
-                    />
-                    <path
-                      d="m49 28 13 2m-15 4 9 2"
-                      stroke="#ad97df"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M24 43a4 4 0 0 1 4-4h56a4 4 0 0 1 4 5l-5 24a5 5 0 0 1-5 4H32a5 5 0 0 1-5-4z"
-                      fill="#e4d9ff"
-                      stroke="#7c5bc6"
-                      strokeWidth="1.6"
-                    />
-                    <path
-                      d="M56 49v12m-6-6h12M96 22v8m-4-4h8M14 59v6m-3-3h6"
-                      stroke="#7c5bc6"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-                <h3 id="empty-title">Tu archivo empieza acá</h3>
-                <p id="empty-copy">
-                  Agregá tu primer estudio con su informe en PDF, el enlace al visor o ambos.
-                </p>
-                <button
+              <EmptyState
+                variant="no-studies"
+                title="Tu archivo empieza acá"
+                description="Agregá tu primer estudio con su informe en PDF, el enlace al visor o ambos."
+                action={<button
                   className="button secondary"
                   id="empty-action"
                   type="button"
                   onClick={() => setEditingStudy(null)}
                 >
                   <svg className="icon"><use href="#i-plus" /></svg> Agregar estudio
-                </button>
-              </div>
+                </button>}
+              />
             ) : (
               <StudyList
                 onEdit={setEditingStudy}
@@ -272,6 +245,8 @@ export function LibraryPage() {
         error={error.value}
         busy={loading.value}
       />
-    </main>
+      </main>
+      <OnboardingDialog />
+    </>
   );
 }
