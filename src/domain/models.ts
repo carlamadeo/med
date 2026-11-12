@@ -28,7 +28,7 @@ export interface StudyDraft {
   /** When editing without a new `file`, drop the PDF currently attached. */
   removeReport?: boolean;
   driveFileId?: string;
-  /** Id reserved with `reserveId()` for a new study; reusing it on retry makes a repeated create idempotent. */
+  /** Id reserved with `reserveId()` for a new study; reusing it on retry makes a repeated creation idempotent. */
   id?: string;
   /** Required when editing (`driveFileId` set): the `Study.revision` the form was opened with. */
   revision?: string;

@@ -160,7 +160,7 @@ export function setIsSignedIn(v: boolean): void {
 
 export function setEditingStudy(study: Study | null): void {
   editingStudy.value = study;
-  isEditorOpen.value = study !== null || study === null; // Open for both edit (study) and new (null)
+  isEditorOpen.value = true; // Open for both edit (study) and new (null)
 }
 
 export function setEditorOpen(v: boolean): void {

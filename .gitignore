@@ -6,6 +6,7 @@ node_modules/
 public/vendor/
 .playwright-mcp/
 .kilo/
+.vscode/
 
 coverage/
 .lighthouseci/

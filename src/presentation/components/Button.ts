@@ -42,15 +42,13 @@ export function createButton(props: ButtonProps = {}): HTMLButtonElement {
   button.type = type;
   button.disabled = disabled || loading;
 
-  const classes = [
+  button.className = [
     'btn',
     `btn-${variant}`,
     size !== 'md' ? `btn-${size}` : '',
     fullWidth ? 'w-full' : '',
     className,
   ].filter(Boolean).join(' ');
-
-  button.className = classes;
 
   if (ariaLabel) button.setAttribute('aria-label', ariaLabel);
   if (ariaDescribedBy) button.setAttribute('aria-describedby', ariaDescribedBy);

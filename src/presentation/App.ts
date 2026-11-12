@@ -1,5 +1,5 @@
 /**
- * Page controller. Same behaviour as the original web/app.js, on top of the typed repositories:
+ * Page controller. Same behavior as the original web/app.js, on top of the typed repositories:
  * the list, filters, editor (with automatic PDF reading) and the delete confirmation.
  * Auth state drives the screen: connecting loads the studies, disconnecting returns to the access screen.
  */
@@ -421,14 +421,26 @@ export class App {
     const save = $<HTMLButtonElement>('#save');
     errorBox.hidden = true;
     this.busy(this.editor, save, true, 'Guardando…');
+
+    if (!draft.title) {
+      this.showError(new Error('Ingresá un nombre para el estudio.'), errorBox, this.editor);
+      this.busy(this.editor, save, false, 'Guardar estudio');
+      return;
+    }
+    if (!draft.types.length) {
+      this.showError(new Error('Elegí al menos un tipo de estudio.'), errorBox, this.editor);
+      this.busy(this.editor, save, false, 'Guardar estudio');
+      return;
+    }
     try {
-      if (!draft.title) throw new Error('Ingresá un nombre para el estudio.');
-      if (!draft.types.length) throw new Error('Elegí al menos un tipo de estudio.');
-      try {
-        draft.viewer = viewerURL(draft.viewer);
-      } catch {
-        throw new Error('Pegá un enlace al visor que empiece con https:// o http://.');
-      }
+      draft.viewer = viewerURL(draft.viewer);
+    } catch {
+      this.showError(new Error('Pegá un enlace al visor que empiece con https:// o http://.'), errorBox, this.editor);
+      this.busy(this.editor, save, false, 'Guardar estudio');
+      return;
+    }
+
+    try {
       if (report) {
         await validatePdf(report);
         draft.file = report;

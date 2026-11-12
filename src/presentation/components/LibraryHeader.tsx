@@ -9,7 +9,7 @@ export function LibraryHeader({ onSignOut }: LibraryHeaderProps) {
   return (
     <header className="top">
       <div className="wrap top-inner">
-        <a className="brand" href="#main" aria-label="Mis estudios, inicio">
+        <a className="brand" href="#app" aria-label="Mis estudios, inicio">
           <span className="file-icon" aria-hidden="true"><svg className="icon"><use href="#i-file" /></svg></span>
           <span>Mis estudios</span>
         </a>

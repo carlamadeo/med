@@ -11,7 +11,6 @@ export interface SelectProps {
   disabled?: boolean;
   required?: boolean;
   error?: boolean;
-  label?: string;
   id?: string;
   name?: string;
   onChange?: (value: string, event: Event) => void;
@@ -28,7 +27,6 @@ export function createSelect(props: SelectProps): HTMLSelectElement {
     disabled = false,
     required = false,
     error = false,
-    label: _label,
     id,
     name,
     onChange,
@@ -47,8 +45,7 @@ export function createSelect(props: SelectProps): HTMLSelectElement {
   if (ariaLabel) select.setAttribute('aria-label', ariaLabel);
   if (ariaDescribedBy) select.setAttribute('aria-describedby', ariaDescribedBy);
 
-  const classes = ['input', 'select', error ? 'input-error' : '', className].filter(Boolean).join(' ');
-  select.className = classes;
+  select.className = ['input', 'select', error ? 'input-error' : '', className].filter(Boolean).join(' ');
 
   if (placeholder) {
     const placeholderOption = document.createElement('option');
@@ -79,21 +76,13 @@ export function Select(props: SelectProps): HTMLSelectElement {
 }
 
 export function createSelectGroup(props: SelectProps & { helpText?: string; errorText?: string } = { options: [] }): HTMLDivElement {
-  const { label, helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...selectProps } = props;
+  const { helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...selectProps } = props;
 
   const wrapper = document.createElement('div');
   wrapper.className = 'input-group';
 
   const selectId = id || `select-${crypto.randomUUID()}`;
   const describedBy: string[] = [];
-
-  if (label) {
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = selectId;
-    labelEl.className = 'label';
-    labelEl.textContent = label;
-    wrapper.appendChild(labelEl);
-  }
 
   if (helpText) {
     const helpId = `${selectId}-help`;

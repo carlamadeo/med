@@ -6,7 +6,6 @@ export interface InputProps {
   required?: boolean;
   readOnly?: boolean;
   error?: boolean;
-  label?: string;
   id?: string;
   name?: string;
   autocomplete?: string;
@@ -31,7 +30,6 @@ export function createInput(props: InputProps = {}): HTMLInputElement {
     required = false,
     readOnly = false,
     error = false,
-    label: _label,
     id,
     name,
     autocomplete,
@@ -65,8 +63,7 @@ export function createInput(props: InputProps = {}): HTMLInputElement {
   if (ariaLabel) input.setAttribute('aria-label', ariaLabel);
   if (ariaDescribedBy) input.setAttribute('aria-describedby', ariaDescribedBy);
 
-  const classes = ['input', error ? 'input-error' : '', className].filter(Boolean).join(' ');
-  input.className = classes;
+  input.className = ['input', error ? 'input-error' : '', className].filter(Boolean).join(' ');
 
   if (onChange) input.addEventListener('change', (e) => onChange((e.target as HTMLInputElement).value, e));
   if (onInput) input.addEventListener('input', (e) => onInput((e.target as HTMLInputElement).value, e));
@@ -80,21 +77,13 @@ export function Input(props: InputProps): HTMLInputElement {
 }
 
 export function createInputGroup(props: InputProps & { helpText?: string; errorText?: string } = {}): HTMLDivElement {
-  const { label, helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...inputProps } = props;
+  const { helpText, errorText, id, 'aria-describedby': ariaDescribedBy, ...inputProps } = props;
 
   const wrapper = document.createElement('div');
   wrapper.className = 'input-group';
 
   const inputId = id || `input-${crypto.randomUUID()}`;
   const describedBy: string[] = [];
-
-  if (label) {
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = inputId;
-    labelEl.className = 'label';
-    labelEl.textContent = label;
-    wrapper.appendChild(labelEl);
-  }
 
   if (helpText) {
     const helpId = `${inputId}-help`;

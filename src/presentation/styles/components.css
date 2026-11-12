@@ -44,16 +44,6 @@
   border-color: var(--color-border-strong);
 }
 
-.btn-ghost {
-  background-color: transparent;
-  color: var(--color-text-secondary);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  background-color: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
 .btn-danger {
   background-color: var(--color-error-light);
   color: var(--color-error);

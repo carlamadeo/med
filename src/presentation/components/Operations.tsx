@@ -17,14 +17,17 @@ export function Operations() {
     const data = new FormData(form);
     const draft: OperationDraft = { name: String(data.get('name') ?? ''), date: String(data.get('date') ?? ''), surgeon: String(data.get('surgeon') ?? ''), institution: String(data.get('institution') ?? ''), type: String(data.get('type') ?? ''), notes: String(data.get('notes') ?? ''), id: editing?.id, revision: editing?.revision };
     setBusy(true); setMessage('');
+
+    if (!draft.name.trim()) { setMessage('Ingresá un nombre para la operación.'); setBusy(false); return; }
+    if (draft.date && !isValidDate(draft.date)) { setMessage('Ingresá una fecha válida.'); setBusy(false); return; }
+
+    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+    if (draft.id && (await outbox.list(owner)).some((item) => item.operationId === draft.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
+
     try {
-      if (!draft.name.trim()) throw new Error('Ingresá un nombre para la operación.');
-      if (draft.date && !isValidDate(draft.date)) throw new Error('Ingresá una fecha válida.');
-      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      if (draft.id && (await outbox.list(owner)).some((item) => item.operationId === draft.id)) throw new Error('Esta operación ya tiene un cambio pendiente.');
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
         await outbox.enqueueOperationSave(owner, draft);
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setEditing(null); form.reset(); setMessage('Operación guardada en este dispositivo; se sincronizará al volver la conexión.');
@@ -41,14 +44,16 @@ export function Operations() {
     if (studies.value.some((study) => study.operationId === op.id)) { setMessage('Desvinculá los estudios antes de eliminar esta operación.'); return; }
     if (!window.confirm(`¿Eliminar la operación ${op.name}?`)) return;
     setBusy(true); setMessage('');
+
+    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+    const pending = await outbox.list(owner);
+    if (pending.some((item) => item.operationId === op.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
+    if (pending.some((item) => item.draft?.operationId === op.id)) { setMessage('Hay un estudio pendiente vinculado a esta operación.'); setBusy(false); return; }
+
     try {
-      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      const pending = await outbox.list(owner);
-      if (pending.some((item) => item.operationId === op.id)) throw new Error('Esta operación ya tiene un cambio pendiente.');
-      if (pending.some((item) => item.draft?.operationId === op.id)) throw new Error('Hay un estudio pendiente vinculado a esta operación.');
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
         await outbox.enqueueOperationDelete(owner, op.id, op.revision ?? '');
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Eliminación pendiente de sincronización.');
@@ -62,14 +67,16 @@ export function Operations() {
 
   async function setLink(study: Study, operationId: string) {
     setBusy(true); setMessage('');
+
+    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+    const pending = await outbox.list(owner);
+    if (pending.some((item) => item.studyId === study.id)) { setMessage('Este estudio ya tiene un cambio pendiente.'); setBusy(false); return; }
+    if (operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === operationId)) { setMessage('La operación tiene una eliminación pendiente.'); setBusy(false); return; }
+
     try {
-      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      const pending = await outbox.list(owner);
-      if (pending.some((item) => item.studyId === study.id)) throw new Error('Este estudio ya tiene un cambio pendiente.');
-      if (operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === operationId)) throw new Error('La operación tiene una eliminación pendiente.');
       if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
         await outbox.enqueueSave(owner, { ...study, driveFileId: study.id, operationId });
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Vínculo pendiente de sincronización.');

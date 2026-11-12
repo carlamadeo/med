@@ -133,7 +133,12 @@ export class Outbox {
             await remote.savePortal(entry.portalDraft);
           } else if (entry.kind === 'portal-delete' && entry.portal) {
             await remote.deletePortal(entry.portal);
-          } else throw new Error('Cambio pendiente inválido.');
+          } else {
+            entry.lastError = 'Cambio pendiente inválido.';
+            entry.status = 'pending';
+            await db.put('entries', entry);
+            break;
+          }
           await this.discard(owner, entry.id);
         } catch (err) {
           entry.status = err instanceof DriveConflictError ? 'conflict' : 'pending';

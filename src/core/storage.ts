@@ -150,19 +150,6 @@ export const storage = {
     await tx.done;
   },
 
-  /** Replaces the whole studies cache atomically (drops entries no longer in Drive). */
-  async replaceStudies(studies: StudyRecord[]): Promise<void> {
-    const db = await getDB();
-    const tx = db.transaction('studies', 'readwrite');
-    await tx.store.clear();
-    await Promise.all([...studies.map((s) => tx.store.put(s)), tx.done]);
-  },
-
-  async deleteStudy(id: string): Promise<void> {
-    const db = await getDB();
-    await db.delete('studies', id);
-  },
-
   /** Removes everything derived from the user's Drive (used on sign-out). */
   async clearStudyCache(): Promise<void> {
     const db = await getDB();
@@ -217,12 +204,6 @@ export const storage = {
   async deletePortal(name: string): Promise<void> {
     const db = await getDB();
     await db.delete('portals', name);
-  },
-
-  async getPdfBlob(studyId: string): Promise<Blob | undefined> {
-    const db = await getDB();
-    const record = await db.get('pdf-blobs', studyId);
-    return record?.blob;
   },
 
   async setPdfBlob(studyId: string, blob: Blob): Promise<void> {
