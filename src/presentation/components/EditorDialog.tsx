@@ -7,6 +7,7 @@ import { analyzePdf, validatePdf } from '@data/pdf-analysis';
 import { driveOperationRepo } from '@data';
 import type { StudyDraft } from '@domain/models';
 import { portalNames } from '@domain/library';
+import { useFocusTrap } from '../utils/focusTrap';
 import {
   editingStudy,
   studies,
@@ -58,6 +59,9 @@ export function EditorDialog({
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState('');
   const editorGeneration = useRef(0);
+
+  // Focus trap for accessibility
+  useFocusTrap(dialogRef, isEditorOpen.value);
 
   const setStatus = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.textContent = value; };
   const setStatusState = (value: string) => { const el = formRef.current?.querySelector<HTMLElement>('#detection'); if (el) el.dataset.state = value; };

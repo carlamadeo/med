@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { deletingStudyId } from '../state/store';
 import type { Study } from '@domain/models';
+import { useFocusTrap } from '../utils/focusTrap';
 
 interface ConfirmDialogProps {
   studies: Study[];
@@ -17,6 +18,10 @@ export function ConfirmDialog({ studies, onConfirm, onCancel, onReconnect, error
   const dialog = useRef<HTMLDialogElement>(null);
   const id = deletingStudyId.value;
   const study = studies.find((s) => s.id === id);
+
+  // Focus trap for accessibility
+  useFocusTrap(dialog, Boolean(id));
+
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;

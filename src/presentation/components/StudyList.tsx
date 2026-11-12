@@ -1,5 +1,5 @@
 /** Lista virtualizada de estudios que coinciden con los filtros activos. */
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'preact/hooks';
 import { Virtualizer, elementScroll, observeElementOffset, observeElementRect } from '@tanstack/virtual-core';
 import { filteredStudies, sortOrder, view } from '../state/store';
 import { StudyRow } from './StudyRow';
@@ -16,8 +16,9 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
   const printResults = useRef<HTMLUListElement>(null);
   const pendingFocus = useRef<number | null>(null);
   const [, refresh] = useState(0);
-  const virtualizer = useRef<Virtualizer<HTMLDivElement, HTMLLIElement>>();
-  const options = {
+
+  // Stable options - only count changes
+  const options = useMemo(() => ({
     count: items.length,
     getScrollElement: () => container.current,
     estimateSize: () => 160,
@@ -27,15 +28,21 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
     observeElementRect,
     observeElementOffset,
     onChange: () => refresh((n) => n + 1),
-  };
-  if (!virtualizer.current) virtualizer.current = new Virtualizer(options);
+  }), [items.length]);
+
+  const virtualizer = useRef<Virtualizer<HTMLDivElement, HTMLLIElement>>();
+  if (!virtualizer.current) {
+    virtualizer.current = new Virtualizer(options);
+  }
   virtualizer.current.setOptions(options);
   const list = virtualizer.current;
+
   useLayoutEffect(() => {
     const cleanup = list._didMount();
     list._willUpdate();
     return cleanup;
   }, [list]);
+
   useLayoutEffect(() => {
     list._willUpdate();
     if (pendingFocus.current !== null) {
@@ -43,6 +50,7 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
       if (row) { row.focus(); pendingFocus.current = null; }
     }
   });
+
   useEffect(() => {
     const prepare = () => {
       const target = printResults.current;
@@ -63,6 +71,7 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
   }, []);
 
   if (!items.length) return <p id="list-status" className="list-status" role="status">No hay estudios que mostrar</p>;
+
   return (
     <><div ref={container} className="virtual-results" style={{ height: '60vh', overflowY: 'auto' }}>
       <ul id="results" className="results" aria-label="Lista de estudios" style={{ height: list.getTotalSize(), position: 'relative' }} onKeyDown={(event) => {

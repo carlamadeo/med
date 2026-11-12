@@ -7,6 +7,7 @@
  */
 import { signal, computed, type Signal } from '@preact/signals';
 import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, ViewMode, Filters } from '@domain/models';
+import type { OutboxEntry } from '@data/outbox';
 import { normalize } from '@domain/utils';
 import { compareStudies } from '@domain/library';
 
@@ -42,6 +43,13 @@ export const isEditorOpen = signal(false);
 export const deletingStudyId = signal<string | null>(null);
 export const toasts = signal<{ id: string; message: string; type: 'info' | 'success' | 'error' }[]>([]);
 
+export const pendingChanges = signal<OutboxEntry[]>([]);
+export const syncMessage = signal('');
+export const syncing = signal(false);
+export const offline = signal(!navigator.onLine);
+export const directoryWarning = signal(false);
+export const loadSequence = { current: 0 };
+
 // ------------------------------------------------------------------
 // Derivados
 // ------------------------------------------------------------------
@@ -72,6 +80,22 @@ export const filteredStudies: Signal<Study[]> = computed(() => {
     return compareStudies(a, b);
   });
 });
+
+export const hasFilters = computed(() => Boolean(
+  categoryTypes.value.length ||
+  filters.value.query ||
+  filters.value.type ||
+  filters.value.from ||
+  filters.value.to ||
+  filters.value.operationId ||
+  filters.value.portal ||
+  filters.value.onlyPdf ||
+  filters.value.onlyViewer
+));
+
+export const invalidRange = computed(() =>
+  Boolean(filters.value.from && filters.value.to && filters.value.from > filters.value.to)
+);
 
 // ------------------------------------------------------------------
 // Acciones
@@ -158,6 +182,26 @@ export function addToast(message: string, type: 'info' | 'success' | 'error' = '
 
 export function removeToast(id: string): void {
   toasts.value = toasts.value.filter((t) => t.id !== id);
+}
+
+export function setPendingChanges(list: OutboxEntry[]): void {
+  pendingChanges.value = list;
+}
+
+export function setSyncMessage(msg: string): void {
+  syncMessage.value = msg;
+}
+
+export function setSyncing(v: boolean): void {
+  syncing.value = v;
+}
+
+export function setOffline(v: boolean): void {
+  offline.value = v;
+}
+
+export function setDirectoryWarning(v: boolean): void {
+  directoryWarning.value = v;
 }
 
 // ------------------------------------------------------------------
