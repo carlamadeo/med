@@ -12,6 +12,7 @@ export interface Study {
   driveModifiedTime: string;
   /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
   revision: string;
+  operationId?: string;
 }
 
 export interface StudyDraft {
@@ -31,6 +32,7 @@ export interface StudyDraft {
   id?: string;
   /** Required when editing (`driveFileId` set): the `Study.revision` the form was opened with. */
   revision?: string;
+  operationId?: string;
 }
 
 export interface Operation {
@@ -38,23 +40,42 @@ export interface Operation {
   name: string;
   studyIds: string[];
   color: string;
+  date?: string;
+  surgeon?: string;
+  institution?: string;
+  type?: string;
+  notes?: string;
+  revision?: string;
 }
 
 export interface OperationDraft {
   name: string;
-  color: string;
+  color?: string;
+  id?: string;
+  date?: string;
+  surgeon?: string;
+  institution?: string;
+  type?: string;
+  notes?: string;
+  revision?: string;
 }
 
 export interface Portal {
+  id?: string;
   name: string;
   displayName: string;
   url: string;
+  notes?: string;
+  revision?: string;
 }
 
 export interface PortalDraft {
+  id?: string;
   name: string;
   displayName: string;
   url: string;
+  notes?: string;
+  revision?: string;
 }
 
 export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones';

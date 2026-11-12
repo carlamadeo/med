@@ -19,6 +19,8 @@ export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
 
 export const view = signal<ViewMode>('cronologia');
+export const sortOrder = signal<'date-desc' | 'date-asc' | 'title' | 'type'>('date-desc');
+export const categoryTypes = signal<string[]>([]);
 export const filters = signal<Filters>({
   query: '',
   type: '',
@@ -46,26 +48,29 @@ export const toasts = signal<{ id: string; message: string; type: 'info' | 'succ
 
 export const filteredStudies: Signal<Study[]> = computed(() => {
   const { query, type, from, to, operationId, portal, onlyPdf, onlyViewer } = filters.value;
-  const ops = operations.value;
-  const selectedOp = ops.find((o) => o.id === operationId);
-  const selectedOpStudyIds = new Set(selectedOp?.studyIds ?? []);
 
   if (from && to && from > to) return [];
   return studies.value.filter((s) => {
-    if (query && !normalize(s.title).includes(normalize(query)) && !normalize(s.doctor).includes(normalize(query)) && !normalize(s.portal).includes(normalize(query))) {
+    if (query && ![s.title, s.doctor, s.portal, ...s.types].some((value) => normalize(value).includes(normalize(query)))) {
       return false;
     }
     if (type && !s.types.some((t) => normalize(t) === normalize(type))) {
       return false;
     }
+    if (categoryTypes.value.length && !s.types.some((t) => categoryTypes.value.some((selected) => normalize(t) === normalize(selected)))) return false;
     if (from && s.date < from) return false;
     if (to && s.date > to) return false;
-    if (operationId && !selectedOpStudyIds.has(s.id)) return false;
+    if (operationId && s.operationId !== operationId) return false;
     if (portal && normalize(s.portal) !== normalize(portal)) return false;
     if (onlyPdf && !s.hasPdf) return false;
     if (onlyViewer && !s.viewer) return false;
     return true;
-  }).sort(compareStudies);
+  }).sort((a, b) => {
+    if (sortOrder.value === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
+    if (sortOrder.value === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
+    if (sortOrder.value === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || compareStudies(a, b);
+    return compareStudies(a, b);
+  });
 });
 
 // ------------------------------------------------------------------
@@ -105,6 +110,7 @@ export function setFilters(partial: Partial<Filters>): void {
 }
 
 export function clearFilters(): void {
+  categoryTypes.value = [];
   filters.value = { query: '', type: '', from: '', to: '', operationId: '', portal: '', onlyPdf: false, onlyViewer: false };
 }
 

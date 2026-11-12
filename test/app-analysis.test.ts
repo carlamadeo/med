@@ -98,6 +98,27 @@ describe('reading a PDF', () => {
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
   });
 
+  it('shows page progress and lets the user cancel without losing the attachment', async () => {
+    let signal!: AbortSignal;
+    analyze.mockImplementation(async (_file, abortSignal, _onScan, onProgress) => {
+      signal = abortSignal;
+      onProgress?.({ stage: 'ocr', page: 2, total: 3, progress: 0.5 });
+      return new Promise((_resolve, reject) => {
+        abortSignal.addEventListener('abort', () => reject(abortSignal.reason));
+      });
+    });
+    openNew();
+    choose(pdf());
+    await vi.waitFor(() => expect(status()).toContain('2 de 3'));
+    expect(document.querySelector('progress')?.getAttribute('value')).toBe('50');
+    $<HTMLButtonElement>('[data-cancel-analysis]').click();
+    expect(signal.aborted).toBe(true);
+    await vi.waitFor(() => expect(status()).toContain('Lectura cancelada'));
+    expect(field('report').files).toHaveLength(1);
+    expect(field('date').value).toBe('');
+    expect(document.querySelector('[data-cancel-analysis]')).toBeNull();
+  });
+
   it('never overwrites a field the user already typed', async () => {
     analyze.mockResolvedValue(FOUND);
     openNew();

@@ -9,6 +9,7 @@ import { portalNames } from '@domain/library';
 import {
   editingStudy,
   studies,
+  operations,
   isEditorOpen,
   setEditorOpen,
 } from '../state/store';
@@ -45,6 +46,8 @@ export function EditorDialog({
   const [portal, setPortal] = useState<string>(study?.portal ?? '');
   const [viewer, setViewer] = useState<string>(study?.viewer ?? '');
   const [types, setTypes] = useState<string[]>(study?.types ?? []);
+  const [reading, setReading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [removeReport, setRemoveReport] = useState(false);
   const [reportName, setReportName] = useState(study?.reportName ?? '');
 
@@ -81,6 +84,8 @@ export function EditorDialog({
         setDoctor(current?.doctor ?? '');
         setPortal(current?.portal ?? '');
         setViewer(current?.viewer ?? '');
+        const operation = formRef.current?.querySelector<HTMLSelectElement>('#operation-id');
+        if (operation) operation.value = current?.operationId ?? '';
         setTypes(current?.types ?? []);
         reportFileRef.current = null;
         setRemoveReport(false);
@@ -145,6 +150,8 @@ export function EditorDialog({
 
   const handleReportChange = async (_e: Event) => {
     analysisCtrl.current?.abort();
+    setReading(false);
+    setProgress(null);
     for (const [name, value] of suggested.current) {
       if (JSON.stringify(fieldValue(name)) === value) {
         setFieldValue(name, name === 'types' ? [] : '');
@@ -162,12 +169,14 @@ export function EditorDialog({
 
     const controller = new AbortController();
     analysisCtrl.current = controller;
+    setReading(true);
     const { signal } = controller;
     const active = () => isEditorOpen.value && analysisCtrl.current === controller && !signal.aborted;
 
     analysisTimeout.current = setTimeout(() => {
       if (active()) {
         controller.abort();
+        setReading(false);
         setStatus('La lectura tardó demasiado. Podés completar los campos y guardar el PDF.');
       }
     }, ANALYSIS_TIMEOUT_MS);
@@ -185,6 +194,7 @@ export function EditorDialog({
         if (reportInputRef.current) reportInputRef.current.value = '';
         setStatus(err instanceof Error ? err.message : 'Elegí un archivo PDF válido.');
         setStatusState('error');
+        setReading(false);
       }
       return;
     }
@@ -194,6 +204,10 @@ export function EditorDialog({
         if (active()) {
           setStatus('Leyendo el texto de una imagen. Puede demorar unos segundos…');
         }
+      }, (event) => {
+        if (!active()) return;
+        setStatus(`${event.stage === 'ocr' ? 'Analizando imagen' : 'Leyendo página'} ${event.page} de ${event.total}…`);
+        setProgress(Math.round(event.progress * 100));
       });
       if (!active()) return;
 
@@ -228,7 +242,10 @@ export function EditorDialog({
         setStatus('No pudimos leer el informe. Podés completar los campos y guardar el PDF.');
       }
     } finally {
-      clearTimeout(analysisTimeout.current!);
+      if (analysisCtrl.current === controller) {
+        clearTimeout(analysisTimeout.current!);
+        setReading(false);
+      }
     }
   };
 
@@ -274,6 +291,7 @@ export function EditorDialog({
           removeReport: data.has('removeReport'),
           driveFileId: selectedStudy?.id,
           revision: selectedStudy?.revision,
+          operationId: String(data.get('operationId') ?? ''),
         });
       }}>
       <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -305,6 +323,17 @@ export function EditorDialog({
           />
         </label>
         <p id="detection" className="hint" role="status" data-state="">Buscamos la fecha, los tipos y el médico en el PDF.</p>
+        {reading && (
+          <div className="analysis-progress" aria-busy="true">
+            <progress max="100" value={progress ?? undefined} aria-label="Progreso de lectura del PDF" />
+            <button type="button" className="secondary" data-cancel-analysis onClick={() => {
+              analysisCtrl.current?.abort();
+              if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+              setReading(false);
+              setStatus('Lectura cancelada. Podés completar los campos y guardar el PDF.');
+            }}>Cancelar lectura</button>
+          </div>
+        )}
         {reportName && (
           <div id="current-report">
             <span id="current-report-name">{reportName}</span>
@@ -398,6 +427,12 @@ export function EditorDialog({
         </div>
       </div>
       <p className="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una nueva. Se recuerda al guardar el estudio.</p>
+      <label>Operación <small>Opcional</small>
+        <select id="operation-id" name="operationId" defaultValue={study?.operationId ?? ''}>
+          <option value="">Sin operación</option>
+          {operations.value.map((op) => <option key={op.id} value={op.id}>{op.name}</option>)}
+        </select>
+      </label>
       <div className="attachments">
         <label>
           Enlace al visor <small>Opcional</small>

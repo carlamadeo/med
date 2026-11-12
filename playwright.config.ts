@@ -28,7 +28,7 @@ export default defineConfig({
   ],
   webServer: {
     // e2e runs against the production build, served on the origin authorized for Google sign-in.
-    command: 'npm run build && npm run preview',
+    command: 'npm run dev',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,

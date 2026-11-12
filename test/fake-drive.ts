@@ -138,7 +138,8 @@ export const driveHandlers = [
   http.get(`${API}/drive/v3/files`, ({ request }) => {
     const q = new URL(request.url).searchParams.get('q') ?? '';
     if (q.includes('carpeta-v1')) return HttpResponse.json({ files: [{ id: FOLDER_ID }] });
-    const studies = [...files.values()].filter((f) => !f.trashed && f.appProperties.misEstudios === 'estudio-v1');
+    const marker = /value='([^']+)'/.exec(q)?.[1] ?? 'estudio-v1';
+    const studies = [...files.values()].filter((f) => !f.trashed && f.appProperties.misEstudios === marker);
     return HttpResponse.json({ files: studies.map(publicView) });
   }),
 

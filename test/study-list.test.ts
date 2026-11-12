@@ -14,3 +14,14 @@ it('shows loaded studies instead of remaining on the loading placeholder', async
   await act(() => { render(h(StudyList, { onEdit: () => {}, onDelete: () => {} }), root); });
   expect(root.textContent).toContain('Estudio visible');
 });
+
+it('prepares all filtered studies for printing and removes the temporary copy afterwards', async () => {
+  const base = { date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1' };
+  setStudies(Array.from({ length: 200 }, (_, index) => ({ ...base, id: String(index), driveFileId: String(index), title: `Estudio ${index}` })));
+  await act(() => { render(h(StudyList, { onEdit: () => {}, onDelete: () => {} }), root); });
+  expect(root.querySelector('.print-results')?.children).toHaveLength(0);
+  window.dispatchEvent(new Event('beforeprint'));
+  expect(root.querySelector('.print-results')?.children).toHaveLength(200);
+  window.dispatchEvent(new Event('afterprint'));
+  expect(root.querySelector('.print-results')?.children).toHaveLength(0);
+});

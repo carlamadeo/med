@@ -1,7 +1,7 @@
 /**
  * Barra de filtros: búsqueda, tipo, rango de fechas, operación, portal, solo PDF/visor y limpiar.
  */
-import { filters, operations, portals } from '../state/store';
+import { filters, operations, portals, sortOrder, categoryTypes } from '../state/store';
 import type { Operation, Portal, Filters } from '@domain/models';
 
 interface FilterBarProps {
@@ -12,7 +12,7 @@ interface FilterBarProps {
 
 export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps) {
   const hasActiveFilters =
-    filters.value.query ||
+    categoryTypes.value.length || filters.value.query ||
     filters.value.type ||
     filters.value.from ||
     filters.value.to ||
@@ -22,6 +22,7 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
     filters.value.onlyViewer;
 
   const handleChange = (partial: Partial<Filters>) => {
+    if (partial.type !== undefined) categoryTypes.value = [];
     filters.value = { ...filters.value, ...partial };
     if (partial.query !== undefined) {
       onSearch(partial.query);
@@ -55,6 +56,15 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
         >
           <option value="">Todos los tipos</option>
           {availableTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+        </select>
+      </label>
+
+      <label htmlFor="sort">Ordenar
+        <select id="sort" value={sortOrder.value} onChange={(event) => { sortOrder.value = (event.currentTarget as HTMLSelectElement).value as typeof sortOrder.value; }}>
+          <option value="date-desc">Más recientes</option>
+          <option value="date-asc">Más antiguos</option>
+          <option value="title">Nombre A–Z</option>
+          <option value="type">Tipo</option>
         </select>
       </label>
 

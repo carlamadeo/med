@@ -8,6 +8,8 @@ import { validatePdf } from '@data/pdf-analysis';
 import {
   driveAuth,
   driveStudyRepo,
+  driveOperationRepo,
+  drivePortalRepo,
   DriveConflictError,
   DriveSessionError,
 } from '@data';
@@ -16,7 +18,6 @@ import {
   studies,
   loading,
   error,
-  editingStudy,
   deletingStudyId,
   setStudies,
   setLoading,
@@ -29,6 +30,10 @@ import {
   setEditingStudy,
   setEditorOpen,
   setDeletingStudyId,
+  operations,
+  portals,
+  view,
+  categoryTypes,
 } from '../state/store';
 import type { Study, StudyDraft } from '@domain/models';
 import { StudyList } from '../components/StudyList';
@@ -36,6 +41,8 @@ import { FilterBar } from '../components/FilterBar';
 import { EditorDialog } from '../components/EditorDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState, OnboardingDialog, ThemeToggle } from '../components';
+import { Operations } from '../components/Operations';
+import { Portals } from '../components/Portals';
 
 export function LibraryPage() {
   const loadSequence = useRef(0);
@@ -61,9 +68,13 @@ export function LibraryPage() {
         setSessionLost(false);
         setEditorError(null);
         void loadStudies();
+        void driveOperationRepo.list().then((list) => { if (driveAuth.isSignedIn()) operations.value = list; }).catch((err: unknown) => setError(err instanceof Error ? err.message : 'No se pudieron cargar las operaciones.'));
+        void drivePortalRepo.list().then((list) => { if (driveAuth.isSignedIn()) portals.value = list; }).catch((err: unknown) => setError(err instanceof Error ? err.message : 'No se pudieron cargar los portales.'));
       } else if (!isEditorOpen.value && !deletingStudyId.value) {
         loadSequence.current += 1;
         setStudies([]);
+        operations.value = [];
+        portals.value = [];
         setLoading(false);
       }
     });
@@ -87,6 +98,26 @@ export function LibraryPage() {
     setSessionLost(false);
     setEditingStudy(study);
   }
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!isSignedIn.value || !typesReady || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+          document.querySelector('dialog[open]')) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (event.key === 'Escape') {
+        clearFilters();
+      } else if (event.key === '/') {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('#search')?.focus();
+      } else if (event.key.toLowerCase() === 'n' && !event.repeat) {
+        event.preventDefault();
+        openEditor(null);
+      }
+    };
+    document.addEventListener('keydown', handleShortcut);
+    return () => document.removeEventListener('keydown', handleShortcut);
+  }, [typesReady]);
 
   // ------------------------------------------------------------------
   // List
@@ -160,7 +191,7 @@ export function LibraryPage() {
     } finally { setDeleting(false); }
   }
 
-  const hasFilters = Boolean(filters.value.query || filters.value.type || filters.value.from || filters.value.to || filters.value.operationId || filters.value.portal || filters.value.onlyPdf || filters.value.onlyViewer);
+  const hasFilters = Boolean(categoryTypes.value.length || filters.value.query || filters.value.type || filters.value.from || filters.value.to || filters.value.operationId || filters.value.portal || filters.value.onlyPdf || filters.value.onlyViewer);
   const invalidRange = Boolean(filters.value.from && filters.value.to && filters.value.from > filters.value.to);
 
   // ------------------------------------------------------------------
@@ -204,6 +235,14 @@ export function LibraryPage() {
           </section>
 
           <section id="library" aria-labelledby="library-title" className="library" hidden={!isSignedIn.value}>
+            <nav className="view-nav" aria-label="Vistas de la biblioteca">
+              <button type="button" id="tab-cronologia" aria-pressed={view.value === 'cronologia'} onClick={() => { view.value = 'cronologia'; }}>Cronología</button>
+              <button type="button" id="tab-categoria" aria-pressed={view.value === 'categoria'} onClick={() => { view.value = 'categoria'; }}>Categoría</button>
+              <button type="button" id="tab-portales" aria-pressed={view.value === 'portales'} onClick={() => { view.value = 'portales'; }}>Portales</button>
+              <button type="button" id="tab-operaciones" aria-pressed={view.value === 'operaciones'} onClick={() => { view.value = 'operaciones'; }}>Operaciones</button>
+            </nav>
+            {view.value === 'operaciones' ? <Operations /> : view.value === 'portales' ? <Portals /> : <>
+            {view.value === 'categoria' && <div id="categories" aria-label="Categorías">{availableTypes.map((type) => <button type="button" key={type} aria-pressed={categoryTypes.value.includes(type)} onClick={() => { filters.value = { ...filters.value, type: '' }; categoryTypes.value = categoryTypes.value.includes(type) ? categoryTypes.value.filter((item) => item !== type) : [...categoryTypes.value, type]; }}>{type}</button>)}</div>}
             <div className="section-head">
               <div className="section-title">
                 <h2 id="library-title">Estudios guardados</h2>
@@ -212,16 +251,7 @@ export function LibraryPage() {
               <FilterBar
                 availableTypes={availableTypes}
                 onClear={() => {
-                  filters.value = {
-                    query: '',
-                    type: '',
-                    from: '',
-                    to: '',
-                    operationId: '',
-                    portal: '',
-                    onlyPdf: false,
-                    onlyViewer: false,
-                  };
+                  clearFilters();
                 }}
                 onSearch={(query) => {
                   filters.value = { ...filters.value, query };
@@ -271,6 +301,7 @@ export function LibraryPage() {
                 <StudyList onEdit={openEditor} onDelete={(study: Study) => setDeletingStudyId(study.id)} />
               </>
             )}
+            </>}
           </section>
         <section id="access" className="library access" aria-labelledby="access-title" hidden={isSignedIn.value}>
           <span className="file-icon">

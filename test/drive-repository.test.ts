@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { storage } from '@core/storage';
-import { DriveConflictError, driveAuth, driveStudyRepo } from '@data';
+import { DriveConflictError, driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo } from '@data';
 import { addRemoteStudy, fakeDriveFile, SEED_JSON_ID, SEED_PDF_ID, touchRemote, uploadLog } from './fake-drive';
 
 const baseDraft = {
@@ -12,6 +12,52 @@ const baseDraft = {
   viewer: 'https://example.com/viewer',
   reportName: '',
 };
+
+describe('DriveOperationRepository', () => {
+  beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+
+  it('creates, updates and deletes operations in Drive', async () => {
+    const created = await driveOperationRepo.save({ name: 'Rodilla', date: '2024-05-01', surgeon: 'Dra. Pérez', institution: 'Hospital', type: 'Cirugía', notes: 'Seguimiento' });
+    expect((await driveOperationRepo.list()).find((op) => op.id === created.id)).toMatchObject({ name: 'Rodilla', surgeon: 'Dra. Pérez' });
+    const updated = await driveOperationRepo.save({ ...created, name: 'Rodilla izquierda' });
+    expect((await driveOperationRepo.get(updated.id)).name).toBe('Rodilla izquierda');
+    await driveOperationRepo.delete(updated.id);
+    expect((await driveOperationRepo.list()).some((op) => op.id === updated.id)).toBe(false);
+  });
+
+  it('refuses to delete an operation linked to a study', async () => {
+    const op = await driveOperationRepo.save({ name: 'Intervención' });
+    await driveStudyRepo.save({ ...baseDraft, operationId: op.id });
+    await expect(driveOperationRepo.delete(op.id)).rejects.toThrow('Desvinculá');
+    expect((await driveOperationRepo.list()).some((item) => item.id === op.id)).toBe(true);
+  });
+
+  it('rejects an edit when the operation changed in Drive', async () => {
+    const op = await driveOperationRepo.save({ name: 'Intervención' });
+    touchRemote(op.id);
+    await expect(driveOperationRepo.save({ ...op, name: 'Cambio antiguo' })).rejects.toBeInstanceOf(DriveConflictError);
+    expect((await driveOperationRepo.get(op.id)).name).toBe('Intervención');
+  });
+});
+
+describe('DrivePortalRepository', () => {
+  beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+  it('persists portal changes and removes a portal in Drive', async () => {
+    const portal = await drivePortalRepo.save({ name: 'hospital', displayName: 'Hospital', url: 'https://example.com', notes: 'Resultados' });
+    expect((await drivePortalRepo.list()).find((p) => p.id === portal.id)).toMatchObject({ displayName: 'Hospital', notes: 'Resultados' });
+    const updated = await drivePortalRepo.save({ ...portal, url: 'https://example.org' });
+    expect((await drivePortalRepo.list()).find((p) => p.id === updated.id)?.url).toBe('https://example.org/');
+    await drivePortalRepo.delete(updated);
+    expect((await drivePortalRepo.list()).some((p) => p.id === updated.id)).toBe(false);
+  });
+  it('rejects unsafe links and edits based on stale data', async () => {
+    await expect(drivePortalRepo.save({ name: 'x', displayName: 'X', url: 'javascript:alert(1)' })).rejects.toThrow();
+    const portal = await drivePortalRepo.save({ name: 'x', displayName: 'X', url: 'https://example.com' });
+    touchRemote(portal.id!);
+    await expect(drivePortalRepo.save({ ...portal, displayName: 'Viejo' })).rejects.toBeInstanceOf(DriveConflictError);
+    await expect(drivePortalRepo.delete(portal)).rejects.toBeInstanceOf(DriveConflictError);
+  });
+});
 
 describe('DriveAuthRepository', () => {
   beforeEach(async () => {
@@ -125,6 +171,13 @@ describe('DriveStudyRepository', () => {
   });
 
   describe('save', () => {
+    it('persists an operation association in Drive and the local cache', async () => {
+      const saved = await driveStudyRepo.save({ ...baseDraft, operationId: 'operation-1' });
+      expect(saved.operationId).toBe('operation-1');
+      expect(JSON.parse(fakeDriveFile(saved.id)!.description).operationId).toBe('operation-1');
+      expect((await driveStudyRepo.get(saved.id)).operationId).toBe('operation-1');
+      expect((await driveStudyRepo.list({ force: true })).find((study) => study.id === saved.id)?.operationId).toBe('operation-1');
+    });
     it('creates a ficha-only study and shows it in the next list()', async () => {
       await driveStudyRepo.list();
 

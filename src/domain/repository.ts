@@ -54,4 +54,5 @@ export interface DriveFileMetadata {
   portal: string;
   viewer: string;
   reportName: string;
+  operationId?: string;
 }

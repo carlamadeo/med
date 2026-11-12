@@ -518,3 +518,85 @@ describe('deleting', () => {
     expect(fakeDriveFile('study-1')?.trashed).toBe(false);
   });
 });
+
+describe('keyboard shortcuts', () => {
+  it('focuses search with / and leaves typing in fields alone', () => {
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true })); });
+    expect(document.activeElement).toBe($('#search'));
+    const input = $<HTMLInputElement>('#search');
+    input.focus();
+    const event = new KeyboardEvent('keydown', { key: 'n', bubbles: true, cancelable: true });
+    act(() => { input.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+    expect($<HTMLDialogElement>('#editor').open).toBe(false);
+  });
+
+  it('opens the new-study editor with n', () => {
+    (document.activeElement as HTMLElement)?.blur();
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true })); });
+    expect($<HTMLDialogElement>('#editor').open).toBe(true);
+  });
+
+  it('clears active filters with Escape outside dialogs', () => {
+    typeInto('#search', 'Ecografía');
+    (document.activeElement as HTMLElement)?.blur();
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+    expect($<HTMLInputElement>('#search').value).toBe('');
+  });
+});
+
+describe('operations', () => {
+  it('creates an operation and associates a study from the editor', async () => {
+    act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
+    typeInto('#operation-name', 'Cirugía de rodilla');
+    await act(async () => { $<HTMLFormElement>('#operation-form').requestSubmit(); });
+    await vi.waitFor(() => expect(document.querySelector('#operations-list')?.textContent).toContain('Cirugía de rodilla'));
+    act(() => { $<HTMLButtonElement>('#tab-cronologia').click(); });
+    await vi.waitFor(() => expect(rowIds()).toContain('study-1'));
+    edit('study-1');
+    const select = $<HTMLSelectElement>('#operation-id');
+    const option = [...select.options].find((item) => item.textContent === 'Cirugía de rodilla')!;
+    select.value = option.value;
+    act(() => { select.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => { submitEditor(); });
+    await vi.waitFor(() => expect(JSON.parse(fakeDriveFile('study-1')!.description).operationId).toBe(option.value));
+  });
+});
+
+describe('portals', () => {
+  it('adds a portal and offers its linked studies', async () => {
+    act(() => { $<HTMLButtonElement>('#tab-portales').click(); });
+    typeInto('#portal-name', 'Hospital Central');
+    typeInto('#portal-url', 'https://hospital.example/');
+    await act(async () => { $<HTMLFormElement>('#portal-form').requestSubmit(); });
+    await vi.waitFor(() => expect(document.querySelector('#portals-list')?.textContent).toContain('Hospital Central'));
+    const link = document.querySelector<HTMLAnchorElement>('#portals-list a')!;
+    expect(link.href).toBe('https://hospital.example/');
+    act(() => { document.querySelector<HTMLButtonElement>('#portals-list button')!.click(); });
+    await vi.waitFor(() => expect(rowIds()).toEqual(['study-1']));
+  });
+});
+
+describe('category view', () => {
+  it('filters studies by selecting a category', async () => {
+    addRemoteStudy('study-3', 'Otro informe');
+    await reloadLibrary();
+    act(() => { $<HTMLButtonElement>('#tab-categoria').click(); });
+    const button = [...document.querySelectorAll<HTMLButtonElement>('#categories button')].find((item) => item.textContent === 'Ecografía')!;
+    act(() => { button.click(); });
+    await vi.waitFor(() => expect(rowIds()).toEqual(['study-1']));
+    const other = [...document.querySelectorAll<HTMLButtonElement>('#categories button')].find((item) => item.textContent === 'Otro')!;
+    act(() => { other.click(); });
+    await vi.waitFor(() => expect(rowIds()).toEqual(['study-3', 'study-1']));
+  });
+});
+
+describe('sorting', () => {
+  it('orders the library by oldest date when selected', async () => {
+    act(() => { $<HTMLButtonElement>('#tab-cronologia').click(); });
+    const select = $<HTMLSelectElement>('#sort');
+    select.value = 'date-asc';
+    act(() => { select.dispatchEvent(new Event('change', { bubbles: true })); });
+    await vi.waitFor(() => expect(rowIds()).toEqual(['study-1', 'study-2']));
+  });
+});

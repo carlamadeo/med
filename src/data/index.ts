@@ -6,6 +6,8 @@ export {
   DriveStudyRepository,
   driveAuth,
   driveStudyRepo,
+  driveOperationRepo,
+  drivePortalRepo,
 } from './drive-repository';
 export { IndexedDBOperationRepository, operationRepo, IndexedDBPortalRepository, portalRepo } from './repositories';
 export type { DriveFileMetadata } from '@domain/repository';

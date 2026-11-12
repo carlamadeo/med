@@ -21,6 +21,7 @@ interface StudyRecord {
   driveFileId: string;
   driveModifiedTime: string;
   revision: string;
+  operationId?: string;
   createdAt: number;
   updatedAt: number;
 }

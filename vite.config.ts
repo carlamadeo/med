@@ -61,5 +61,6 @@ export default defineConfig({
   // http://localhost:4173 is the origin the README tells users to authorize in Google Cloud.
   server: { port: 4173, strictPort: true },
   preview: { port: 4173, strictPort: true },
+  worker: { format: 'es' },
   publicDir: 'public',
 });

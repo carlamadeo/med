@@ -1,7 +1,7 @@
 import { CONFIG, type Config } from '@core/config';
 import { isValidDate, viewerURL } from '@domain/utils';
 import { storage, type StudyRecord } from '@core/storage';
-import type { Study, StudyDraft, DriveFileMetadata, StudyRepository, AuthRepository } from '@domain/repository';
+import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFileMetadata, StudyRepository, AuthRepository } from '@domain/repository';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_ROOT = 'https://www.googleapis.com/drive/v3/';
@@ -9,6 +9,8 @@ const UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3/';
 const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';
 const TAG = 'misEstudios';
 const MARKER = 'estudio-v1';
+const OPERATION_MARKER = 'operacion-v1';
+const PORTAL_MARKER = 'portal-v1';
 const FOLDER_MARKER = 'carpeta-v1';
 const PDF_MIME = 'application/pdf';
 const JSON_MIME = 'application/json';
@@ -273,6 +275,7 @@ export class DriveClient {
         driveFileId: file.id,
         driveModifiedTime: file.modifiedTime ?? '',
         revision: file.version,
+        operationId: typeof entry.operationId === 'string' ? entry.operationId : '',
       };
     } catch {
       throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
@@ -403,6 +406,7 @@ export class DriveStudyRepository implements StudyRepository {
       driveFileId: study.driveFileId,
       driveModifiedTime: study.driveModifiedTime,
       revision: study.revision,
+      operationId: study.operationId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -422,6 +426,7 @@ export class DriveStudyRepository implements StudyRepository {
       driveFileId: record.driveFileId,
       driveModifiedTime: record.driveModifiedTime,
       revision: record.revision,
+      operationId: record.operationId,
     };
   }
 
@@ -492,6 +497,7 @@ export class DriveStudyRepository implements StudyRepository {
       portal: draft.portal,
       viewer: draft.viewer,
       reportName,
+      operationId: draft.operationId ?? existing?.operationId ?? '',
     };
     const description = JSON.stringify(payload);
     const fileName = `${draft.date} ${draft.title}`.replace(/[\\/]/g, '-') + (hasPdf ? '.pdf' : '.json');
@@ -553,7 +559,110 @@ export class DriveStudyRepository implements StudyRepository {
   }
 }
 
+export class DriveOperationRepository {
+  constructor(private client: DriveClient) {}
+
+  private parse(file: DriveFileResponse): Operation {
+    if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== OPERATION_MARKER) throw new Error('Operación no disponible.');
+    try {
+      const value = JSON.parse(file.description) as OperationDraft;
+      if (typeof value.name !== 'string' || !value.name.trim()) throw new Error();
+      return { id: file.id, name: value.name, date: value.date ?? '', surgeon: value.surgeon ?? '', institution: value.institution ?? '', type: value.type ?? '', notes: value.notes ?? '', color: value.color ?? '', studyIds: [], revision: file.version };
+    } catch { throw new Error('Drive tiene una operación cuya ficha no se puede leer.'); }
+  }
+
+  async list(): Promise<Operation[]> {
+    const result: Operation[] = [];
+    let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url(DRIVE_ROOT, 'files', {
+        q: this.client.query(OPERATION_MARKER), spaces: 'drive', pageSize: '100', fields: `nextPageToken,files(${ENTRY_FIELDS})`, ...(pageToken ? { pageToken } : {}),
+      })).then((r) => r.json() as Promise<DriveFileResponse>);
+      result.push(...(response.files ?? []).map((file) => this.parse(file)));
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    return result;
+  }
+
+  async get(id: string): Promise<Operation> {
+    const file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>);
+    return this.parse(file);
+  }
+
+  async save(draft: OperationDraft): Promise<Operation> {
+    const name = draft.name.trim();
+    if (!name) throw new Error('Ingresá un nombre para la operación.');
+    if (draft.date && !isValidDate(draft.date)) throw new Error('Ingresá una fecha válida.');
+    const payload = { name, date: draft.date ?? '', surgeon: draft.surgeon ?? '', institution: draft.institution ?? '', type: draft.type ?? '', notes: draft.notes ?? '', color: draft.color ?? '' };
+    const description = JSON.stringify(payload);
+    let response: DriveFileResponse;
+    if (draft.id) {
+      const existing = await this.get(draft.id);
+      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError();
+      response = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { name, description })).then((r) => r.json() as Promise<DriveFileResponse>);
+    } else {
+      const id = await this.client.reserveId();
+      response = await this.client.upload('files', 'POST', { id, name, description, mimeType: JSON_MIME, parents: [await this.client.getFolderId()], appProperties: { [TAG]: OPERATION_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+    }
+    return this.parse(response);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.get(id);
+    const studies = await new DriveStudyRepository(this.client).list({ force: true });
+    if (studies.some((study) => study.operationId === id)) throw new Error('Desvinculá los estudios antes de eliminar esta operación.');
+    await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true }));
+  }
+}
+
+export class DrivePortalRepository {
+  constructor(private client: DriveClient) {}
+  private parse(file: DriveFileResponse): Portal {
+    if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== PORTAL_MARKER) throw new Error('Portal no disponible.');
+    try {
+      const item = JSON.parse(file.description) as PortalDraft;
+      if (typeof item.displayName !== 'string' || !item.displayName.trim() || typeof item.name !== 'string') throw new Error();
+      return { id: file.id, name: item.name, displayName: item.displayName, url: viewerURL(item.url ?? ''), notes: item.notes ?? '', revision: file.version };
+    } catch { throw new Error('Drive tiene un portal cuya ficha no se puede leer.'); }
+  }
+  async list(): Promise<Portal[]> {
+    const items: Portal[] = []; let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url(DRIVE_ROOT, 'files', { q: this.client.query(PORTAL_MARKER), spaces: 'drive', pageSize: '100', fields: `nextPageToken,files(${ENTRY_FIELDS})`, ...(pageToken ? { pageToken } : {}) })).then((r) => r.json() as Promise<DriveFileResponse>);
+      items.push(...(response.files ?? []).map((file) => this.parse(file))); pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    return items;
+  }
+  private async get(id: string): Promise<Portal> {
+    return this.parse(await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>));
+  }
+  async save(draft: PortalDraft): Promise<Portal> {
+    const displayName = draft.displayName.trim();
+    if (!displayName) throw new Error('Ingresá un nombre para el portal.');
+    const payload = { name: draft.name.trim() || displayName, displayName, url: viewerURL(draft.url.trim()), notes: draft.notes?.trim() ?? '' };
+    const description = JSON.stringify(payload);
+    let file: DriveFileResponse;
+    if (draft.id) {
+      const existing = await this.get(draft.id);
+      if (!draft.revision || existing.revision !== draft.revision) throw new DriveConflictError();
+      file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { name: displayName, description })).then((r) => r.json() as Promise<DriveFileResponse>);
+    } else {
+      const id = await this.client.reserveId();
+      file = await this.client.upload('files', 'POST', { id, name: displayName, description, mimeType: JSON_MIME, parents: [await this.client.getFolderId()], appProperties: { [TAG]: PORTAL_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+    }
+    return this.parse(file);
+  }
+  async delete(portal: Portal): Promise<void> {
+    if (!portal.id) throw new Error('Portal no disponible.');
+    const existing = await this.get(portal.id);
+    if (!portal.revision || existing.revision !== portal.revision) throw new DriveConflictError();
+    await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(portal.id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true }));
+  }
+}
+
 // One client for both repositories: the token obtained by signIn() must be the one used for requests.
 const driveClient = new DriveClient();
 export const driveAuth = new DriveAuthRepository(driveClient);
 export const driveStudyRepo = new DriveStudyRepository(driveClient);
+export const driveOperationRepo = new DriveOperationRepository(driveClient);
+export const drivePortalRepo = new DrivePortalRepository(driveClient);

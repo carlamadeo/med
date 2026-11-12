@@ -63,7 +63,7 @@ export class IndexedDBOperationRepository implements OperationRepository {
       id: crypto.randomUUID(),
       name: draft.name.trim(),
       studyIds: [],
-      color: draft.color,
+      color: draft.color ?? '',
     };
     await storage.setOperations([operationToRecord(operation)]);
     return operation;
