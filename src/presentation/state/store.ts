@@ -67,8 +67,8 @@ export const filteredStudies: Signal<Study[]> = computed(() => {
     if (operationId && s.operationId !== operationId) return false;
     if (portal && normalize(s.portal) !== normalize(portal)) return false;
     if (onlyPdf && !s.hasPdf) return false;
-    if (onlyViewer && !s.viewer) return false;
-    return true;
+    return !(onlyViewer && !s.viewer);
+
   }).sort((a, b) => {
     if (sortOrder.value === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
     if (sortOrder.value === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
