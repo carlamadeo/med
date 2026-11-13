@@ -10,11 +10,20 @@ import { driveAuth } from '@data';
 import type { ExtractedFields } from '@domain/extract';
 import { resetFakeDrive } from './fake-drive';
 import { $, TYPES, choose as chooseFile, closeDialogs, mountPage, reloadLibrary, typeInto } from './page';
+import { editingStudy } from '@presentation/state/store';
 
-vi.mock('@data/pdf-analysis', async (importOriginal) => ({
-  ...(await importOriginal<typeof PdfAnalysis>()),
-  analyzePdf: vi.fn(), // validatePdf stays real
-}));
+vi.mock('@data/pdf-analysis', async (importOriginal) => {
+  const actual = await importOriginal<typeof PdfAnalysis>();
+  return {
+    ...actual,
+    analyzePdf: vi.fn(),
+    validatePdf: vi.fn(async (file: File) => {
+      if (file.size > 20 * 1024 * 1024) throw new Error('El archivo supera el límite de 20 MB.');
+      const text = await file.text();
+      if (!text.startsWith('%PDF-')) throw new Error('Elegí un archivo PDF válido.');
+    }),
+  };
+});
 
 const analyze = vi.mocked(analyzePdf);
 const FOUND: ExtractedFields = { date: '2024-03-18', types: ['Ecografía', 'Mamografía'], doctor: 'Dra. Ana Pérez' };
@@ -378,6 +387,8 @@ describe('when reading goes wrong', () => {
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
     for (const name of ['date', 'types', 'doctor', 'title']) await accept(name);
     editor().close();
+    // Wait for editor to fully close and editingStudy to clear
+    await vi.waitFor(() => expect(editingStudy.value).toBeNull());
 
     openNew();
 

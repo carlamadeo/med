@@ -456,7 +456,7 @@ export function LibraryPage() {
         />}
       </main>
       <EditorDialog
-        onClose={() => setEditorOpen(false)}
+        onClose={() => { setEditingStudy(null); setEditorOpen(false); }}
         error={editorError}
         busy={saving}
         availableTypes={availableTypes}
