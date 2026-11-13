@@ -45,7 +45,7 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
 
   useFocusTrap(dialogRef, Boolean(id));
 
-  useEffect(() => driveAuth.onAuthChange((signedIn) => {
+  useEffect(() => driveAuth.onAuthChange((signedIn: boolean) => {
     if (!signedIn) {
       generation.current += 1;
       setPrepared(null);

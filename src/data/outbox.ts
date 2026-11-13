@@ -1,6 +1,6 @@
 import { openDB, type DBSchema } from 'idb';
 import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft, EpisodeDraft, AppointmentDraft } from '@domain/models';
-import { DriveConflictError } from './drive-repository';
+import { DriveConflictError } from './drive-api';
 
 export interface OutboxAdapter {
   accountId(): Promise<string>;

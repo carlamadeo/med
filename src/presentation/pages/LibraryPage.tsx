@@ -100,7 +100,7 @@ export function LibraryPage() {
   // Auth listener
   useEffect(() => {
     let authSequence = 0;
-    const unsub = driveAuth.onAuthChange((signedIn) => {
+    const unsub = driveAuth.onAuthChange((signedIn: boolean) => {
       const sequence = ++authSequence;
       if (!signedIn) {
         setIsSignedIn(false);

@@ -32,7 +32,7 @@ export function RecoveryDialog({ onReconnect, error, sessionLost }: RecoveryDial
 
   useFocusTrap(dialogRef, !!recoveringId);
 
-  useEffect(() => driveAuth.onAuthChange((signedIn) => {
+  useEffect(() => driveAuth.onAuthChange((signedIn: boolean) => {
     if (!signedIn) {
       requestGeneration.current += 1;
       setDeletedStudies([]);
