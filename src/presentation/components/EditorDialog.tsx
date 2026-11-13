@@ -242,7 +242,7 @@ export function EditorDialog({
             <input
               name="portal"
               value={portal}
-              onChange={(e: Event) => setPortal((e.currentTarget as HTMLInputElement).value)}
+              onInput={(e: Event) => setPortal((e.currentTarget as HTMLInputElement).value)}
               maxLength={120}
               placeholder="Escribí o elegí una institución"
               autocomplete="off"
@@ -291,7 +291,7 @@ export function EditorDialog({
             type="url"
             inputmode="url"
             value={viewer}
-            onChange={(e: Event) => setViewer((e.currentTarget as HTMLInputElement).value)}
+            onInput={(e: Event) => setViewer((e.currentTarget as HTMLInputElement).value)}
             maxLength={5000}
             placeholder="https://…"
           />

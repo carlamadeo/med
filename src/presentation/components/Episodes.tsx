@@ -1,3 +1,4 @@
+import { enqueueOffline } from '../utils/enqueueOffline';
 import { useState } from 'preact/hooks';
 import { driveAuth, driveEpisodeRepo } from '@data';
 import { Outbox } from '@data/outbox';
@@ -190,10 +191,12 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
     if (draft.id && (await outbox.list(owner)).some((entry) => entry.episodeId === draft.id)) { setMessage('Este episodio ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (!navigator.onLine) {
       if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-      await outbox.enqueueEpisodeSave(owner, draft);
+      await enqueueOffline(owner, () => outbox.enqueueEpisodeSave(owner, draft), token);
+      if (await driveAuth.getAccessToken() !== token) return;
       window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
       setMessage('Episodio guardado en este dispositivo; queda pendiente de sincronización.');
     } else {
+      if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
       const saved = await driveEpisodeRepo.save(draft);
       if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
       episodes.value = [...episodes.value.filter((episode) => episode.id !== saved.id), saved];
@@ -225,10 +228,12 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
     setBusy(true);
     if (!navigator.onLine) {
       if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-      await outbox.enqueueEpisodeDelete(owner, episode.id, episode.revision);
+      await enqueueOffline(owner, () => outbox.enqueueEpisodeDelete(owner, episode.id, episode.revision), token);
+      if (await driveAuth.getAccessToken() !== token) return;
       window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
       setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
     } else {
+      if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
       await driveEpisodeRepo.delete(episode.id, episode.revision);
       if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
       episodes.value = episodes.value.filter((ep) => ep.id !== episode.id);

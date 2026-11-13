@@ -375,7 +375,7 @@ describe('the editor', () => {
 
   it('asks for a name when the title is only spaces', async () => {
     edit('study-1');
-    field('title').value = '   ';
+    typeInto('#editor-form [name=title]', '   ');
 
     submitEditor();
 
@@ -386,7 +386,7 @@ describe('the editor', () => {
 
   it('rejects a viewer link that is not http(s)', async () => {
     edit('study-1');
-    field('viewer').value = 'ftp://example.com/informe';
+    typeInto('#editor-form [name=viewer]', 'ftp://example.com/informe');
 
     submitEditor();
 
@@ -409,7 +409,7 @@ describe('the editor', () => {
 describe('saving', () => {
   it('saves an edit, closes the editor and shows the new title', async () => {
     edit('study-1');
-    field('title').value = 'Ecografía revisada';
+    typeInto('#editor-form [name=title]', 'Ecografía revisada');
 
     submitEditor();
 
@@ -422,18 +422,18 @@ describe('saving', () => {
   it('adds a new study, clears active filters so it is visible, and keeps its institution for later', async () => {
     typeInto('#search', 'ecografía');
     act(() => { $<HTMLButtonElement>('[data-add]').click(); });
-    field('title').value = 'Radiografía de tórax';
-    field('date').value = '2024-04-04';
+    typeInto('#editor-form [name=title]', 'Radiografía de tórax');
+    typeInto('#editor-form [name=date]', '2024-04-04');
     const other = document.querySelector<HTMLInputElement>('#study-types input[value="Otro"]')!;
     other.checked = true;
     other.dispatchEvent(new Event('input', { bubbles: true }));
-    field('portal').value = 'Clínica Nueva';
+    typeInto('#editor-form [name=portal]', 'Clínica Nueva');
 
     submitEditor();
 
     await vi.waitFor(() => expect(text('#count')).toBe('3'));
     expect($<HTMLInputElement>('#search').value).toBe('');
-    expect(rowIds()).toHaveLength(3);
+    await vi.waitFor(() => expect(rowIds()).toHaveLength(3));
     expect(rowIds()[0]).not.toBe('study-2'); // the new one (2024-04-04) is the newest
     expect([...document.querySelectorAll('#portal-options button')].map((b) => b.textContent)).toContain('Clínica Nueva');
     expect($<HTMLDialogElement>('#editor').open).toBe(false);

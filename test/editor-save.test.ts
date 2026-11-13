@@ -11,10 +11,15 @@ it('submits a new study with its selected type', async () => {
   await act(() => { render(h(EditorDialog, { onClose: () => {}, onSave: save, verifyOwner: async () => true, error: null, busy: false, availableTypes: ['Otro'] }), root); });
   await act(() => setEditingStudy(null));
   const form = root.querySelector<HTMLFormElement>('form')!;
-  (form.elements.namedItem('title') as HTMLInputElement).value = 'Estudio';
-  (form.elements.namedItem('date') as HTMLInputElement).value = '2024-01-01';
+  const title = form.elements.namedItem('title') as HTMLInputElement;
+  title.value = 'Estudio';
+  title.dispatchEvent(new Event('input', { bubbles: true }));
+  const date = form.elements.namedItem('date') as HTMLInputElement;
+  date.value = '2024-01-01';
+  date.dispatchEvent(new Event('input', { bubbles: true }));
   const type = form.querySelector<HTMLInputElement>('[name="types"]')!;
   type.checked = true;
+  type.dispatchEvent(new Event('input', { bubbles: true }));
   await act(() => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ title: 'Estudio', date: '2024-01-01', types: ['Otro'] }));
   render(null, root);

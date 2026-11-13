@@ -1,3 +1,4 @@
+import { enqueueOffline } from '../utils/enqueueOffline';
 import { useState } from 'preact/hooks';
 import { driveAuth, driveMedicalEventRepo } from '@data';
 import { Outbox } from '@data/outbox';
@@ -25,23 +26,30 @@ export function MedicalEvents() {
     };
     if (!isValidDate(draft.date)) { setMessage('Ingresá una fecha válida para el evento.'); return; }
     setBusy(true); setMessage('');
+    try {
     const token = await driveAuth.getAccessToken();
     const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     if (draft.id && (await outbox.list(owner)).some((entry) => entry.eventId === draft.id)) { setMessage('Este evento ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (!navigator.onLine) {
       if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-      await outbox.enqueueEventSave(owner, draft);
+      await enqueueOffline(owner, () => outbox.enqueueEventSave(owner, draft), token);
+      if (await driveAuth.getAccessToken() !== token) return;
       window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
       setMessage('Evento guardado en este dispositivo; queda pendiente de sincronización.');
     } else {
+      if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
       const saved = await driveMedicalEventRepo.save(draft);
       if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
       medicalEvents.value = [...medicalEvents.value.filter((event) => event.id !== saved.id), saved];
     }
     if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
     setEditing(null); form.reset();
-    setBusy(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo guardar el evento.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function deleteEvent(event: MedicalEvent) {
@@ -54,10 +62,12 @@ export function MedicalEvents() {
       setBusy(true);
       if (!navigator.onLine) {
         if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-        await outbox.enqueueEventDelete(owner, event.id, event.revision);
+        await enqueueOffline(owner, () => outbox.enqueueEventDelete(owner, event.id, event.revision), token);
+        if (await driveAuth.getAccessToken() !== token) return;
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
       } else {
+        if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
         await driveMedicalEventRepo.delete(event.id, event.revision);
         if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
         medicalEvents.value = medicalEvents.value.filter((ev) => ev.id !== event.id);

@@ -27,9 +27,9 @@ it('keeps the local conflict when Drive changes after review', async () => {
   await vi.waitFor(async () => expect((await queue.list('account-one'))[0]?.status).toBe('conflict'));
   await vi.waitFor(() => expect(document.querySelector('#pending-changes')?.textContent).toContain('Cambio remoto'));
   expect(document.querySelector('#pending-changes')?.textContent).toContain('Mi cambio local');
-  touchRemote('study-1');
   const button = [...document.querySelectorAll<HTMLButtonElement>('#pending-changes button')].find((item) => item.textContent === 'Conservar mi cambio')!;
   await vi.waitFor(() => expect(button.disabled).toBe(false));
+  touchRemote('study-1');
   await act(async () => { button.click(); });
   await vi.waitFor(() => expect(document.querySelector('#pending-changes')?.textContent).toContain('Revisala nuevamente'));
   expect((await queue.list('account-one'))[0]?.status).toBe('conflict');

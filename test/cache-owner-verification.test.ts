@@ -1,5 +1,19 @@
 import { expect, it, vi } from 'vitest';
 import { DriveAuthRepository, DriveClient, DriveStudyRepository } from '@data';
+import { storage } from '@core/storage';
+
+it('preserves concurrent updates to a session directory', async () => {
+  const owner = 'concurrent-owner';
+  await storage.bindStudySession(owner);
+  await storage.writeSessionDirectory(owner, 'operationsCache', []);
+  await Promise.all([
+    storage.updateSessionDirectory<{ id: string }>(owner, 'operationsCache', (items) => [...(items ?? []), { id: 'first' }]),
+    storage.updateSessionDirectory<{ id: string }>(owner, 'operationsCache', (items) => [...(items ?? []), { id: 'second' }]),
+  ]);
+  expect(await storage.readSessionDirectory(owner, 'operationsCache')).toEqual([{ id: 'first' }, { id: 'second' }]);
+  await storage.updateSessionDirectory<{ id: string }>('other-owner', 'operationsCache', () => []);
+  expect(await storage.readSessionDirectory(owner, 'operationsCache')).toHaveLength(2);
+});
 
 it('refuses cached private studies when the restored session has no verified account', async () => {
   const firstClient = new DriveClient();

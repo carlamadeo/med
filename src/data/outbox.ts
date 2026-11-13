@@ -68,7 +68,8 @@ export class Outbox {
     const db = await dbPromise;
     const tx = db.transaction('entries', 'readwrite');
     const existing = await tx.store.index('owner').getAll(entry.owner);
-    if (entry.draft?.documentIds?.some((id) => existing.some((item) => item.studyId === id && (item.kind === 'delete' || (item.kind === 'save' && (item.attachment || item.draft?.removeReport)))))) {
+    const documentIds = entry.draft?.documentIds ?? entry.eventDraft?.documentIds ?? [];
+    if (documentIds.some((id) => existing.some((item) => item.studyId === id && (item.kind === 'delete' || (item.kind === 'save' && (item.attachment || item.draft?.removeReport)))))) {
       await tx.done;
       throw new Error('Un documento vinculado tiene un cambio pendiente.');
     }
@@ -234,53 +235,166 @@ export class Outbox {
         if (entry.id === undefined || entry.status !== 'pending') break;
         try {
           if (await remote.accountId() !== owner) return;
-          if (entry.kind === 'save' && entry.draft) {
-            if (!entry.draft.driveFileId && !entry.draft.id) {
-              entry.draft.id = await remote.reserveId();
-              await db.put('entries', entry);
+          let valid = true;
+          switch (entry.kind) {
+            case 'save': {
+              if (!entry.draft) {
+                valid = false;
+                break;
+              }
+              if (!entry.draft.driveFileId && !entry.draft.id) {
+                entry.draft.id = await remote.reserveId();
+                await db.put('entries', entry);
+              }
+              const file = entry.attachment ? new File([entry.attachment], entry.attachmentName ?? 'Informe.pdf', { type: entry.attachmentType || entry.attachment.type || 'application/pdf' }) : undefined;
+              await remote.save({ ...entry.draft, file });
+              break;
             }
-            const file = entry.attachment ? new File([entry.attachment], entry.attachmentName ?? 'Informe.pdf', { type: entry.attachmentType || entry.attachment.type || 'application/pdf' }) : undefined;
-            await remote.save({ ...entry.draft, file });
-          } else if (entry.kind === 'delete' && entry.studyId && entry.revision) {
-            await remote.delete(entry.studyId, entry.revision);
-          } else if (entry.kind === 'restore' && entry.studyId && entry.revision) {
-            await remote.restore(entry.studyId, entry.revision);
-          } else if (entry.kind === 'operation-save' && entry.operationDraft) {
-            if (!entry.operationDraft.id && !entry.operationDraft.createId) { entry.operationDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
-            await remote.saveOperation(entry.operationDraft);
-          } else if (entry.kind === 'operation-delete' && entry.operationId && entry.revision) {
-            await remote.deleteOperation(entry.operationId, entry.revision);
-          } else if (entry.kind === 'portal-save' && entry.portalDraft) {
-            if (!entry.portalDraft.id && !entry.portalDraft.createId) { entry.portalDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
-            await remote.savePortal(entry.portalDraft);
-          } else if (entry.kind === 'portal-delete' && entry.portal) {
-            await remote.deletePortal(entry.portal);
-          } else if (entry.kind === 'event-save' && entry.eventDraft) {
-            if (!entry.eventDraft.id && !entry.eventDraft.createId) { entry.eventDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
-            await remote.saveEvent(entry.eventDraft);
-          } else if (entry.kind === 'episode-save' && entry.episodeDraft) {
-            if (!entry.episodeDraft.id && !entry.episodeDraft.createId) { entry.episodeDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
-            await remote.saveEpisode(entry.episodeDraft);
-          } else if (entry.kind === 'appointment-save' && entry.appointmentDraft) {
-            if (!entry.appointmentDraft.id && !entry.appointmentDraft.createId) { entry.appointmentDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
-            await remote.saveAppointment(entry.appointmentDraft);
-          } else if (entry.kind === 'episode-delete' && entry.episodeId && entry.revision) {
-            await remote.deleteEpisode(entry.episodeId, entry.revision);
-          } else if (entry.kind === 'event-delete' && entry.eventId && entry.revision) {
-            await remote.deleteEvent(entry.eventId, entry.revision);
-          } else if (entry.kind === 'appointment-delete' && entry.appointmentId && entry.revision) {
-            await remote.deleteAppointment(entry.appointmentId, entry.revision);
-          } else if (entry.kind === 'episode-restore' && entry.episodeId && entry.revision) {
-            await remote.restoreEpisode(entry.episodeId, entry.revision);
-          } else if (entry.kind === 'appointment-restore' && entry.appointmentId && entry.revision) {
-            await remote.restoreAppointment(entry.appointmentId, entry.revision);
-          } else if (entry.kind === 'event-restore' && entry.eventId && entry.revision) {
-            await remote.restoreEvent(entry.eventId, entry.revision);
-          } else if (entry.kind === 'operation-restore' && entry.operationId && entry.revision) {
-            await remote.restoreOperation(entry.operationId, entry.revision);
-          } else if (entry.kind === 'portal-restore' && entry.portalId && entry.revision) {
-            await remote.restorePortal(entry.portalId, entry.revision);
-          } else {
+            case 'delete': {
+              if (!entry.studyId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.delete(entry.studyId, entry.revision);
+              break;
+            }
+            case 'restore': {
+              if (!entry.studyId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restore(entry.studyId, entry.revision);
+              break;
+            }
+            case 'operation-save': {
+              if (!entry.operationDraft) {
+                valid = false;
+                break;
+              }
+              if (!entry.operationDraft.id && !entry.operationDraft.createId) { entry.operationDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+              await remote.saveOperation(entry.operationDraft);
+              break;
+            }
+            case 'operation-delete': {
+              if (!entry.operationId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.deleteOperation(entry.operationId, entry.revision);
+              break;
+            }
+            case 'portal-save': {
+              if (!entry.portalDraft) {
+                valid = false;
+                break;
+              }
+              if (!entry.portalDraft.id && !entry.portalDraft.createId) { entry.portalDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+              await remote.savePortal(entry.portalDraft);
+              break;
+            }
+            case 'portal-delete': {
+              if (!entry.portal) {
+                valid = false;
+                break;
+              }
+              await remote.deletePortal(entry.portal);
+              break;
+            }
+            case 'event-save': {
+              if (!entry.eventDraft) {
+                valid = false;
+                break;
+              }
+              if (!entry.eventDraft.id && !entry.eventDraft.createId) { entry.eventDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+              await remote.saveEvent(entry.eventDraft);
+              break;
+            }
+            case 'episode-save': {
+              if (!entry.episodeDraft) {
+                valid = false;
+                break;
+              }
+              if (!entry.episodeDraft.id && !entry.episodeDraft.createId) { entry.episodeDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+              await remote.saveEpisode(entry.episodeDraft);
+              break;
+            }
+            case 'appointment-save': {
+              if (!entry.appointmentDraft) {
+                valid = false;
+                break;
+              }
+              if (!entry.appointmentDraft.id && !entry.appointmentDraft.createId) { entry.appointmentDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+              await remote.saveAppointment(entry.appointmentDraft);
+              break;
+            }
+            case 'episode-delete': {
+              if (!entry.episodeId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.deleteEpisode(entry.episodeId, entry.revision);
+              break;
+            }
+            case 'event-delete': {
+              if (!entry.eventId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.deleteEvent(entry.eventId, entry.revision);
+              break;
+            }
+            case 'appointment-delete': {
+              if (!entry.appointmentId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.deleteAppointment(entry.appointmentId, entry.revision);
+              break;
+            }
+            case 'episode-restore': {
+              if (!entry.episodeId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restoreEpisode(entry.episodeId, entry.revision);
+              break;
+            }
+            case 'appointment-restore': {
+              if (!entry.appointmentId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restoreAppointment(entry.appointmentId, entry.revision);
+              break;
+            }
+            case 'event-restore': {
+              if (!entry.eventId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restoreEvent(entry.eventId, entry.revision);
+              break;
+            }
+            case 'operation-restore': {
+              if (!entry.operationId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restoreOperation(entry.operationId, entry.revision);
+              break;
+            }
+            case 'portal-restore': {
+              if (!entry.portalId || !entry.revision) {
+                valid = false;
+                break;
+              }
+              await remote.restorePortal(entry.portalId, entry.revision);
+              break;
+            }
+            default:
+              valid = false;
+          }
+          if (!valid) {
             entry.lastError = 'Cambio pendiente inválido.';
             entry.status = 'failed';
             await db.put('entries', entry);

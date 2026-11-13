@@ -1,4 +1,5 @@
 import { CONFIG, type Config } from '@core/config';
+import { storage } from '@core/storage';
 import { isValidDate, viewerURL } from '@domain/utils';
 import { documentAssociationIds } from '@domain/document-compatibility';
 import type { DriveFileMetadata, Study } from '@domain/repository';
@@ -90,6 +91,7 @@ export class DriveClient {
   private verifiedAccountId: string | null = null;
   private expires = 0;
   private folderId = '';
+  private folderRequest: { token: string; promise: Promise<string> } | null = null;
   private connection: Promise<void> | null = null;
   private listeners = new Set<(signedIn: boolean) => void>();
 
@@ -241,7 +243,6 @@ export class DriveClient {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([this.cachedAccountId(), token])));
     const owner = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     await this.assertSession(token);
-    const { storage } = await import('@core/storage');
     await storage.bindStudySession(owner);
     return owner;
   }
@@ -264,7 +265,7 @@ export class DriveClient {
 
   cachedAccountId(): string | null { return this.connected ? this.verifiedAccountId : null; }
 
-  async request(url: string, options: RequestInit = {}): Promise<Response> {
+  async request(url: string, options: RequestInit = {}, expectedToken?: string): Promise<Response> {
     if (!this.connected) {
       this.disconnect();
       throw new DriveSessionError();
@@ -274,6 +275,7 @@ export class DriveClient {
       throw new Error('Google Drive devolvió una dirección inválida.');
     }
     const token = this.accessToken;
+    if (expectedToken !== undefined && token !== expectedToken) throw new DriveSessionError();
     const headers = new Headers(options.headers);
     headers.set('Authorization', `Bearer ${token}`);
     let response: Response;
@@ -283,6 +285,7 @@ export class DriveClient {
       options.signal?.throwIfAborted();
       throw new Error('No se pudo conectar con Google Drive. Revisá tu conexión.');
     }
+    if (token !== this.accessToken) throw new DriveSessionError();
     if (response.status === 401) {
       if (token === this.accessToken) this.disconnect();
       throw new DriveSessionError();
@@ -299,6 +302,21 @@ export class DriveClient {
 
   query(value: string): string {
     return `trashed = false and appProperties has { key='${TAG}' and value='${value}' }`;
+  }
+
+  async listFiles(marker: string, fields: string, token: string): Promise<DriveFileResponse[]> {
+    const files: DriveFileResponse[] = [];
+    let pageToken = '';
+    do {
+      const response = await this.request(this.url(DRIVE_ROOT, 'files', {
+        q: this.query(marker), spaces: 'drive', pageSize: '100', fields: `nextPageToken,files(${fields})`,
+        ...(pageToken ? { pageToken } : {}),
+      }), {}, token).then((result) => result.json() as Promise<DriveFileResponse>);
+      files.push(...(response.files ?? []));
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    await this.assertSession(token);
+    return files;
   }
 
   jsonBody(method: string, body: unknown): RequestInit {
@@ -339,9 +357,21 @@ export class DriveClient {
     };
   }
 
-  async getFolderId(): Promise<string> {
-    if (this.folderId) return this.folderId;
+  async getFolderId(expectedToken?: string): Promise<string> {
     const token = await this.getAccessToken();
+    if (expectedToken !== undefined && token !== expectedToken) throw new DriveSessionError();
+    if (this.folderId) return this.folderId;
+    if (this.folderRequest?.token === token) return this.folderRequest.promise;
+    const promise = this.findOrCreateFolder(token);
+    this.folderRequest = { token, promise };
+    try {
+      return await promise;
+    } finally {
+      if (this.folderRequest?.promise === promise) this.folderRequest = null;
+    }
+  }
+
+  private async findOrCreateFolder(token: string): Promise<string> {
     const response = await this.request(
       this.url(DRIVE_ROOT, 'files', {
         q: `${this.query(FOLDER_MARKER)} and mimeType = 'application/vnd.google-apps.folder'`,
@@ -373,15 +403,15 @@ export class DriveClient {
     return this.folderId;
   }
 
-  async isAlreadyTrashed(id: string, marker: string): Promise<boolean> {
-    const file = await this.request(this.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }))
+  async isAlreadyTrashed(id: string, marker: string, expectedToken?: string): Promise<boolean> {
+    const file = await this.request(this.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), {}, expectedToken)
       .then((response) => response.json() as Promise<DriveFileResponse>);
     return file.id === id && file.appProperties?.[TAG] === marker && file.trashed;
   }
 
-  async reserveId(): Promise<string> {
+  async reserveId(expectedToken?: string): Promise<string> {
     const response = await this.request(
-      this.url(DRIVE_ROOT, 'files/generateIds', { count: '1' })
+      this.url(DRIVE_ROOT, 'files/generateIds', { count: '1' }), {}, expectedToken
     ).then((r) => r.json() as Promise<{ ids?: string[] }>);
 
     const ids = response.ids ?? [];
@@ -391,20 +421,24 @@ export class DriveClient {
     return firstId;
   }
 
-  async upload(path: string, method: string, metadata: Record<string, unknown>, media: Blob, mediaType: string, signal?: AbortSignal): Promise<DriveFileResponse> {
+  async upload(path: string, method: string, metadata: Record<string, unknown>, media: Blob, mediaType: string, signal?: AbortSignal, expectedToken?: string): Promise<DriveFileResponse> {
     signal?.throwIfAborted();
+    const token = await this.getAccessToken();
+    if (expectedToken !== undefined && token !== expectedToken) throw new DriveSessionError();
     if (media.size > 5 * 1024 * 1024) {
       const options = this.jsonBody(method, metadata);
       options.signal = signal;
       options.headers = { ...options.headers, 'X-Upload-Content-Type': mediaType, 'X-Upload-Content-Length': String(media.size) };
       const started = await this.request(
         this.url(UPLOAD_ROOT, path, { uploadType: 'resumable', fields: ENTRY_FIELDS }),
-        options
+        options,
+        token
       );
       const location = started.headers.get('Location');
       if (!location) throw new Error('Drive no pudo iniciar la carga del PDF.');
       signal?.throwIfAborted();
-      return this.request(location, { method: 'PUT', headers: { 'Content-Type': mediaType }, body: media, signal }).then((r) => r.json() as Promise<DriveFileResponse>);
+      await this.assertSession(token);
+      return this.request(location, { method: 'PUT', headers: { 'Content-Type': mediaType }, body: media, signal }, token).then((r) => r.json() as Promise<DriveFileResponse>);
     }
     const boundary = `mis-estudios-${crypto.randomUUID()}`;
     const body = new Blob([
@@ -416,7 +450,8 @@ export class DriveClient {
     ]);
     return this.request(
       this.url(UPLOAD_ROOT, path, { uploadType: 'multipart', fields: ENTRY_FIELDS }),
-      { method, headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body, signal }
+      { method, headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body, signal },
+      token
     ).then((r) => r.json() as Promise<DriveFileResponse>);
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { enqueueOffline } from '../utils/enqueueOffline';
 import { recoveringStudyId, recoveryError, setRecoveringStudyId, setRecoveryError, setStudies, studies, pendingChanges, episodes, operations, portals, medicalEvents, appointments } from '../state/store';
 import { useFocusTrap } from '../utils/focusTrap';
 import { driveAuth, driveStudyRepo, driveEpisodeRepo, driveOperationRepo, drivePortalRepo, driveMedicalEventRepo, driveAppointmentRepo } from '@data';
@@ -182,10 +183,7 @@ export function RecoveryDialog({ onReconnect, error, sessionLost }: RecoveryDial
       if (!navigator.onLine) {
         const owner = driveAuth.cachedAccountId();
         if (!owner || !navigator.locks) throw new Error('Se necesita una cuenta verificada y un navegador compatible para recuperar sin conexión.');
-        await navigator.locks.request(`mis-estudios-outbox:${owner}`, async () => {
-          if (await driveAuth.getAccessToken() !== token || driveAuth.cachedAccountId() !== owner) throw new Error('La cuenta cambió. Volvé a intentar.');
-          await enqueueMap[item.type](owner);
-        });
+        await enqueueOffline(owner, () => enqueueMap[item.type](owner), token);
         if (await driveAuth.getAccessToken() !== token) return;
         pendingChanges.value = await outbox.list(owner);
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));

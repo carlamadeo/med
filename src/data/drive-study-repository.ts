@@ -1,9 +1,11 @@
+import { isRecoverable } from './recovery-window';
 import { DriveConflictError, type DriveClient, type DriveFileResponse } from './drive-api';
 import { storage, type StudyRecord } from '@core/storage';
 import { documentAssociationIds } from '@domain/document-compatibility';
 import { validateStudyDraft } from '@domain/validation/study';
 import type { Study, StudyDraft, StudyRepository, DriveFileMetadata } from '@domain/repository';
 import { validateDocument } from './pdf-analysis';
+import { listMedicalEvents } from './drive-medical-event-list';
 
 export class DriveStudyRepository implements StudyRepository {
   constructor(private client: DriveClient) {}
@@ -55,32 +57,21 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   async list(options: { force?: boolean } = {}): Promise<Study[]> {
+    const token = await this.client.getAccessToken();
     const owner = await this.cacheOwner();
     if (!options.force || !navigator.onLine) {
       const cached = await storage.readCompleteSessionStudies(owner);
       if (cached && (!navigator.onLine || Date.now() - cached.lastSync <= 24 * 60 * 60 * 1000)) {
+        await this.client.assertSession(token);
         return cached.records.map(this.recordToStudy);
       }
     }
 
-    const records: Study[] = [];
-    let pageToken = '';
-    do {
-      const response = await this.client.request(
-        this.client.url('https://www.googleapis.com/drive/v3/', 'files', {
-          q: this.client.query('estudio-v1'),
-          spaces: 'drive',
-          pageSize: '100',
-          fields: `nextPageToken,files(${ENTRY_FIELDS})`,
-          ...(pageToken ? { pageToken } : {}),
-        })
-      ).then((r) => r.json() as Promise<DriveFileResponse>);
+    const records = (await this.client.listFiles('estudio-v1', ENTRY_FIELDS, token)).map((file) => this.client.parseRecord(file));
 
-      records.push(...(response.files ?? []).map((f) => this.client.parseRecord(f)));
-      pageToken = response.nextPageToken ?? '';
-    } while (pageToken);
-
+    await this.client.assertSession(token);
     await storage.writeSessionStudies(owner, records.map(this.studyToRecord), true);
+    await this.client.assertSession(token);
     return records;
   }
 
@@ -103,8 +94,7 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   private async checkDocumentDependencies(existingId: string): Promise<void> {
-    const { DriveMedicalEventRepository } = await import('./drive-medical-event-repository');
-    const events = await new DriveMedicalEventRepository(this.client).list();
+    const events = await listMedicalEvents(this.client);
     if (events.some((event) => event.documentIds.includes(existingId))) throw new Error('Desvinculá el documento de los eventos antes de reemplazarlo o quitarlo.');
     const linkedStudies = await this.list({ force: true });
     if (linkedStudies.some((study) => study.id !== existingId && study.documentIds?.includes(existingId))) {
@@ -163,7 +153,7 @@ export class DriveStudyRepository implements StudyRepository {
       response = await this.client
         .request(
           this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }),
-          this.client.jsonBody('PATCH', { name: fileName, description })
+          this.client.jsonBody('PATCH', { name: fileName, description }), token
         )
         .then((r) => r.json() as Promise<DriveFileResponse>);
     } else {
@@ -178,12 +168,12 @@ export class DriveStudyRepository implements StudyRepository {
       await this.client.assertSession(token);
       const path = isUpdate ? `files/${encodeURIComponent(id)}` : 'files';
       try {
-        response = await this.client.upload(path, isUpdate ? 'PATCH' : 'POST', metadata, media, mediaType);
+        response = await this.client.upload(path, isUpdate ? 'PATCH' : 'POST', metadata, media, mediaType, undefined, token);
       } catch (error: unknown) {
         // A retried create may have already landed: accept it only if it is identical.
         if (isUpdate || (error as { status?: number }).status !== 409) throw error;
         response = await this.client
-          .request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }))
+          .request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), {}, token)
           .then((r) => r.json() as Promise<DriveFileResponse>);
         if (response.description !== description) {
           throw new Error('La carga anterior ya se guardó. Actualizá la lista para revisarla.');
@@ -203,6 +193,7 @@ export class DriveStudyRepository implements StudyRepository {
       }
     }
 
+    await this.client.assertSession(token);
     const saved = this.client.parseRecord(response);
     await storage.writeSessionStudies(owner, [this.studyToRecord(saved)]);
     return saved;
@@ -216,10 +207,9 @@ export class DriveStudyRepository implements StudyRepository {
       await storage.deleteSessionStudy(owner, id);
       return;
     }
-    const existingFile = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    const existingFile = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
     if (this.client.parseRecord(existingFile).revision !== revision) throw new DriveConflictError();
-    const { DriveMedicalEventRepository } = await import('./drive-medical-event-repository');
-    const events = await new DriveMedicalEventRepository(this.client).list();
+    const events = await listMedicalEvents(this.client);
     if (events.some((event) => event.studyIds.includes(id) || event.documentIds.includes(id))) {
       throw new Error('Desvinculá el estudio y su documento de los eventos antes de eliminarlo.');
     }
@@ -230,7 +220,7 @@ export class DriveStudyRepository implements StudyRepository {
     await this.client.assertSession(token);
     await this.client.request(
       this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: 'id' }),
-      this.client.jsonBody('PATCH', { trashed: true, appProperties: { ...existingFile.appProperties, misEstudios: 'estudio-v1', deletedAt: new Date().toISOString() } })
+      this.client.jsonBody('PATCH', { trashed: true, appProperties: { ...existingFile.appProperties, misEstudios: 'estudio-v1', deletedAt: new Date().toISOString() } }), token
     );
     await storage.deleteSessionStudy(owner, id);
   }
@@ -243,8 +233,7 @@ export class DriveStudyRepository implements StudyRepository {
       const cached = await storage.readSessionDirectory<typeof result[number]>(owner, 'deletedStudiesCache');
       if (!cached) throw new Error('Conectate para consultar los estudios eliminados antes de recuperarlos sin conexión.');
       return cached.map(item => {
-        const age = Date.now() - Date.parse(item.deletedAt);
-        return { ...item, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 };
+        return { ...item, recoverable: isRecoverable(item.deletedAt) };
       });
     }
     let pageToken = '';
@@ -253,13 +242,12 @@ export class DriveStudyRepository implements StudyRepository {
         q: `trashed = true and appProperties has { key='misEstudios' and value='estudio-v1' }`,
         fields: `nextPageToken,files(${ENTRY_FIELDS})`, pageSize: '100',
         ...(pageToken ? { pageToken } : {}),
-      })).then(r => r.json() as Promise<DriveFileResponse>);
+      }), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
       for (const file of response.files ?? []) {
         if (!file.trashed || file.appProperties?.misEstudios !== 'estudio-v1') continue;
         const study = this.client.parseRecord({ ...file, trashed: false });
         const deletedAt = file.appProperties.deletedAt ?? '';
-        const age = Date.now() - Date.parse(deletedAt);
-        result.push({ id: study.id, title: study.title, date: study.date, revision: study.revision, deletedAt, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 });
+        result.push({ id: study.id, title: study.title, date: study.date, revision: study.revision, deletedAt, recoverable: isRecoverable(deletedAt) });
       }
       pageToken = response.nextPageToken ?? '';
     } while (pageToken);
@@ -273,22 +261,20 @@ export class DriveStudyRepository implements StudyRepository {
     if (!ID_PATTERN.test(id) || !revision) throw new Error('La ficha no tiene una revisión válida.');
     const token = await this.client.getAccessToken();
     const owner = await this.cacheOwner();
-    const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
     if (file.appProperties?.misEstudios !== 'estudio-v1') throw new DriveConflictError();
     if (!file.trashed && file.appProperties.restoredRevision === revision) {
       await this.client.assertSession(token);
       return this.client.parseRecord(file);
     }
     if (!file.trashed || file.version !== revision) throw new DriveConflictError();
-    const age = Date.now() - Date.parse(file.appProperties.deletedAt ?? '');
-    if (!Number.isFinite(age) || age < 0 || age >= 30 * 86400000) throw new Error('Este estudio ya no está disponible para recuperación desde la aplicación.');
+    if (!isRecoverable(file.appProperties.deletedAt ?? '')) throw new Error('Este estudio ya no está disponible para recuperación desde la aplicación.');
     await this.client.assertSession(token);
-    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: undefined, restoredRevision: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
+    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: undefined, restoredRevision: revision } }), token).then(r => r.json() as Promise<DriveFileResponse>);
     await this.client.assertSession(token);
     const study = this.client.parseRecord(restored);
     await storage.writeSessionStudies(owner, [this.studyToRecord(study)]);
-    const cached = await storage.readSessionDirectory<{ id: string }>(owner, 'deletedStudiesCache');
-    if (cached) await storage.writeSessionDirectory(owner, 'deletedStudiesCache', cached.filter(item => item.id !== id));
+    await storage.updateSessionDirectory<{ id: string }>(owner, 'deletedStudiesCache', (cached) => cached ? cached.filter(item => item.id !== id) : null);
     return study;
   }
 

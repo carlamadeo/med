@@ -62,30 +62,45 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
   if (!dbPromise) {
     dbPromise = openDB<MisEstudiosDB>('mis-estudios', 2, {
       upgrade(db: IDBPDatabase<MisEstudiosDB>, oldVersion) {
-        const studies = db.createObjectStore('studies', { keyPath: 'id' });
-        studies.createIndex('by-date', 'date');
-        studies.createIndex('by-type', 'types');
+        if (oldVersion < 1) {
+          const studies = db.createObjectStore('studies', { keyPath: 'id' });
+          studies.createIndex('by-date', 'date');
+          studies.createIndex('by-type', 'types');
 
-        const operations = db.createObjectStore('operations', { keyPath: 'id' });
-        operations.createIndex('by-name', 'name');
+          const operations = db.createObjectStore('operations', { keyPath: 'id' });
+          operations.createIndex('by-name', 'name');
 
-        const portals = db.createObjectStore('portals', { keyPath: 'name' });
-        portals.createIndex('by-name', 'displayName');
+          const portals = db.createObjectStore('portals', { keyPath: 'name' });
+          portals.createIndex('by-name', 'displayName');
+
+          db.createObjectStore('pdf-blobs', { keyPath: 'studyId' });
+          db.createObjectStore('meta', { keyPath: 'key' });
+        }
 
         if (oldVersion < 2) {
           const episodes = db.createObjectStore('episodes', { keyPath: 'id' });
           episodes.createIndex('by-illness', 'illness');
         }
-
-        db.createObjectStore('pdf-blobs', { keyPath: 'studyId' });
-        db.createObjectStore('meta', { keyPath: 'key' });
       },
+    }).catch((error: unknown) => {
+      dbPromise = null;
+      throw error;
     });
   }
   return dbPromise!;
 }
 
 export const storage = {
+  async updateSessionDirectory<T>(owner: string, key: string, update: (records: T[] | null) => T[] | null): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readwrite');
+    if ((await tx.store.get('cacheOwner'))?.value === owner) {
+      const value = (await tx.store.get(key))?.value;
+      const next = update(Array.isArray(value) ? value as T[] : null);
+      if (next) await tx.store.put({ key, value: next });
+    }
+    await tx.done;
+  },
   async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache'): Promise<T[] | null> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readonly');

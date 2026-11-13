@@ -32,6 +32,14 @@ const queue = new Outbox();
 afterEach(async () => { for (const entry of await queue.list(owner)) await queue.discard(owner, entry.id!); });
 
 describe('offline outbox', () => {
+  it('rejects an event linking a document already pending deletion', async () => {
+    await queue.enqueueDelete(owner, 'document-1', '1');
+    await expect(queue.enqueueEventSave(owner, {
+      kind: 'consultation', date: '2024-01-01', doctor: '', notes: '',
+      studyIds: [], documentIds: ['document-1'],
+    })).rejects.toThrow('documento vinculado');
+    expect(await queue.list(owner)).toHaveLength(1);
+  });
   it('retries a conflicting appointment using the reviewed revision', async () => {
     const draft = { id: 'turno-1', revision: '1', date: '2026-11-20', time: '10:30', timeZone: 'America/Argentina/Buenos_Aires', professional: 'Dra. Paz', notes: '', status: 'scheduled' as const, cost: null, coverage: null };
     await queue.enqueueAppointmentSave(owner, draft);
@@ -256,5 +264,39 @@ describe('offline outbox', () => {
     vi.mocked(remote.savePortal).mockRejectedValueOnce(new DriveConflictError());
     await queue.sync(owner, remote);
     expect((await queue.list(owner))[0]).toMatchObject({ kind: 'portal-save', status: 'conflict', portalId: 'portal-one' });
+  });
+});
+
+describe('directory changes in the offline queue', () => {
+  it.each([
+    ['operation-delete', (q: Outbox) => q.enqueueOperationDelete(owner, 'id', '2'), 'deleteOperation'],
+    ['portal-delete', (q: Outbox) => q.enqueuePortalDelete(owner, { id: 'id', revision: '2', name: 'p', displayName: 'P', url: '' }), 'deletePortal'],
+    ['event-delete', (q: Outbox) => q.enqueueEventDelete(owner, 'id', '2'), 'deleteEvent'],
+    ['episode-delete', (q: Outbox) => q.enqueueEpisodeDelete(owner, 'id', '2'), 'deleteEpisode'],
+    ['appointment-delete', (q: Outbox) => q.enqueueAppointmentDelete(owner, 'id', '2'), 'deleteAppointment'],
+    ['operation-restore', (q: Outbox) => q.enqueueOperationRestore(owner, 'id', '2'), 'restoreOperation'],
+    ['portal-restore', (q: Outbox) => q.enqueuePortalRestore(owner, 'id', '2'), 'restorePortal'],
+    ['event-restore', (q: Outbox) => q.enqueueEventRestore(owner, 'id', '2'), 'restoreEvent'],
+    ['episode-restore', (q: Outbox) => q.enqueueEpisodeRestore(owner, 'id', '2'), 'restoreEpisode'],
+    ['appointment-restore', (q: Outbox) => q.enqueueAppointmentRestore(owner, 'id', '2'), 'restoreAppointment'],
+  ] as const)('sends %s and removes it after confirmation', async (_kind, enqueue, method) => {
+    await enqueue(queue);
+    const remote = adapter();
+    await queue.sync(owner, remote);
+    expect(remote[method]).toHaveBeenCalledOnce();
+    expect(await queue.list(owner)).toEqual([]);
+  });
+
+  it('reserves stable IDs for episodes and appointments', async () => {
+    await queue.enqueueEpisodeSave(owner, { illness: 'Episodio' });
+    await queue.enqueueAppointmentSave(owner, {
+      date: '2026-11-20', time: '10:30', timeZone: 'America/Argentina/Buenos_Aires',
+      professional: '', notes: '', status: 'scheduled', cost: null, coverage: null,
+    });
+    const remote = adapter();
+    await queue.sync(owner, remote);
+    expect(remote.saveEpisode).toHaveBeenCalledWith(expect.objectContaining({ createId: 'reserved-1' }));
+    expect(remote.saveAppointment).toHaveBeenCalledWith(expect.objectContaining({ createId: 'reserved-1' }));
+    expect(await queue.list(owner)).toEqual([]);
   });
 });

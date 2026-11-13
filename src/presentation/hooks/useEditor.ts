@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { analyzePdf, validatePdf } from '@data/pdf-analysis';
-import { driveOperationRepo } from '@data';
+import { driveAuth, driveOperationRepo, DriveSessionError } from '@data';
 import { isValidDate } from '@domain/utils';
 import type { Study, StudyDraft } from '@domain/models';
-import { operations, isEditorOpen, setEditorOpen, editingStudy, setEditingStudy } from '../state/store';
+import { operations, isEditorOpen, setEditorOpen, editingStudy } from '../state/store';
 
 const ANALYSIS_TIMEOUT_MS = 45_000;
 
@@ -32,21 +33,29 @@ export function useEditor({
   const suggested = useRef<Map<'date' | 'types' | 'doctor' | 'title', string>>(new Map());
   const editorGeneration = useRef(0);
 
-  const [title, setTitle] = useState<string>(study?.title ?? '');
-  const [date, setDate] = useState<string>(study?.date ?? '');
-  const [doctor, setDoctor] = useState<string>(study?.doctor ?? '');
-  const [portal, setPortal] = useState<string>(study?.portal ?? '');
-  const [viewer, setViewer] = useState<string>(study?.viewer ?? '');
-  const [types, setTypes] = useState<string[]>(study?.types ?? []);
+  const draft = useSignal({
+    title: study?.title ?? '', date: study?.date ?? '', doctor: study?.doctor ?? '',
+    portal: study?.portal ?? '', viewer: study?.viewer ?? '', types: study?.types ?? [],
+    removeReport: false, operationId: study?.operationId ?? '', documentIds: study?.documentIds ?? [],
+  });
+  const { title, date, doctor, portal, viewer, types, removeReport, operationId, documentIds } = draft.value;
+  const setTitle = (value: string) => { draft.value = { ...draft.value, title: value }; };
+  const setDate = (value: string) => { draft.value = { ...draft.value, date: value }; };
+  const setDoctor = (value: string) => { draft.value = { ...draft.value, doctor: value }; };
+  const setPortal = (value: string) => { draft.value = { ...draft.value, portal: value }; };
+  const setViewer = (value: string) => { draft.value = { ...draft.value, viewer: value }; };
+  const setTypes = (value: string[]) => { draft.value = { ...draft.value, types: value }; };
+  const setRemoveReport = (value: boolean) => { draft.value = { ...draft.value, removeReport: value }; };
+  const setOperationId = (value: string) => { draft.value = { ...draft.value, operationId: value }; };
+  const setDocumentIds = (value: string[] | ((current: string[]) => string[])) => {
+    draft.value = { ...draft.value, documentIds: typeof value === 'function' ? value(draft.value.documentIds) : value };
+  };
   const [reading, setReading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
-  const [removeReport, setRemoveReport] = useState(false);
   const [reportName, setReportName] = useState(study?.reportName ?? '');
   const [selectedReport, setSelectedReport] = useState<File | null>(null);
   const [checkingReport, setCheckingReport] = useState(false);
   const [candidates, setCandidates] = useState<Partial<Record<'date' | 'types' | 'doctor' | 'title', string | string[]>>>({});
-  const [operationId, setOperationId] = useState(study?.operationId ?? '');
-  const [documentIds, setDocumentIds] = useState<string[]>(study?.documentIds ?? []);
   const [creatingOperation, setCreatingOperation] = useState(false);
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState('');
@@ -80,6 +89,7 @@ useEffect(() => {
       if (isEditorOpen.value) {
         if (!dialog.open) dialog.showModal();
         const current = editingStudy.value;
+        if (!current) formRef.current?.reset();
         editorGeneration.current += 1;
         analysisCtrl.current?.abort();
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
@@ -118,7 +128,13 @@ useEffect(() => {
       }
     };
 
-    const closed = () => { editorGeneration.current += 1; analysisCtrl.current?.abort(); setEditingStudy(null); setEditorOpen(false); onClose(); };
+    const closed = () => {
+      editorGeneration.current += 1;
+      analysisCtrl.current?.abort();
+      if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+      setEditorOpen(false);
+      onClose();
+    };
     const markTouched = (event: Event) => {
       const name = (event.target as HTMLInputElement).name;
       if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') { suggested.current.delete(name); }
@@ -129,6 +145,9 @@ useEffect(() => {
     handleOpenChange();
     
     return () => {
+      editorGeneration.current += 1;
+      analysisCtrl.current?.abort();
+      if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
       unsubscribe();
       formRef.current?.removeEventListener('input', markTouched, true);
       dialog.removeEventListener('close', closed);
@@ -137,9 +156,8 @@ useEffect(() => {
   }, []);
 
   const fieldValue = useCallback((name: 'date' | 'types' | 'doctor' | 'title'): string | string[] => {
-    if (name === 'types') return [...(formRef.current?.querySelectorAll<HTMLInputElement>('[name="types"]:checked') ?? [])].map(input => input.value);
-    return formRef.current?.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value ?? '';
-  }, []);
+    return draft.value[name];
+  }, [draft]);
 
   const setFieldValue = useCallback((name: 'date' | 'types' | 'doctor' | 'title', value: string | string[]): void => {
     if (name === 'types') {
@@ -184,13 +202,14 @@ useEffect(() => {
     const { signal } = controller;
     const active = () => isEditorOpen.value && analysisCtrl.current === controller && !signal.aborted;
 
-    analysisTimeout.current = setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (active()) {
         controller.abort();
         setReading(false);
         setStatus('La lectura tardó demasiado. Podés completar los campos y guardar el PDF.');
       }
     }, ANALYSIS_TIMEOUT_MS);
+    analysisTimeout.current = timeout;
 
     setStatusState('');
     const detection = formRef.current?.querySelector<HTMLElement>('#detection');
@@ -201,7 +220,7 @@ useEffect(() => {
       await validatePdf(file);
       if (active()) setCheckingReport(false);
     } catch (err) {
-      clearTimeout(analysisTimeout.current!);
+      clearTimeout(timeout);
       if (active()) {
         if (reportInputRef.current) reportInputRef.current.value = '';
         reportFileRef.current = null;
@@ -246,19 +265,19 @@ useEffect(() => {
       }
     } finally {
       if (analysisCtrl.current === controller) {
-        clearTimeout(analysisTimeout.current!);
+        clearTimeout(timeout);
         setReading(false);
       }
     }
   }, [fieldValue, setFieldValue]);
 
   const handleTypeChange = useCallback(() => {
-    const selected = fieldValue('types') as string[];
+    const selected = [...(formRef.current?.querySelectorAll<HTMLInputElement>('[name="types"]:checked') ?? [])].map(input => input.value);
     const first = formRef.current?.querySelector<HTMLInputElement>('[name=types]');
     first?.setCustomValidity(selected.length ? '' : 'Elegí al menos un tipo de estudio.');
     setTypes(selected);
     suggested.current.delete('types');
-  }, [fieldValue]);
+  }, []);
 
   const createOperation = useCallback(async () => {
     const form = formRef.current;
@@ -270,10 +289,12 @@ useEffect(() => {
     const generation = editorGeneration.current;
     setOperationBusy(true); setOperationError('');
     try {
+      const token = await driveAuth.getAccessToken();
       const ownerOk = await verifyOwner();
       if (!ownerOk) { setOperationBusy(false); return; }
+      if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
       const saved = await driveOperationRepo.save({ name: String(data.get('newOperationName') ?? ''), date: String(data.get('newOperationDate') ?? ''), surgeon: String(data.get('newOperationSurgeon') ?? ''), institution: String(data.get('newOperationInstitution') ?? ''), type: String(data.get('newOperationType') ?? ''), notes: String(data.get('newOperationNotes') ?? '') });
-      if (editorGeneration.current === generation && isEditorOpen.value) {
+      if (await driveAuth.getAccessToken() === token && editorGeneration.current === generation && isEditorOpen.value) {
         operations.value = [...operations.value, saved];
         setOperationId(saved.id); setCreatingOperation(false);
       }
@@ -329,27 +350,26 @@ useEffect(() => {
 
   const handleSubmit = useCallback(async (event: Event) => {
     event.preventDefault();
-    const form = event.currentTarget as HTMLFormElement;
-    const data = new FormData(form);
     if (checkingReport) return;
     const selectedReport = reportRemoved.current ? undefined : reportInputRef.current?.files?.[0] ?? reportFileRef.current ?? undefined;
     const currentStudy = editingStudy.value;
+    const fields = draft.value;
     await onSave({
-      title: String(data.get('title') ?? '').trim(),
-      date: String(data.get('date') ?? '').trim(),
-      doctor: String(data.get('doctor') ?? '').trim(),
-      portal: String(data.get('portal') ?? '').trim(),
-      viewer: String(data.get('viewer') ?? '').trim(),
-      types: data.getAll('types').map(String),
+      title: fields.title.trim(),
+      date: fields.date.trim(),
+      doctor: fields.doctor.trim(),
+      portal: fields.portal.trim(),
+      viewer: fields.viewer.trim(),
+      types: fields.types,
       reportName: selectedReport?.name ?? '',
       file: selectedReport ?? undefined,
-      removeReport: data.has('removeReport'),
+      removeReport: fields.removeReport,
       driveFileId: currentStudy?.driveFileId || undefined,
       revision: currentStudy?.revision || undefined,
-      operationId: String(data.get('operationId') ?? ''),
-      documentIds: data.getAll('documentIds').map(String),
+      operationId: fields.operationId,
+      documentIds: fields.documentIds,
     });
-  }, [checkingReport, onSave]);
+  }, [checkingReport, draft, onSave]);
 
   return {
     dialogRef,

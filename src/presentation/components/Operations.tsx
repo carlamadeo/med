@@ -1,3 +1,4 @@
+import { enqueueOffline } from '../utils/enqueueOffline';
 import { useState } from 'preact/hooks';
 import { driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError } from '@data';
 import { Outbox } from '@data/outbox';
@@ -47,23 +48,27 @@ export function Operations() {
     if (!isValidDate(draft.date)) { setMessage('Ingresá una fecha válida.'); setBusy(false); return; }
     if (!draft.type?.trim()) { setMessage('Ingresá el procedimiento.'); setBusy(false); return; }
 
+    try {
+    const token = await driveAuth.getAccessToken();
     const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     if (draft.id && (await outbox.list(owner)).some((item) => item.operationId === draft.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
 
-    try {
       const result = await handleOfflineOperation(
         owner,
         async () => {
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           const saved = await driveOperationRepo.save(draft);
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           operations.value = [...operations.value.filter((op) => op.id !== saved.id), saved];
           return saved;
         },
         async () => {
-          await outbox.enqueueOperationSave(owner, draft);
+          await enqueueOffline(owner, () => outbox.enqueueOperationSave(owner, draft), token);
         },
         'Operación guardada en este dispositivo; se sincronizará al volver la conexión.'
       );
+      if (await driveAuth.getAccessToken() !== token) return;
       if (result === null) {
         setEditing(null); form.reset(); setMessage('Operación guardada en este dispositivo; se sincronizará al volver la conexión.');
       } else {
@@ -78,24 +83,28 @@ export function Operations() {
     if (!window.confirm(`¿Eliminar la operación ${op.name}?`)) return;
     setBusy(true); setMessage('');
 
+    try {
+    const token = await driveAuth.getAccessToken();
     const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     const pending = await outbox.list(owner);
     if (pending.some((item) => item.operationId === op.id)) { setMessage('Esta operación ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (pending.some((item) => item.draft?.operationId === op.id)) { setMessage('Hay un estudio pendiente vinculado a esta operación.'); setBusy(false); return; }
 
-    try {
       await handleOfflineOperation(
         owner,
         async () => {
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           await driveOperationRepo.delete(op.id, op.revision ?? '');
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           operations.value = operations.value.filter((item) => item.id !== op.id);
         },
         async () => {
-          await outbox.enqueueOperationDelete(owner, op.id, op.revision ?? '');
+          await enqueueOffline(owner, () => outbox.enqueueOperationDelete(owner, op.id, op.revision ?? ''), token);
         },
         'Eliminación pendiente de sincronización.'
       );
+      if (await driveAuth.getAccessToken() !== token) return;
       setMessage('Operación eliminada.');
     }
     catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo eliminar la operación.'); }
@@ -105,24 +114,28 @@ export function Operations() {
   async function setLink(study: Study, operationId: string) {
     setBusy(true); setMessage('');
 
+    try {
+    const token = await driveAuth.getAccessToken();
     const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
     const pending = await outbox.list(owner);
     if (pending.some((item) => item.studyId === study.id)) { setMessage('Este estudio ya tiene un cambio pendiente.'); setBusy(false); return; }
     if (operationId && pending.some((item) => item.kind === 'operation-delete' && item.operationId === operationId)) { setMessage('La operación tiene una eliminación pendiente.'); setBusy(false); return; }
 
-    try {
       await handleOfflineOperation(
         owner,
         async () => {
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           const saved = await driveStudyRepo.save({ ...study, driveFileId: study.id, operationId });
+          if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
           studies.value = studies.value.map((item) => item.id === saved.id ? saved : item);
         },
         async () => {
-          await outbox.enqueueSave(owner, { ...study, driveFileId: study.id, operationId });
+          await enqueueOffline(owner, () => outbox.enqueueSave(owner, { ...study, driveFileId: study.id, operationId }), token);
         },
         'Vínculo pendiente de sincronización.'
       );
+      if (await driveAuth.getAccessToken() !== token) return;
       setMessage('Estudio actualizado.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'No se pudo actualizar el estudio.');

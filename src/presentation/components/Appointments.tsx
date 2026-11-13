@@ -1,3 +1,4 @@
+import { enqueueOffline } from '../utils/enqueueOffline';
 import { useState } from 'preact/hooks';
 import { driveAuth, driveAppointmentRepo } from '@data';
 import { Outbox } from '@data/outbox';
@@ -35,14 +36,13 @@ export function Appointments() {
       if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
       if (!navigator.onLine) {
         if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
-        await navigator.locks.request(`mis-estudios-outbox:${owner}`, async () => {
-          if (await driveAuth.getAccessToken() !== token || driveAuth.cachedAccountId() !== owner) throw new Error('La cuenta cambió. Volvé a intentar.');
-          await outbox.enqueueAppointmentSave(owner, draft);
-        });
+        await enqueueOffline(owner, () => outbox.enqueueAppointmentSave(owner, draft), token);
+        if (await driveAuth.getAccessToken() !== token) return;
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Turno guardado en este dispositivo, pendiente de sincronización.');
       } else {
         if (draft.id && (await outbox.list(owner)).some(entry => entry.appointmentId === draft.id)) throw new Error('Este turno ya tiene un cambio pendiente.');
+        if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
         const saved = await driveAppointmentRepo.save(draft);
         if (await driveAuth.getAccessToken() !== token) return;
         appointments.value = [...appointments.value.filter(item => item.id !== saved.id), saved];
@@ -64,10 +64,12 @@ export function Appointments() {
       setBusy(true);
       if (!navigator.onLine) {
         if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
-        await outbox.enqueueAppointmentDelete(owner, appointment.id, appointment.revision);
+        await enqueueOffline(owner, () => outbox.enqueueAppointmentDelete(owner, appointment.id, appointment.revision), token);
+        if (await driveAuth.getAccessToken() !== token) return;
         window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
         setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
       } else {
+        if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
         await driveAppointmentRepo.delete(appointment.id, appointment.revision);
         if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
         appointments.value = appointments.value.filter((appt) => appt.id !== appointment.id);

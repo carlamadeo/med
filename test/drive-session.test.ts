@@ -22,6 +22,43 @@ function reload() {
 const storedSession = () => window.sessionStorage.getItem(SESSION_KEY);
 
 describe('session', () => {
+  it('does not request the next page after the account changes', async () => {
+    const client = new DriveClient();
+    const auth = new DriveAuthRepository(client);
+    await auth.signIn();
+    let release!: () => void;
+    let started!: () => void;
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    const began = new Promise<void>((resolve) => { started = resolve; });
+    let calls = 0;
+    server.use(http.get(FILES_URL, async () => {
+      calls += 1;
+      started();
+      await wait;
+      return HttpResponse.json({ files: [], nextPageToken: 'next' });
+    }));
+    const result = new DriveStudyRepository(client).list({ force: true });
+    const rejected = expect(result).rejects.toBeInstanceOf(DriveSessionError);
+    await began;
+    await auth.signOut();
+    gis.tokenResponse.access_token = 'other-account-token';
+    await auth.signIn();
+    release();
+    await rejected;
+    expect(calls).toBe(1);
+  });
+  it('shares concurrent folder lookups for the same session', async () => {
+    const client = new DriveClient();
+    await client.signIn();
+    let calls = 0;
+    server.use(http.get(FILES_URL, async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return HttpResponse.json({ files: [{ id: 'shared-folder' }] });
+    }));
+    expect(await Promise.all([client.getFolderId(), client.getFolderId()])).toEqual(['shared-folder', 'shared-folder']);
+    expect(calls).toBe(1);
+  });
   it('does not keep a folder returned after the account changed', async () => {
     const client = new DriveClient();
     const auth = new DriveAuthRepository(client);

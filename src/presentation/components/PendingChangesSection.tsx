@@ -54,6 +54,16 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
             ? `Eliminar ${operations.value.find((op) => op.id === entry.operationId)?.name ?? 'operación'}`
             : entry.kind === 'portal-delete'
             ? `Eliminar ${entry.portal?.displayName ?? 'portal'}`
+            : entry.kind === 'episode-save'
+            ? entry.episodeDraft?.illness || 'Episodio de salud'
+            : entry.kind === 'episode-delete'
+            ? 'Eliminar episodio'
+            : entry.kind === 'appointment-delete'
+            ? 'Eliminar turno'
+            : entry.kind === 'event-delete'
+            ? 'Eliminar evento'
+            : entry.kind.endsWith('-restore')
+            ? 'Recuperar registro'
             : entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Cambio sin datos válidos')}
           {entry.status === 'conflict' ? ' · requiere revisión' : entry.status === 'failed' ? ' · no se puede sincronizar' : ''}
           {entry.draft && (
