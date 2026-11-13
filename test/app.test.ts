@@ -216,6 +216,14 @@ describe('filters', () => {
     expect(text('#count')).toBe('2'); // the count is the total, not the matches
   });
 
+  it('treats a search containing only spaces as empty', () => {
+    search('   ');
+
+    expect(rowIds()).toHaveLength(2);
+    expect(document.querySelector('#list-status')).toBeNull();
+    expect($<HTMLButtonElement>('#clear').disabled).toBe(true);
+  });
+
   it('filters by type and by date range', () => {
     const type = $<HTMLSelectElement>('#type');
     type.value = 'Ecografía';

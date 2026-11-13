@@ -5,11 +5,10 @@
  * consumen las señales con `useSignal()` (o `useComputed()`) para que se
  * vuelvan a renderizar automáticamente cuando cambian.
  */
-import { signal, computed, type Signal } from '@preact/signals';
+import { signal, computed } from '@preact/signals';
 import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, ViewMode, Filters } from '@domain/models';
 import type { OutboxEntry } from '@data/outbox';
-import { normalize } from '@domain/utils';
-import { compareStudies } from '@domain/library';
+import { filterStudies, type StudySortOrder } from '@domain/library';
 
 // ------------------------------------------------------------------
 // Estado primitivo
@@ -20,7 +19,7 @@ export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
 
 export const view = signal<ViewMode>('cronologia');
-export const sortOrder = signal<'date-desc' | 'date-asc' | 'title' | 'type'>('date-desc');
+export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
 export const filters = signal<Filters>({
   query: '',
@@ -50,48 +49,12 @@ export const directoryWarning = signal(false);
 // Derivados
 // ------------------------------------------------------------------
 
-export const filteredStudies: Signal<Study[]> = computed(() => {
-  const { query, type, from, to, operationId, portal, onlyPdf, onlyViewer } = filters.value;
-
-  if (from && to && from > to) return [];
-  return studies.value.filter((s) => {
-    if (query && ![s.title, s.doctor, s.portal, ...s.types].some((value) => normalize(value).includes(normalize(query)))) {
-      return false;
-    }
-    if (type && !s.types.some((t) => normalize(t) === normalize(type))) {
-      return false;
-    }
-    if (categoryTypes.value.length && !s.types.some((t) => categoryTypes.value.some((selected) => normalize(t) === normalize(selected)))) return false;
-    if (from && s.date < from) return false;
-    if (to && s.date > to) return false;
-    if (operationId && s.operationId !== operationId) return false;
-    if (portal && normalize(s.portal) !== normalize(portal)) return false;
-    if (onlyPdf && !s.hasPdf) return false;
-    return !(onlyViewer && !s.viewer);
-
-  }).sort((a, b) => {
-    if (sortOrder.value === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
-    if (sortOrder.value === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
-    if (sortOrder.value === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || compareStudies(a, b);
-    return compareStudies(a, b);
-  });
-});
-
-export const hasFilters = computed(() => Boolean(
-  categoryTypes.value.length ||
-  filters.value.query ||
-  filters.value.type ||
-  filters.value.from ||
-  filters.value.to ||
-  filters.value.operationId ||
-  filters.value.portal ||
-  filters.value.onlyPdf ||
-  filters.value.onlyViewer
-));
-
-export const invalidRange = computed(() =>
-  Boolean(filters.value.from && filters.value.to && filters.value.from > filters.value.to)
+const listResult = computed(() =>
+  filterStudies(studies.value, filters.value, categoryTypes.value, sortOrder.value),
 );
+export const filteredStudies = computed(() => listResult.value.matches);
+export const hasFilters = computed(() => listResult.value.filtered);
+export const invalidRange = computed(() => listResult.value.invalidRange);
 
 // ------------------------------------------------------------------
 // Acciones

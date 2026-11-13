@@ -2,17 +2,12 @@
  * Pure rules for the study list. Ported from `render()` and `updatePortalOptions()` in the original app.js:
  * what matches a search, how matches are ordered, and which institutions the editor suggests.
  */
-import type { Study } from './models';
+import type { Filters, Study } from './models';
 import { normalize } from './utils';
 
-export interface ListFilters {
-  query: string;
-  type: string;
-  from: string;
-  to: string;
-}
+export type StudySortOrder = 'date-desc' | 'date-asc' | 'title' | 'type';
 
-export interface ListResult {
+interface ListResult {
   matches: Study[];
   /** Any search text or filter is active. */
   filtered: boolean;
@@ -26,26 +21,44 @@ export function reportUrl(driveFileId: string): string {
 }
 
 /** Newest first; same-day studies in alphabetical order (Argentine Spanish collation). */
-export function compareStudies(a: Study, b: Study): number {
+function compareStudies(a: Study, b: Study): number {
   return b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR');
 }
 
-export function filterStudies(studies: readonly Study[], filters: ListFilters): ListResult {
-  const query = normalize(filters.query.trim());
-  const { type, from, to } = filters;
-  const filtered = Boolean(query || type || from || to);
+export function filterStudies(
+  studies: readonly Study[],
+  filters: Filters,
+  categoryTypes: readonly string[] = [],
+  sortOrder: StudySortOrder = 'date-desc',
+): ListResult {
+  const query = normalize(filters.query);
+  const { type, from, to, operationId, portal, onlyPdf, onlyViewer } = filters;
+  const filtered = Boolean(query || type || from || to || operationId || portal || onlyPdf || onlyViewer || categoryTypes.length);
   const invalidRange = Boolean(from && to && from > to);
-  const matches = invalidRange
-    ? []
-    : studies
-        .filter(
-          (study) =>
-            (!query || normalize([study.title, study.doctor, study.portal].join(' ')).includes(query)) &&
-            (!type || study.types.includes(type)) &&
-            (!from || study.date >= from) &&
-            (!to || study.date <= to)
-        )
-        .sort(compareStudies);
+  if (invalidRange) return { matches: [], filtered, invalidRange };
+
+  const normalizedType = normalize(type);
+  const normalizedPortal = normalize(portal);
+  const categories = new Set(categoryTypes.map(normalize));
+  const matches = studies.filter((study) => {
+    if (from && study.date < from) return false;
+    if (to && study.date > to) return false;
+    if (operationId && study.operationId !== operationId) return false;
+    if (portal && normalize(study.portal) !== normalizedPortal) return false;
+    if (onlyPdf && !study.hasPdf) return false;
+    if (onlyViewer && !study.viewer) return false;
+    if (type && !study.types.some((value) => normalize(value) === normalizedType)) return false;
+    if (categories.size && !study.types.some((value) => categories.has(normalize(value)))) return false;
+    return !query || [study.title, study.doctor, study.portal, ...study.types].some(
+      (value) => normalize(value).includes(query),
+    );
+  });
+  matches.sort((a, b) => {
+    if (sortOrder === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
+    if (sortOrder === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
+    if (sortOrder === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || compareStudies(a, b);
+    return compareStudies(a, b);
+  });
   return { matches, filtered, invalidRange };
 }
 

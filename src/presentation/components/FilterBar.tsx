@@ -3,7 +3,7 @@
  */
 import { useState } from 'preact/hooks';
 import { driveAuth } from '@data';
-import { filters, operations, portals, sortOrder, categoryTypes } from '../state/store';
+import { filters, operations, portals, sortOrder, categoryTypes, hasFilters } from '../state/store';
 import type { Operation, Portal, Filters } from '@domain/models';
 
 interface FilterBarProps {
@@ -49,16 +49,6 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
     try { localStorage.setItem(key, JSON.stringify(read(localStorage, key).filter((item) => item !== query))); refreshHistory(); }
     catch { setHistoryError('No se pudo quitar la búsqueda guardada.'); }
   };
-  const hasActiveFilters =
-    categoryTypes.value.length || filters.value.query ||
-    filters.value.type ||
-    filters.value.from ||
-    filters.value.to ||
-    filters.value.operationId ||
-    filters.value.portal ||
-    filters.value.onlyPdf ||
-    filters.value.onlyViewer;
-
   const handleChange = (partial: Partial<Filters>) => {
     if (partial.type !== undefined) categoryTypes.value = [];
     filters.value = { ...filters.value, ...partial };
@@ -196,7 +186,7 @@ export function FilterBar({ onClear, onSearch, availableTypes }: FilterBarProps)
         type="button"
         id="clear"
         className="text-button"
-        disabled={!hasActiveFilters}
+        disabled={!hasFilters.value}
         onClick={() => {
           filters.value = {
             query: '',

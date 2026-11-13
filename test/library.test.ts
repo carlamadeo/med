@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { filterStudies, portalNames, type ListFilters } from '@domain/library';
-import type { Study } from '@domain/models';
+import { filterStudies, portalNames } from '@domain/library';
+import type { Filters, Study } from '@domain/models';
 
 function study(id: string, over: Partial<Study> = {}): Study {
   return {
@@ -20,7 +20,7 @@ function study(id: string, over: Partial<Study> = {}): Study {
   };
 }
 
-const none: ListFilters = { query: '', type: '', from: '', to: '' };
+const none: Filters = { query: '', type: '', from: '', to: '', operationId: '', portal: '', onlyPdf: false, onlyViewer: false };
 
 describe('filterStudies', () => {
   const all = [
@@ -49,10 +49,10 @@ describe('filterStudies', () => {
     expect(input.map((s) => s.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('searches title, doctor and portal ignoring accents, case and surrounding spaces', () => {
+  it('searches title, doctor, portal and types ignoring accents, case and surrounding spaces', () => {
     const ids = (query: string) => filterStudies(all, { ...none, query }).matches.map((s) => s.id);
 
-    expect(ids('ECOGRAFIA')).toEqual(['a']);
+    expect(ids('ECOGRAFIA')).toEqual(['b', 'a']);
     expect(ids('  perez ')).toEqual(['a']);
     expect(ids('labcorp')).toEqual(['b']);
     expect(ids('lopez')).toEqual(['c']);
@@ -60,7 +60,7 @@ describe('filterStudies', () => {
   });
 
   it('filters by exact study type, including studies that have several', () => {
-    expect(filterStudies(all, { ...none, type: 'Ecografía' }).matches.map((s) => s.id)).toEqual(['b', 'a']);
+    expect(filterStudies(all, { ...none, type: 'ecografia' }).matches.map((s) => s.id)).toEqual(['b', 'a']);
     expect(filterStudies(all, { ...none, type: 'PAP' }).matches).toEqual([]);
   });
 
@@ -72,10 +72,52 @@ describe('filterStudies', () => {
     expect(ids('', '2023-12-01')).toEqual(['c']);
   });
 
-  it('combines every filter', () => {
-    const result = filterStudies(all, { query: 'eco', type: 'Ecografía', from: '2024-02-01', to: '' });
+  it('combines search, type and date filters', () => {
+    const result = filterStudies(all, { ...none, query: 'eco', type: 'Ecografía', from: '2024-03-11' });
     expect(result.matches.map((s) => s.id)).toEqual([]);
-    expect(filterStudies(all, { query: 'mamo', type: 'Ecografía', from: '2024-02-01', to: '' }).matches.map((s) => s.id)).toEqual(['b']);
+    expect(filterStudies(all, { ...none, query: 'mamo', type: 'Ecografía', from: '2024-02-01' }).matches.map((s) => s.id)).toEqual(['b']);
+  });
+
+  it.each([
+    [{ operationId: 'op-1' }, ['b', 'a']],
+    [{ portal: 'CLINICA SUR' }, ['a']],
+    [{ onlyPdf: true }, ['c', 'a']],
+    [{ onlyViewer: true }, ['b']],
+  ] as const)('filters by %o', (filters, expectedIds) => {
+    const studies = [
+      study('a', { date: '2024-01-01', operationId: 'op-1', portal: 'Clínica Sur', hasPdf: true }),
+      study('b', { date: '2024-02-01', operationId: 'op-1', viewer: 'https://example.test/view' }),
+      study('c', { date: '2024-03-01', operationId: 'op-2', hasPdf: true }),
+    ];
+
+    const result = filterStudies(studies, { ...none, ...filters });
+
+    expect(result.matches.map((study) => study.id)).toEqual(expectedIds);
+    expect(result.filtered).toBe(true);
+  });
+
+  it('matches any selected category alongside the other filters', () => {
+    const categories = ['MAMOGRAFIA', 'analisis de laboratorio'];
+    const result = filterStudies(all, none, categories);
+    const withDate = filterStudies(all, { ...none, from: '2024-01-01' }, categories);
+
+    expect(result.matches.map((study) => study.id)).toEqual(['b', 'c']);
+    expect(result.filtered).toBe(true);
+    expect(withDate.matches.map((study) => study.id)).toEqual(['b']);
+  });
+
+  it.each([
+    ['date-asc', ['c', 'a', 'b']],
+    ['title', ['b', 'a', 'c']],
+    ['type', ['a', 'c', 'b']],
+  ] as const)('sorts the results by %s', (order, expectedIds) => {
+    const studies = [
+      study('a', { date: '2024-02-01', title: 'Biopsia', types: [] }),
+      study('b', { date: '2024-03-01', title: 'Análisis', types: ['Mamografía'] }),
+      study('c', { date: '2024-01-01', title: 'Consulta', types: ['Ecografía'] }),
+    ];
+
+    expect(filterStudies(studies, none, [], order).matches.map((study) => study.id)).toEqual(expectedIds);
   });
 
   it('flags a reversed range and matches nothing', () => {
@@ -86,7 +128,7 @@ describe('filterStudies', () => {
     expect(result.filtered).toBe(true);
   });
 
-  it('reports filtered even when the search text is only spaces away from empty', () => {
+  it('counts a search as an active filter only when it contains searchable text', () => {
     expect(filterStudies(all, { ...none, query: '   ' }).filtered).toBe(false);
     expect(filterStudies(all, { ...none, query: 'a' }).filtered).toBe(true);
   });
