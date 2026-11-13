@@ -5,6 +5,7 @@ import { EmptyState } from './EmptyState';
 import { Operations } from './Operations';
 import { MedicalEvents } from './MedicalEvents';
 import { Portals } from './Portals';
+import { IntakeCandidates } from './IntakeCandidates';
 import { LibraryTabs } from './LibraryTabs';
 import type { Study } from '@domain/models';
 
@@ -56,7 +57,10 @@ export function StudyListContainer({
       {view.value === 'operaciones' && <Operations />}
       {view.value === 'eventos' && <MedicalEvents />}
       {view.value === 'portales' && <Portals />}
-      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && (
+      {view.value === 'intake' && (
+        <IntakeCandidates onOpenEditor={onAddStudy} />
+      )}
+      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'intake' && (
         <>
           <div className="section-head">
             <div className="section-title">

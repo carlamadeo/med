@@ -103,7 +103,7 @@ export interface PortalDraft {
   revision?: string;
 }
 
-export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos';
+export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'intake';
 
 export interface Filters {
   query: string;

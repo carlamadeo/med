@@ -2,6 +2,15 @@ import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft,
 
 export type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile };
 
+export interface IntakeCandidate {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  size: number;
+  status: 'new' | 'imported' | 'discarded' | 'pending';
+}
+
 export interface MedicalEventRepository {
   list(): Promise<MedicalEvent[]>;
   save(draft: MedicalEventDraft): Promise<MedicalEvent>;
@@ -33,6 +42,11 @@ export interface PortalRepository {
   get(name: string): Promise<Portal | undefined>;
   save(draft: PortalDraft): Promise<Portal>;
   delete(name: string): Promise<void>;
+}
+
+export interface IntakeRepository {
+  /** Lists PDF files in the approved intake folder. */
+  listCandidates(folderId: string): Promise<IntakeCandidate[]>;
 }
 
 export interface AuthRepository {

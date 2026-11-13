@@ -10,6 +10,15 @@ import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft,
 import type { OutboxEntry } from '@data/outbox';
 import { filterStudies, type StudySortOrder } from '@domain/library';
 
+export interface IntakeCandidate {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  size: number;
+  status: 'new' | 'imported' | 'discarded' | 'pending';
+}
+
 // ------------------------------------------------------------------
 // Estado primitivo
 // ------------------------------------------------------------------
@@ -58,6 +67,12 @@ export const directoryWarning = signal(false);
 
 // Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
 export const unavailableSources = signal<Set<string>>(new Set());
+
+// Intake asistido (post-MVP)
+export const approvedFolderId = signal<string | null>(null);
+export const intakeCandidates = signal<IntakeCandidate[]>([]);
+export const intakeLoading = signal(false);
+export const intakeError = signal<string | null>(null);
 
 // ------------------------------------------------------------------
 // Derivados
@@ -215,6 +230,27 @@ export function setRecoveringStudyId(id: string | null): void {
 
 export function setRecoveryError(msg: string | null): void {
   recoveryError.value = msg;
+}
+
+export function setApprovedFolderId(id: string | null): void {
+  approvedFolderId.value = id;
+}
+
+export function setIntakeCandidates(candidates: IntakeCandidate[]): void {
+  intakeCandidates.value = candidates;
+}
+
+export function setIntakeLoading(v: boolean): void {
+  intakeLoading.value = v;
+}
+
+export function setIntakeError(msg: string | null): void {
+  intakeError.value = msg;
+}
+
+export function updateCandidateStatus(id: string, status: IntakeCandidate['status']): void {
+  const current = intakeCandidates.value.map(c => c.id === id ? { ...c, status } : c);
+  intakeCandidates.value = current;
 }
 
 // ------------------------------------------------------------------

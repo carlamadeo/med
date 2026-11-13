@@ -9,5 +9,6 @@ export {
   driveOperationRepo,
   drivePortalRepo,
   driveMedicalEventRepo,
+  driveIntakeRepo,
 } from './drive-repository';
-export type { DriveFileMetadata } from '@domain/repository';
+export type { DriveFileMetadata, IntakeCandidate } from '@domain/repository';

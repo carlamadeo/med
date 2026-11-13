@@ -3,7 +3,7 @@
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
  */
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
-import { getStudyTypes, isValidStudyDate, viewerURL } from '@domain/utils';
+import { getStudyTypes, isValidStudyDate, viewerURL, todayLocal } from '@domain/utils';
 import { validatePdf } from '@data/pdf-analysis';
 import { Outbox, type OutboxEntry } from '@data/outbox';
 import {
@@ -345,13 +345,36 @@ export function LibraryPage() {
   }
 
   // --- Editor ---
-  function openEditor(study: Study | null) {
+  function openEditor(studyOrDraft: Study | null | (Partial<StudyDraft> & { _candidateId: string; _candidateName: string })) {
     pendingId.current = '';
     const owner = driveAuth.cachedAccountId();
     editorOwner.current = owner ? Promise.resolve(owner) : driveAuth.getAccountId().catch(() => null);
     setEditorError(null);
     setSessionLost(false);
-    setEditingStudy(study);
+    if (studyOrDraft && '_candidateId' in studyOrDraft) {
+      // Intake candidate: pre-fill title from candidate name, keep file
+      setEditingStudy({
+        ...studyOrDraft,
+        id: `pending-${Date.now()}`,
+        title: studyOrDraft._candidateName || '',
+        date: todayLocal(),
+        types: [],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        hasPdf: true,
+        driveFileId: '',
+        driveModifiedTime: '',
+        revision: '',
+        operationId: '',
+        documentIds: [],
+        syncStatus: undefined,
+        pendingAttachment: true,
+      } as Study);
+    } else {
+      setEditingStudy(studyOrDraft as Study | null);
+    }
   }
 
   async function verifyEditorOwner(): Promise<boolean> {
