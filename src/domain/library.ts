@@ -49,7 +49,7 @@ export function filterStudies(
     if (onlyViewer && !study.viewer) return false;
     if (type && !study.types.some((value) => normalize(value) === normalizedType)) return false;
     if (categories.size && !study.types.some((value) => categories.has(normalize(value)))) return false;
-    return !query || [study.title, study.doctor, study.portal, ...study.types].some(
+    return !query || [study.title, study.doctor, study.portal, study.reportName, ...study.types].some(
       (value) => normalize(value).includes(query),
     );
   });

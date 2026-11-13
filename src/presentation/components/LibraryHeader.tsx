@@ -41,7 +41,7 @@ export function LibraryHeader({ onSignOut }: LibraryHeaderProps) {
                 className="icon-button"
                 aria-label="Recuperar estudios eliminados"
                 title="Recuperar estudios eliminados"
-                onClick={() => setRecoveringStudyId('')}
+                onClick={() => setRecoveringStudyId('recovery')}
               >
                 <svg className="icon"><use href="#i-restore" /></svg>
               </button>

@@ -7,8 +7,9 @@ import { MedicalEvents } from './MedicalEvents';
 import { Portals } from './Portals';
 import { IntakeCandidates } from './IntakeCandidates';
 import { Episodes } from './Episodes';
+import { Appointments } from './Appointments';
 import { LibraryTabs } from './LibraryTabs';
-import type { Study } from '@domain/models';
+import type { Study, StudyDraft } from '@domain/models';
 
 interface StudyListContainerProps {
   onEdit: (study: Study) => void;
@@ -18,6 +19,7 @@ interface StudyListContainerProps {
   onSearch: (query: string) => void;
   onRetryLoad: () => void;
   onAddStudy: () => void;
+  onOpenCandidate: (draft: Partial<StudyDraft> & { _candidateId: string; _candidateName: string }) => void;
   typesReady: boolean;
   availableTypes: string[];
   offline: boolean;
@@ -33,6 +35,7 @@ export function StudyListContainer({
   onSearch,
   onRetryLoad,
   onAddStudy,
+  onOpenCandidate,
   typesReady,
   availableTypes,
   offline,
@@ -58,11 +61,12 @@ export function StudyListContainer({
       {view.value === 'operaciones' && <Operations />}
       {view.value === 'eventos' && <MedicalEvents />}
       {view.value === 'episodios' && <Episodes />}
+      {view.value === 'turnos' && <Appointments />}
       {view.value === 'portales' && <Portals />}
       {view.value === 'intake' && (
-        <IntakeCandidates onOpenEditor={onAddStudy} />
+        <IntakeCandidates onOpenEditor={onOpenCandidate} />
       )}
-      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'intake' && (
+      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
         <>
           <div className="section-head">
             <div className="section-title">

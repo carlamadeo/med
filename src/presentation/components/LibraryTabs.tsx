@@ -42,6 +42,7 @@ export function LibraryTabs({ availableTypes }: LibraryTabsProps) {
         </button>
         <button type="button" id="tab-eventos" aria-pressed={view.value === 'eventos'} onClick={() => { view.value = 'eventos'; }}>Consultas y recetas</button>
         <button type="button" id="tab-episodios" aria-pressed={view.value === 'episodios'} onClick={() => { view.value = 'episodios'; }}>Episodios</button>
+        <button type="button" id="tab-turnos" aria-pressed={view.value === 'turnos'} onClick={() => { view.value = 'turnos'; }}>Turnos</button>
         <button type="button" id="tab-intake" aria-pressed={view.value === 'intake'} onClick={() => { view.value = 'intake'; }}>Intake asistido</button>
       </nav>
       {view.value === 'categoria' && (

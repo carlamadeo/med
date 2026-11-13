@@ -140,7 +140,8 @@ export const driveHandlers = [
     const q = new URL(request.url).searchParams.get('q') ?? '';
     if (q.includes('carpeta-v1')) return HttpResponse.json({ files: [{ id: FOLDER_ID }] });
     const marker = /value='([^']+)'/.exec(q)?.[1] ?? 'estudio-v1';
-    const studies = [...files.values()].filter((f) => !f.trashed && f.appProperties.misEstudios === marker);
+    const trashed = q.includes('trashed = true');
+    const studies = [...files.values()].filter((f) => f.trashed === trashed && f.appProperties.misEstudios === marker);
     return HttpResponse.json({ files: studies.map(publicView) });
   }),
 

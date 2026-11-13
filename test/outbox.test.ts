@@ -9,12 +9,14 @@ const adapter = (account = owner): OutboxAdapter => ({
   accountId: vi.fn(async () => account),
   reserveId: vi.fn(async () => 'reserved-1'),
   save: vi.fn(async () => {}),
+  restore: vi.fn(async () => {}),
   delete: vi.fn(async () => {}),
   saveOperation: vi.fn(async () => {}),
   deleteOperation: vi.fn(async () => {}),
   savePortal: vi.fn(async () => {}),
   saveEvent: vi.fn(async () => {}),
   saveEpisode: vi.fn(async () => {}),
+  saveAppointment: vi.fn(async () => {}),
   deletePortal: vi.fn(async () => {}),
   deleteEpisode: vi.fn(async () => {}),
   lock: async (_name, callback) => callback(),
@@ -23,6 +25,29 @@ const queue = new Outbox();
 afterEach(async () => { for (const entry of await queue.list(owner)) await queue.discard(owner, entry.id!); });
 
 describe('offline outbox', () => {
+  it('retries a conflicting appointment using the reviewed revision', async () => {
+    const draft = { id: 'turno-1', revision: '1', date: '2026-11-20', time: '10:30', timeZone: 'America/Argentina/Buenos_Aires', professional: 'Dra. Paz', notes: '', status: 'scheduled' as const, cost: null, coverage: null };
+    await queue.enqueueAppointmentSave(owner, draft);
+    const remote = adapter();
+    vi.mocked(remote.saveAppointment).mockRejectedValueOnce(new DriveConflictError());
+    await queue.sync(owner, remote);
+    const conflict = (await queue.list(owner))[0]!;
+    expect(conflict.status).toBe('conflict');
+    await queue.retryConflict(owner, conflict.id!, '2');
+    await queue.sync(owner, remote);
+    expect(remote.saveAppointment).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'turno-1', revision: '2', professional: 'Dra. Paz' }));
+    expect(await queue.list(owner)).toEqual([]);
+  });
+  it('preserves a queued restoration for its owner and retries failures', async () => {
+    await queue.enqueueRestore(owner, 'study-1', '2');
+    const remote = adapter();
+    vi.mocked(remote.restore).mockRejectedValueOnce(new Error('sin conexión'));
+    await queue.sync(owner, remote);
+    expect((await queue.list(owner))[0]).toMatchObject({ kind: 'restore', studyId: 'study-1', revision: '2', status: 'pending' });
+    await queue.sync(owner, remote);
+    expect(remote.restore).toHaveBeenLastCalledWith('study-1', '2');
+    expect(await queue.list(owner)).toEqual([]);
+  });
   it('stores pending work by account without letting another account read or sync it', async () => {
     await queue.enqueueSave(owner, draft);
     expect(await queue.list('other-account')).toEqual([]);
@@ -153,6 +178,29 @@ describe('offline outbox', () => {
     const saved = vi.mocked(remote.save).mock.calls[0]?.[0];
     expect(saved?.file?.name).toBe('informe.pdf');
     expect(await saved?.file?.text()).toBe('%PDF-archivo');
+  });
+
+  it('preserves an attachment MIME type and bytes across an offline retry', async () => {
+    const image = new File([new Uint8Array([255, 216, 255, 224])], 'estudio.jpg', { type: 'image/jpeg' });
+    await queue.enqueueSave(owner, { ...draft, file: image });
+    const remote = adapter();
+    vi.mocked(remote.save).mockRejectedValueOnce(new Error('sin red'));
+    await queue.sync(owner, remote);
+    await queue.sync(owner, remote);
+    const saved = vi.mocked(remote.save).mock.calls[1]?.[0].file;
+    expect(saved?.name).toBe('estudio.jpg');
+    expect(saved?.type).toBe('image/jpeg');
+    expect([...new Uint8Array(await saved!.arrayBuffer())]).toEqual([255, 216, 255, 224]);
+  });
+
+  it('keeps legacy queued PDF attachments readable when MIME metadata is absent', async () => {
+    const { openDB } = await import('idb');
+    const db = await openDB('mis-estudios-outbox', 1);
+    await db.add('entries', { owner, kind: 'save', status: 'pending', draft, attachment: new Blob(['%PDF-legacy']), attachmentName: 'legacy.pdf' });
+    db.close();
+    const remote = adapter();
+    await queue.sync(owner, remote);
+    expect(vi.mocked(remote.save).mock.calls[0]?.[0].file?.type).toBe('application/pdf');
   });
 
   it('keeps a queued deletion when its Drive revision conflicts', async () => {

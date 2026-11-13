@@ -17,6 +17,21 @@ beforeEach(async () => {
 });
 
 describe('episodes', () => {
+  it('closes and reopens an episode without losing its observations', async () => {
+    const created = await driveEpisodeRepo.save(baseEpisode);
+    const closed = await driveEpisodeRepo.save({ ...created, closed: true });
+    expect(closed.closed).toBe(true);
+    const reopened = await driveEpisodeRepo.save({ ...closed, closed: false });
+    expect(reopened.closed).toBe(false);
+    expect(reopened.observations).toEqual(baseEpisode.observations);
+    expect((await driveEpisodeRepo.list())[0]?.closed).toBe(false);
+  });
+  it('saves an episode without an illness or observations', async () => {
+    const saved = await driveEpisodeRepo.save({ illness: '' });
+    expect(saved.illness).toBe('');
+    expect(saved.observations).toEqual([]);
+    expect((await driveEpisodeRepo.list())[0]?.id).toBe(saved.id);
+  });
   it('saves and lists episodes online', async () => {
     const saved = await driveEpisodeRepo.save(baseEpisode);
     

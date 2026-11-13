@@ -3,7 +3,9 @@ import { isValidDate, viewerURL } from '@domain/utils';
 import { documentAssociationIds } from '@domain/document-compatibility';
 import { storage, type StudyRecord } from '@core/storage';
 import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFileMetadata, StudyRepository, AuthRepository, IntakeCandidate, Episode, EpisodeDraft } from '@domain/repository';
-import type { MedicalEvent, MedicalEventDraft } from '@domain/models';
+import type { MedicalEvent, MedicalEventDraft, Appointment, AppointmentDraft } from '@domain/models';
+import { validateAppointment } from '@domain/appointments';
+import { validateDocument } from './pdf-analysis';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_ROOT = 'https://www.googleapis.com/drive/v3/';
@@ -15,8 +17,11 @@ const OPERATION_MARKER = 'operacion-v1';
 const PORTAL_MARKER = 'portal-v1';
 const EVENT_MARKER = 'evento-medico-v1';
 const EPISODE_MARKER = 'episodio-v1';
+const APPOINTMENT_MARKER = 'turno-v1';
 const FOLDER_MARKER = 'carpeta-v1';
 const PDF_MIME = 'application/pdf';
+const DELETED_AT = 'deletedAt';
+const RESTORED_REVISION = 'restoredRevision';
 const JSON_MIME = 'application/json';
 const ID_PATTERN = /^[\w-]+$/;
 
@@ -318,7 +323,12 @@ export class DriveClient {
       throw new Error('Estudio no disponible.');
     }
     const entry = this.parseDescription<DriveFileMetadata>(file, 'Drive tiene un estudio cuya ficha no se puede leer.');
-    const viewer = viewerURL(entry.viewer || '');
+    let viewer: string;
+    try {
+      viewer = viewerURL(entry.viewer || '');
+    } catch {
+      throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
+    }
     const types: unknown = entry.types ?? (entry.type ? [entry.type] : []);
     if (!entry.title || !isValidDate(entry.date) || !Array.isArray(types) || !types.length || types.some((t) => typeof t !== 'string' || !t.trim())) {
       throw new Error('Drive tiene un estudio cuya ficha no se puede leer.');
@@ -331,8 +341,9 @@ export class DriveClient {
       doctor: entry.doctor || '',
       portal: entry.portal || '',
       viewer,
-      reportName: file.mimeType === PDF_MIME ? entry.reportName || 'Informe.pdf' : '',
+      reportName: file.mimeType === PDF_MIME || file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? entry.reportName || 'Informe' : '',
       hasPdf: file.mimeType === PDF_MIME,
+      ...(file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? { attachmentMime: file.mimeType } : {}),
       driveFileId: file.id,
       driveModifiedTime: file.modifiedTime ?? '',
       revision: file.version,
@@ -481,6 +492,7 @@ export class DriveStudyRepository implements StudyRepository {
       viewer: study.viewer,
       reportName: study.reportName,
       hasPdf: study.hasPdf,
+      attachmentMime: study.attachmentMime,
       driveFileId: study.driveFileId,
       driveModifiedTime: study.driveModifiedTime,
       revision: study.revision,
@@ -502,6 +514,7 @@ export class DriveStudyRepository implements StudyRepository {
       viewer: record.viewer,
       reportName: record.reportName,
       hasPdf: record.hasPdf,
+      attachmentMime: record.attachmentMime,
       driveFileId: record.driveFileId,
       driveModifiedTime: record.driveModifiedTime,
       revision: record.revision,
@@ -565,7 +578,7 @@ export class DriveStudyRepository implements StudyRepository {
     // On edit we must start from what Drive has now, not from what the form remembers.
     const existing = draft.driveFileId ? await this.fetchFile(draft.driveFileId) : null;
     if (existing && existing.revision !== draft.revision) throw new DriveConflictError();
-    if (existing?.hasPdf && (draft.file || draft.removeReport)) {
+    if ((existing?.hasPdf || existing?.attachmentMime) && (draft.file || draft.removeReport)) {
       const events = await new DriveMedicalEventRepository(this.client).list();
       if (events.some((event) => event.documentIds.includes(existing.id))) throw new Error('Desvinculá el documento de los eventos antes de reemplazarlo o quitarlo.');
       const linkedStudies = await this.list({ force: true });
@@ -577,14 +590,16 @@ export class DriveStudyRepository implements StudyRepository {
     const documentIds = documentAssociationIds(draft.documentIds ?? existing?.documentIds, id);
     if (documentIds.length) {
       const available = await this.list({ force: true });
-      if (documentIds.some((documentId) => !available.some((study) => study.id === documentId && study.hasPdf))) {
+      if (documentIds.some((documentId) => !available.some((study) => study.id === documentId && (study.hasPdf || study.attachmentMime)))) {
         throw new Error('Un documento vinculado ya no está disponible en esta cuenta.');
       }
     }
 
-    const keepPdf = Boolean(existing?.hasPdf) && !draft.file && !draft.removeReport;
-    const hasPdf = Boolean(draft.file) || keepPdf;
-    const reportName = draft.file?.name ?? (keepPdf ? (existing?.reportName ?? '') : '');
+    const keepDocument = Boolean(existing?.hasPdf || existing?.attachmentMime) && !draft.file && !draft.removeReport;
+    const newMime = draft.file?.type.startsWith('image/') ? await validateDocument(draft.file) : draft.file ? PDF_MIME : undefined;
+    if (draft.file?.type.startsWith('image/') && newMime === PDF_MIME) throw new Error('Elegí una imagen JPEG o PNG válida.');
+    const documentMime = newMime ?? (keepDocument ? existing?.attachmentMime ?? PDF_MIME : undefined);
+    const reportName = draft.file?.name ?? (keepDocument ? (existing?.reportName ?? '') : '');
 
     const payload: DriveFileMetadata = {
       id,
@@ -599,11 +614,12 @@ export class DriveStudyRepository implements StudyRepository {
       documentIds,
     };
     const description = JSON.stringify(payload);
-    const fileName = `${draft.date} ${draft.title}`.replace(/[\\/]/g, '-') + (hasPdf ? '.pdf' : '.json');
+    const extension = documentMime === 'image/jpeg' ? '.jpg' : documentMime === 'image/png' ? '.png' : documentMime === PDF_MIME ? '.pdf' : '.json';
+    const fileName = `${draft.date} ${draft.title}`.replace(/[\\/]/g, '-') + extension;
 
     let response: DriveFileResponse;
     // Same rule as the original: no new file and no PDF to drop means only the ficha changes.
-    if (existing && !draft.file && !(draft.removeReport && existing.hasPdf)) {
+    if (existing && !draft.file && !(draft.removeReport && (existing.hasPdf || existing.attachmentMime))) {
       // Leave the stored file (and its mimeType) untouched.
       await this.client.assertSession(token);
       response = await this.client
@@ -614,7 +630,7 @@ export class DriveStudyRepository implements StudyRepository {
         .then((r) => r.json() as Promise<DriveFileResponse>);
     } else {
       const media = draft.file ?? new Blob([description], { type: JSON_MIME });
-      const mediaType = draft.file ? PDF_MIME : JSON_MIME;
+      const mediaType = draft.file ? documentMime! : JSON_MIME;
       const metadata: Record<string, unknown> = { name: fileName, description, mimeType: mediaType };
       if (!isUpdate) {
         metadata.id = id;
@@ -635,8 +651,8 @@ export class DriveStudyRepository implements StudyRepository {
           throw new Error('La carga anterior ya se guardó. Actualizá la lista para revisarla.');
         }
         if (draft.file) {
-          if (response.mimeType !== PDF_MIME) throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.');
-          const remoteFile = await this.getPdfFile(id);
+          if (response.mimeType !== documentMime) throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.');
+          const remoteFile = await this.getDocumentFile(id);
           const [localDigest, remoteDigest] = await Promise.all([
             draft.file.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
             remoteFile.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
@@ -662,7 +678,8 @@ export class DriveStudyRepository implements StudyRepository {
       await storage.deleteSessionStudy(owner, id);
       return;
     }
-    if ((await this.fetchFile(id)).revision !== revision) throw new DriveConflictError();
+    const existingFile = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    if (this.client.parseRecord(existingFile).revision !== revision) throw new DriveConflictError();
     const events = await new DriveMedicalEventRepository(this.client).list();
     if (events.some((event) => event.studyIds.includes(id) || event.documentIds.includes(id))) {
       throw new Error('Desvinculá el estudio y su documento de los eventos antes de eliminarlo.');
@@ -674,9 +691,65 @@ export class DriveStudyRepository implements StudyRepository {
     await this.client.assertSession(token);
     await this.client.request(
       this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: 'id' }),
-      this.client.jsonBody('PATCH', { trashed: true })
+      this.client.jsonBody('PATCH', { trashed: true, appProperties: { ...existingFile.appProperties, [TAG]: MARKER, [DELETED_AT]: new Date().toISOString() } })
     );
     await storage.deleteSessionStudy(owner, id);
+  }
+
+  async listDeleted(): Promise<Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }>> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.cacheOwner();
+    const result: Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }> = [];
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<typeof result[number]>(owner, 'deletedStudiesCache');
+      if (!cached) throw new Error('Conectate para consultar los estudios eliminados antes de recuperarlos sin conexión.');
+      return cached.map(item => {
+        const age = Date.now() - Date.parse(item.deletedAt);
+        return { ...item, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 };
+      });
+    }
+    let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url(DRIVE_ROOT, 'files', {
+        q: `trashed = true and appProperties has { key='${TAG}' and value='${MARKER}' }`,
+        fields: `nextPageToken,files(${ENTRY_FIELDS})`, pageSize: '100',
+        ...(pageToken ? { pageToken } : {}),
+      })).then(r => r.json() as Promise<DriveFileResponse>);
+      for (const file of response.files ?? []) {
+        if (!file.trashed || file.appProperties?.[TAG] !== MARKER) continue;
+        const study = this.client.parseRecord({ ...file, trashed: false });
+        const deletedAt = file.appProperties[DELETED_AT] ?? '';
+        const age = Date.now() - Date.parse(deletedAt);
+        result.push({ id: study.id, title: study.title, date: study.date, revision: study.revision, deletedAt, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 });
+      }
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    await this.client.assertSession(token);
+    await storage.writeSessionDirectory(owner, 'deletedStudiesCache', result);
+    return result;
+  }
+
+  async restore(id: string, revision: string): Promise<Study> {
+    if (!ID_PATTERN.test(id) || !revision) throw new Error('La ficha no tiene una revisión válida.');
+    const token = await this.client.getAccessToken();
+    const owner = await this.cacheOwner();
+    const file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    if (file.appProperties?.[TAG] !== MARKER) throw new DriveConflictError();
+    if (!file.trashed && file.appProperties[RESTORED_REVISION] === revision) {
+      await this.client.assertSession(token);
+      return this.client.parseRecord(file);
+    }
+    if (!file.trashed || file.version !== revision) throw new DriveConflictError();
+    const age = Date.now() - Date.parse(file.appProperties[DELETED_AT] ?? '');
+    if (!Number.isFinite(age) || age < 0 || age >= 30 * 86400000) throw new Error('Este estudio ya no está disponible para recuperación desde la aplicación.');
+    await this.client.assertSession(token);
+    const restored = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, [DELETED_AT]: null, [RESTORED_REVISION]: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
+    await this.client.assertSession(token);
+    const study = this.client.parseRecord(restored);
+    await storage.writeSessionStudies(owner, [this.studyToRecord(study)]);
+    const cached = await storage.readSessionDirectory<{ id: string }>(owner, 'deletedStudiesCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'deletedStudiesCache', cached.filter(item => item.id !== id));
+    return study;
   }
 
   async getPdfFile(fileId: string): Promise<File> {
@@ -685,6 +758,14 @@ export class DriveStudyRepository implements StudyRepository {
     );
     const blob = await response.blob();
     return new File([blob], 'informe.pdf', { type: PDF_MIME });
+  }
+
+  async getDocumentFile(fileId: string): Promise<File> {
+    const response = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(fileId)}`, { alt: 'media' }));
+    const blob = await response.blob();
+    const type = blob.type.split(';')[0] ?? '';
+    if (![PDF_MIME, 'image/jpeg', 'image/png'].includes(type)) throw new Error('El archivo de Drive tiene un formato no compatible.');
+    return new File([blob], type === 'image/png' ? 'informe.png' : type === 'image/jpeg' ? 'informe.jpg' : 'informe.pdf', { type });
   }
 }
 
@@ -896,7 +977,7 @@ export class DriveMedicalEventRepository {
     const studyIds = [...new Set(draft.studyIds)];
     const documentIds = [...new Set(draft.documentIds)];
     if (studyIds.some((id) => !available.some((study) => study.id === id)) ||
-        documentIds.some((id) => !available.some((study) => study.id === id && study.hasPdf))) {
+        documentIds.some((id) => !available.some((study) => study.id === id && (study.hasPdf || study.attachmentMime)))) {
       throw new Error('Uno de los estudios o documentos ya no está disponible en esta cuenta.');
     }
     const description = JSON.stringify({ kind: draft.kind, date: draft.date, doctor: draft.doctor, notes: draft.notes, studyIds, documentIds });
@@ -926,16 +1007,79 @@ export class DriveMedicalEventRepository {
   }
 }
 
+export class DriveAppointmentRepository {
+  constructor(private client: DriveClient) {}
+
+  private parse(file: DriveFileResponse): Appointment {
+    if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== APPOINTMENT_MARKER) throw new Error('Turno no disponible.');
+    const item = this.client.parseDescription<AppointmentDraft>(file, 'Drive tiene un turno cuya ficha no se puede leer.');
+    if (validateAppointment(item).length || !['scheduled', 'completed', 'cancelled', 'absent'].includes(item.status) || ![null, 'all', 'partial', 'none'].includes(item.coverage)) throw new Error('Drive tiene un turno cuya ficha no se puede leer.');
+    return { ...item, id: file.id, revision: file.version };
+  }
+
+  async list(): Promise<Appointment[]> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<Appointment>(owner, 'appointmentsCache');
+      if (cached) return cached;
+    }
+    const items: Appointment[] = [];
+    let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url(DRIVE_ROOT, 'files', { q: this.client.query(APPOINTMENT_MARKER), spaces: 'drive', pageSize: '100', fields: `nextPageToken,files(${ENTRY_FIELDS})`, ...(pageToken ? { pageToken } : {}) })).then(r => r.json() as Promise<DriveFileResponse>);
+      items.push(...(response.files ?? []).map(file => this.parse(file)));
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    await this.client.assertSession(token);
+    await storage.writeSessionDirectory(owner, 'appointmentsCache', items);
+    return items;
+  }
+
+  async save(draft: AppointmentDraft): Promise<Appointment> {
+    const errors = validateAppointment(draft);
+    if (errors.length) throw new Error(errors[0]);
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    const { date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes } = draft;
+    const fields = { date, time, timeZone, professional, notes, status, cost, coverage, ...(reminderMinutes ? { reminderMinutes } : {}) };
+    const description = JSON.stringify(fields);
+    let file: DriveFileResponse;
+    if (draft.id) {
+      const existing = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+      if (!draft.revision || this.parse(existing).revision !== draft.revision) throw new DriveConflictError('evento');
+      await this.client.assertSession(token);
+      file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { description })).then(r => r.json() as Promise<DriveFileResponse>);
+    } else {
+      const id = draft.createId ?? await this.client.reserveId();
+      const folder = await this.client.getFolderId();
+      await this.client.assertSession(token);
+      try {
+        file = await this.client.upload('files', 'POST', { id, name: `${draft.date} Turno`, description, mimeType: JSON_MIME, parents: [folder], appProperties: { [TAG]: APPOINTMENT_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+      } catch (error) {
+        if (this.client.shouldRethrowCreateError(draft.createId, error)) throw error;
+        file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+        if (file.description !== description) throw new DriveConflictError('evento');
+      }
+    }
+    const saved = this.parse(file);
+    await this.client.assertSession(token);
+    const cached = await storage.readSessionDirectory<Appointment>(owner, 'appointmentsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'appointmentsCache', [...cached.filter(item => item.id !== saved.id), saved]);
+    return saved;
+  }
+}
+
 export class DriveEpisodeRepository {
   constructor(public client: DriveClient) {}
 
   private parse(file: DriveFileResponse): Episode {
     if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.[TAG] !== EPISODE_MARKER) throw new Error('Episodio no disponible.');
     const item = this.client.parseDescription<EpisodeDraft>(file, 'Drive tiene un episodio cuya ficha no se puede leer.');
-    if (typeof item.illness !== 'string' || !item.illness.trim()) throw new Error('Drive tiene un episodio cuya ficha no se puede leer.');
+    if (typeof item.illness !== 'string') throw new Error('Drive tiene un episodio cuya ficha no se puede leer.');
     if (!Array.isArray(item.observations)) item.observations = [];
     if (!Array.isArray(item.medications)) item.medications = [];
-    return { id: file.id, illness: item.illness, observations: item.observations, medications: item.medications, revision: file.version };
+    return { id: file.id, illness: item.illness, observations: item.observations, medications: item.medications, closed: item.closed === true, revision: file.version };
   }
 
   async list(): Promise<Episode[]> {
@@ -969,10 +1113,9 @@ export class DriveEpisodeRepository {
 
   async save(draft: EpisodeDraft): Promise<Episode> {
     const illness = draft.illness.trim();
-    if (!illness) throw new Error('Ingresá un nombre para la enfermedad.');
     const token = await this.client.getAccessToken();
     const owner = await this.client.cacheOwner();
-    const description = JSON.stringify({ illness, observations: draft.observations ?? [], medications: draft.medications ?? [] });
+    const description = JSON.stringify({ illness, observations: draft.observations ?? [], medications: draft.medications ?? [], ...(draft.closed ? { closed: true } : {}) });
     let file: DriveFileResponse;
     if (draft.id) {
       const existing = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(draft.id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>);
@@ -984,7 +1127,7 @@ export class DriveEpisodeRepository {
       const folder = await this.client.getFolderId();
       await this.client.assertSession(token);
       try {
-        file = await this.client.upload('files', 'POST', { id, name: illness, description, mimeType: JSON_MIME, parents: [folder], appProperties: { [TAG]: EPISODE_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
+        file = await this.client.upload('files', 'POST', { id, name: illness || 'Episodio de salud', description, mimeType: JSON_MIME, parents: [folder], appProperties: { [TAG]: EPISODE_MARKER } }, new Blob([description], { type: JSON_MIME }), JSON_MIME);
       } catch (err) {
         if (this.client.shouldRethrowCreateError(draft.createId, err)) throw err;
         file = await this.client.request(this.client.url(DRIVE_ROOT, `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then((r) => r.json() as Promise<DriveFileResponse>);
@@ -1077,4 +1220,5 @@ export const driveOperationRepo = new DriveOperationRepository(driveClient);
 export const drivePortalRepo = new DrivePortalRepository(driveClient);
 export const driveMedicalEventRepo = new DriveMedicalEventRepository(driveClient);
 export const driveEpisodeRepo = new DriveEpisodeRepository(driveClient);
+export const driveAppointmentRepo = new DriveAppointmentRepository(driveClient);
 export const driveIntakeRepo = new DriveIntakeRepository(driveClient);

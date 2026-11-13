@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb';
-import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft, EpisodeDraft } from '@domain/models';
+import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft, EpisodeDraft, AppointmentDraft } from '@domain/models';
 import { DriveConflictError } from './drive-repository';
 
 export interface OutboxAdapter {
@@ -7,11 +7,13 @@ export interface OutboxAdapter {
   reserveId(): Promise<string>;
   save(draft: StudyDraft): Promise<void>;
   delete(id: string, revision: string): Promise<void>;
+  restore(id: string, revision: string): Promise<void>;
   saveOperation(draft: OperationDraft): Promise<void>;
   deleteOperation(id: string, revision: string): Promise<void>;
   savePortal(draft: PortalDraft): Promise<void>;
   saveEvent(draft: MedicalEventDraft): Promise<void>;
   saveEpisode(draft: EpisodeDraft): Promise<void>;
+  saveAppointment(draft: AppointmentDraft): Promise<void>;
   deletePortal(portal: Portal): Promise<void>;
   deleteEpisode(id: string, revision: string): Promise<void>;
   lock(name: string, callback: () => Promise<void>): Promise<void>;
@@ -20,7 +22,7 @@ export interface OutboxAdapter {
 export interface OutboxEntry {
   id?: number;
   owner: string;
-  kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save' | 'episode-save' | 'episode-delete';
+  kind: 'save' | 'delete' | 'restore' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save' | 'episode-save' | 'episode-delete' | 'appointment-save';
   status: 'pending' | 'conflict' | 'failed';
   studyId?: string;
   revision?: string;
@@ -29,6 +31,8 @@ export interface OutboxEntry {
   portalDraft?: PortalDraft;
   eventDraft?: MedicalEventDraft;
   episodeDraft?: EpisodeDraft;
+  appointmentDraft?: AppointmentDraft;
+  appointmentId?: string;
   eventId?: string;
   operationId?: string;
   portalId?: string;
@@ -36,6 +40,7 @@ export interface OutboxEntry {
   episodeId?: string;
   attachment?: Blob;
   attachmentName?: string;
+  attachmentType?: string;
   lastError?: string;
 }
 
@@ -73,8 +78,8 @@ export class Outbox {
       await tx.done;
       throw new Error('Hay un estudio pendiente vinculado a esta operación.');
     }
-    if (entry.studyId || entry.operationId || entry.portalId || entry.eventId) {
-      if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId) || (entry.eventId && item.eventId === entry.eventId))) {
+    if (entry.studyId || entry.operationId || entry.portalId || entry.eventId || entry.episodeId || entry.appointmentId) {
+      if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId) || (entry.eventId && item.eventId === entry.eventId) || (entry.episodeId && item.episodeId === entry.episodeId) || (entry.appointmentId && item.appointmentId === entry.appointmentId))) {
         await tx.done;
         throw new Error('Este registro ya tiene un cambio pendiente.');
       }
@@ -85,12 +90,17 @@ export class Outbox {
 
   async enqueueSave(owner: string, draft: StudyDraft): Promise<void> {
     const { file, ...fields } = draft;
-    await this.enqueue({ owner, kind: 'save', status: 'pending', studyId: draft.driveFileId, draft: fields, attachment: file, attachmentName: file?.name });
+    await this.enqueue({ owner, kind: 'save', status: 'pending', studyId: draft.driveFileId, draft: fields, attachment: file, attachmentName: file?.name, attachmentType: file?.type });
   }
 
   async enqueueDelete(owner: string, id: string, revision: string): Promise<void> {
     if (!id || !revision) throw new Error('La ficha no tiene una revisión válida.');
     await this.enqueue({ owner, kind: 'delete', status: 'pending', studyId: id, revision });
+  }
+
+  async enqueueRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('La ficha no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'restore', status: 'pending', studyId: id, revision });
   }
 
   async enqueueOperationSave(owner: string, draft: OperationDraft): Promise<void> {
@@ -112,6 +122,10 @@ export class Outbox {
 
   async enqueueEpisodeSave(owner: string, draft: EpisodeDraft): Promise<void> {
     await this.enqueue({ owner, kind: 'episode-save', status: 'pending', episodeId: draft.id, episodeDraft: draft });
+  }
+
+  async enqueueAppointmentSave(owner: string, draft: AppointmentDraft): Promise<void> {
+    await this.enqueue({ owner, kind: 'appointment-save', status: 'pending', appointmentId: draft.id, appointmentDraft: draft });
   }
 
   async enqueueEpisodeDelete(owner: string, id: string, revision: string): Promise<void> {
@@ -155,6 +169,7 @@ export class Outbox {
     else if (entry.kind === 'event-save' && replacement.eventDraft?.id) replacement.eventDraft.revision = revision;
     else if (entry.kind === 'episode-save' && replacement.episodeDraft?.id) replacement.episodeDraft.revision = revision;
     else if (entry.kind === 'episode-delete' && entry.episodeId) replacement.revision = revision;
+    else if (entry.kind === 'appointment-save' && replacement.appointmentDraft?.id) replacement.appointmentDraft.revision = revision;
     else { await tx.done; throw new Error('Este conflicto requiere revisión manual.'); }
     await tx.store.add(replacement);
     await tx.store.delete(id);
@@ -174,10 +189,12 @@ export class Outbox {
               entry.draft.id = await remote.reserveId();
               await db.put('entries', entry);
             }
-            const file = entry.attachment ? new File([entry.attachment], entry.attachmentName ?? 'Informe.pdf', { type: 'application/pdf' }) : undefined;
+            const file = entry.attachment ? new File([entry.attachment], entry.attachmentName ?? 'Informe.pdf', { type: entry.attachmentType || entry.attachment.type || 'application/pdf' }) : undefined;
             await remote.save({ ...entry.draft, file });
           } else if (entry.kind === 'delete' && entry.studyId && entry.revision) {
             await remote.delete(entry.studyId, entry.revision);
+          } else if (entry.kind === 'restore' && entry.studyId && entry.revision) {
+            await remote.restore(entry.studyId, entry.revision);
           } else if (entry.kind === 'operation-save' && entry.operationDraft) {
             if (!entry.operationDraft.id && !entry.operationDraft.createId) { entry.operationDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
             await remote.saveOperation(entry.operationDraft);
@@ -194,6 +211,9 @@ export class Outbox {
           } else if (entry.kind === 'episode-save' && entry.episodeDraft) {
             if (!entry.episodeDraft.id && !entry.episodeDraft.createId) { entry.episodeDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
             await remote.saveEpisode(entry.episodeDraft);
+          } else if (entry.kind === 'appointment-save' && entry.appointmentDraft) {
+            if (!entry.appointmentDraft.id && !entry.appointmentDraft.createId) { entry.appointmentDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+            await remote.saveAppointment(entry.appointmentDraft);
           } else if (entry.kind === 'episode-delete' && entry.episodeId && entry.revision) {
             await remote.deleteEpisode(entry.episodeId, entry.revision);
           } else {

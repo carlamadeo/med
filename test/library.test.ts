@@ -59,6 +59,11 @@ describe('filterStudies', () => {
     expect(ids('no existe')).toEqual([]);
   });
 
+  it('finds a study by its PDF filename', () => {
+    const records = [study('a', { reportName: 'Análisis-Marzo.pdf' }), study('b')];
+    expect(filterStudies(records, { ...none, query: 'analisis-marzo' }).matches.map(item => item.id)).toEqual(['a']);
+  });
+
   it('filters by exact study type, including studies that have several', () => {
     expect(filterStudies(all, { ...none, type: 'ecografia' }).matches.map((s) => s.id)).toEqual(['b', 'a']);
     expect(filterStudies(all, { ...none, type: 'PAP' }).matches).toEqual([]);

@@ -11,6 +11,7 @@ export {
   drivePortalRepo,
   driveMedicalEventRepo,
   driveEpisodeRepo,
+  driveAppointmentRepo,
   driveIntakeRepo,
 } from './drive-repository';
 export type { DriveFileMetadata, IntakeCandidate } from '@domain/repository';

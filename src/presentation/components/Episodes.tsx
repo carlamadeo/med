@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { driveAuth, driveEpisodeRepo } from '@data';
 import { Outbox } from '@data/outbox';
+import { todayLocal } from '@domain/utils';
 import type { Episode, EpisodeDraft, SymptomObservation, Medication } from '@domain/models';
 import { episodes, visibleEpisodes } from '../state/store';
 
@@ -27,15 +28,9 @@ interface FormMedication {
   instructions?: string;
 }
 
-function formatDateForInput(date: Date): string {
-  const iso = date.toISOString();
-  const parts = iso.split('T');
-  return parts[0] ?? '';
-}
-
 function createEmptyObservation(): FormObservation {
   return {
-    date: formatDateForInput(new Date()),
+    date: todayLocal(),
     text: '',
     symptoms: [],
   } as FormObservation;
@@ -73,6 +68,15 @@ export function Episodes() {
   const [message, setMessage] = useState('');
   const [observations, setObservations] = useState<FormObservation[]>([createEmptyObservation()]);
   const [medications, setMedications] = useState<FormMedication[]>([{ name: '', frequency: '', instructions: '' }]);
+  const illnessCounts = new Map<string, number>();
+  const medicationNames = new Map<string, string>();
+  for (const episode of visibleEpisodes.value) {
+    if (episode.illness) illnessCounts.set(episode.illness, (illnessCounts.get(episode.illness) ?? 0) + 1);
+    for (const medication of episode.medications) {
+      const name = medication.name.trim();
+      if (name && !medicationNames.has(name.toLocaleLowerCase('es'))) medicationNames.set(name.toLocaleLowerCase('es'), name);
+    }
+  }
 
   function resetForm() {
     setObservations([createEmptyObservation()]);
@@ -165,7 +169,6 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
   async function save(form: HTMLFormElement) {
     const data = new FormData(form);
     const illness = String(data.get('illness') ?? '').trim();
-    if (!illness) { setMessage('Ingresá un nombre para la enfermedad.'); return; }
 
     const validObservations = observations.filter((o: FormObservation) => o.date || o.text || o.temperature || o.symptoms.some((s: FormSymptomEntry) => s.name || s.intensity || s.description));
     const validMedications = medications.filter((m: FormMedication) => m.name || m.frequency || m.instructions);
@@ -174,11 +177,13 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
       illness,
       observations: validObservations.length > 0 ? validObservations.map(toDomainObservation) : undefined,
       medications: validMedications.length > 0 ? validMedications.map(toDomainMedication) : undefined,
+      closed: data.has('closed'),
       id: editing?.id,
       revision: editing?.revision,
     };
 
     setBusy(true); setMessage('');
+    try {
     const token = await driveAuth.getAccessToken();
     const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
@@ -195,7 +200,11 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
     }
     if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
     setEditing(null); resetForm(); form.reset();
-    setBusy(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo guardar el episodio.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   function startEdit(episode: Episode) {
@@ -208,6 +217,7 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
 
   async function deleteEpisode(episode: Episode) {
     if (!confirm(`Eliminar el episodio "${episode.illness}"?`)) return;
+    try {
     const token = await driveAuth.getAccessToken();
     const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); return; }
@@ -224,8 +234,12 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
       episodes.value = episodes.value.filter((ep) => ep.id !== episode.id);
     }
     if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
-    setMessage('Episodio eliminado.');
-    setBusy(false);
+    if (navigator.onLine) setMessage('Episodio eliminado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el episodio.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handleDateChange(obsIndex: number, e: Event) {
@@ -271,7 +285,8 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
     <form id="episode-form" key={editing?.id ?? 'new'} onSubmit={(event: Event) => { event.preventDefault(); void save(event.currentTarget as HTMLFormElement); }}>
       <fieldset disabled={busy}>
         <legend>{editing ? 'Editar episodio' : 'Nuevo episodio'}</legend>
-        <label>Enfermedad <input name="illness" required defaultValue={editing?.illness ?? ''} placeholder="Ej: Gripe, Lumbalgia, Sinusitis..." /></label>
+        <label>Enfermedad <input name="illness" defaultValue={editing?.illness ?? ''} placeholder="Ej: Gripe, Lumbalgia, Sinusitis..." /></label>
+        <label><input name="closed" type="checkbox" defaultChecked={editing?.closed ?? false} /> Episodio finalizado</label>
         <fieldset>
           <legend>Observaciones (días de ocurrencia)</legend>
           {observations.map((obs: FormObservation, obsIndex: number) => (
@@ -301,9 +316,10 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
         </fieldset>
         <fieldset>
           <legend>Medicamentos e indicaciones</legend>
+          <datalist id="episode-medications">{[...medicationNames.values()].map(name => <option key={name} value={name} />)}</datalist>
           {medications.map((med: FormMedication, medIndex: number) => (
             <div key={medIndex} className="medication-row">
-              <input type="text" placeholder="Nombre del medicamento" defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)} />
+              <input type="text" list="episode-medications" placeholder="Nombre del medicamento" defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)} />
               <input type="text" placeholder="Frecuencia (ej: cada 8h)" defaultValue={med.frequency} onChange={(e) => handleMedFreqChange(medIndex, e)} />
               <input type="text" placeholder="Indicaciones médicas" defaultValue={med.instructions} onChange={(e) => handleMedInstrChange(medIndex, e)} />
               {medications.length > 1 && <button type="button" onClick={() => removeMedication(medIndex)} aria-label="Quitar medicamento">×</button>}
@@ -316,22 +332,36 @@ function updateMedication(index: number, field: 'name' | 'frequency' | 'instruct
       </fieldset>
     </form>
     {message && <p role="status">{message}</p>}
+    {illnessCounts.size > 0 && <section aria-label="Episodios por enfermedad">
+      <h3>Por enfermedad</h3>
+      <ul>{[...illnessCounts].map(([illness, count]) => <li key={illness}>{illness} · {count} {count === 1 ? 'episodio' : 'episodios'}</li>)}</ul>
+    </section>}
     <ul id="episodes-list">
       {[...visibleEpisodes.value].sort((a: Episode, b: Episode) => {
-        const dateA = a.observations[0]?.date ?? '';
-        const dateB = b.observations[0]?.date ?? '';
+        const dateA = a.observations.map(item => item.date).sort().at(-1) ?? '';
+        const dateB = b.observations.map(item => item.date).sort().at(-1) ?? '';
         return dateB.localeCompare(dateA);
-      }).map((episode: Episode) => (
+      }).map((episode: Episode) => {
+        const observations = [...episode.observations].sort((a, b) => a.date.localeCompare(b.date));
+        const dates = observations.map(item => item.date).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
+        const duration = dates.length ? Math.round((Date.parse(`${dates[dates.length - 1]}T00:00:00Z`) - Date.parse(`${dates[0]}T00:00:00Z`)) / 86400000) + 1 : null;
+        return (
         <li key={episode.id}>
-          <h3>{episode.illness}</h3>
-          {episode.observations[0] && <p>Inicio: {episode.observations[0].date}</p>}
+          <h3>{episode.illness || 'Episodio de salud'}</h3>
+          <p>{episode.closed ? 'Finalizado' : 'En curso'}</p>
+          {duration !== null && <p>Duración: {duration} {duration === 1 ? 'día' : 'días'}</p>}
           <p>{episode.observations.length} día(s) de ocurrencia · {episode.medications.filter((m: Medication) => m.name).length} medicamento(s)</p>
-          {episode.observations[0]?.text && <p>{episode.observations[0].text}</p>}
+          <ul>{observations.map((observation, index) => <li key={index}>
+            <span>{observation.date} {observation.text}</span>
+            {observation.temperature !== undefined && <span> · {observation.temperature} °C</span>}
+            {observation.symptoms.map((symptom, symptomIndex) => <span key={symptomIndex}> · {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` ${symptom.description}` : ''}</span>)}
+          </li>)}</ul>
           {episode.syncStatus && <p>{episode.syncStatus === 'conflict' ? 'Requiere revisión' : episode.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
           <button type="button" disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar</button>
-          <button type="button" onClick={() => deleteEpisode(episode)}>Eliminar</button>
+          <button type="button" disabled={Boolean(episode.syncStatus)} onClick={() => deleteEpisode(episode)}>Eliminar</button>
         </li>
-      ))}
+        );
+      })}
     </ul>
   </section>;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { sharingStudyId, shareSelection, studies, setSharingStudyId, setShareSelection, markSourceUnavailable } from '../state/store';
 import { useFocusTrap } from '../utils/focusTrap';
-import { reportUrl } from '@domain/library';
+import { driveAuth, driveStudyRepo } from '@data';
 
 interface ShareDialogProps {
   onReconnect: () => void;
@@ -36,10 +36,23 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
 
   const [includePdf, setIncludePdf] = useState(false);
   const [includeViewer, setIncludeViewer] = useState(false);
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
   const [filename, setFilename] = useState('');
   const [filenameError, setFilenameError] = useState('');
+  const [prepared, setPrepared] = useState<ShareData | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const generation = useRef(0);
 
   useFocusTrap(dialogRef, Boolean(id));
+
+  useEffect(() => driveAuth.onAuthChange((signedIn) => {
+    if (!signedIn) {
+      generation.current += 1;
+      setPrepared(null);
+      setSharingStudyId(null);
+      setShareSelection(null);
+    }
+  }), []);
 
   useEffect(() => {
     const element = dialogRef.current;
@@ -47,6 +60,8 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
     if (id && !element.open) {
       const s = study;
       if (s) {
+        setDocumentIds([]);
+        setFilenameError('');
         const pdfAvailable = s.hasPdf && !s.pendingAttachment;
         const viewerAvailable = Boolean(s.viewer);
         setIncludePdf(pdfAvailable);
@@ -72,56 +87,57 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
     }
   }, [selection]);
 
-  const hasShareableContent = study?.hasPdf || study?.viewer || study?.documentIds?.length;
+  const associatedDocuments = (study?.documentIds ?? []).map(docId => studies.value.find(item => item.id === docId && item.hasPdf && !item.pendingAttachment)).filter(item => item !== undefined);
+  const hasShareableContent = Boolean((study?.hasPdf && !study.pendingAttachment) || study?.viewer || associatedDocuments.length);
 
   const handleClose = () => {
+    generation.current += 1;
+    setPrepared(null);
     dialogRef.current?.close();
     setSharingStudyId(null);
+    setShareSelection(null);
   };
 
   const handleCancel = () => {
     handleClose();
   };
 
-  const updateSelection = () => {
-    const hasContent = includePdf || includeViewer;
-    if (!hasContent) {
-      setFilenameError('Seleccioná al menos una fuente para compartir');
-      return;
-    }
-    if (!filename.trim()) {
-      setFilenameError('Ingresá un nombre para el archivo');
-      return;
-    }
-    setFilenameError('');
-    setShareSelection({ includePdf, includeViewer, filename: filename.trim() });
-  };
-
   const handleConfirm = async () => {
     if (!id || !study) return;
-    updateSelection();
-    if (filenameError) return;
-
-    const selection = shareSelection.value;
-    if (!selection) return;
+    if (!includePdf && !includeViewer && !documentIds.length) { setFilenameError('Seleccioná al menos una fuente para compartir'); return; }
+    const safeFilename = sanitizeFilename(filename);
+    if (!safeFilename) { setFilenameError('Ingresá un nombre para el archivo'); return; }
+    const selection = { includePdf, includeViewer, filename: safeFilename };
 
     const files: File[] = [];
     const urls: string[] = [];
 
-    if (selection.includePdf && study.hasPdf && !study.pendingAttachment) {
+    const selectedDocuments = associatedDocuments.filter(document => documentIds.includes(document.id));
+    if (selectedDocuments.length !== documentIds.length) { setFilenameError('Un documento seleccionado ya no está disponible.'); return; }
+    if ((selection.includePdf && study.hasPdf && !study.pendingAttachment) || selectedDocuments.length) {
+      const currentGeneration = ++generation.current;
+      setPreparing(true);
       try {
-        const response = await fetch(reportUrl(study.id));
-        if (response.ok) {
-          const blob = await response.blob();
-          files.push(new File([blob], `${selection.filename}.pdf`, { type: 'application/pdf' }));
-        } else {
-          markSourceUnavailable(study.id);
-          setFilenameError('No se pudo descargar el PDF. El archivo puede no estar disponible.');
-          return;
+        const token = await driveAuth.getAccessToken();
+        if (selection.includePdf && study.hasPdf && !study.pendingAttachment) {
+          const file = await driveStudyRepo.getPdfFile(study.driveFileId);
+          const name = /\.pdf$/i.test(selection.filename) ? selection.filename : `${selection.filename}.pdf`;
+          files.push(new File([file], name, { type: 'application/pdf' }));
         }
+        for (const document of selectedDocuments) {
+          const file = await driveStudyRepo.getPdfFile(document.driveFileId);
+          const base = sanitizeFilename(document.reportName || document.title) || 'documento';
+          const name = /\.pdf$/i.test(base) ? base : `${base}.pdf`;
+          files.push(new File([file], `${document.id}-${name}`, { type: 'application/pdf' }));
+        }
+        if (currentGeneration !== generation.current || await driveAuth.getAccessToken() !== token) return;
       } catch {
-        setFilenameError('Error de red al descargar el PDF');
+        if (currentGeneration !== generation.current) return;
+        markSourceUnavailable(study.id);
+        setFilenameError('No se pudo descargar el PDF. Revisá la conexión y la sesión.');
         return;
+      } finally {
+        if (currentGeneration === generation.current) setPreparing(false);
       }
     }
 
@@ -129,43 +145,30 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
       urls.push(study.viewer);
     }
 
-    if (study.documentIds?.length) {
-      for (const docId of study.documentIds) {
-        const doc = studies.value.find((s) => s.id === docId && s.hasPdf);
-        if (doc && !doc.pendingAttachment) {
-          try {
-            const response = await fetch(reportUrl(docId));
-            if (response.ok) {
-              const blob = await response.blob();
-              files.push(new File([blob], `${doc.reportName || doc.title}.pdf`, { type: 'application/pdf' }));
-            }
-          } catch {
-            // Ignore errors for associated documents
-          }
-        }
-      }
-    }
-
-    try {
-      const shareData: ShareData & { files?: File[] } = {
+    const shareData: ShareData & { files?: File[] } = {
         title: study.title,
         text: `Estudio médico: ${study.title} (${study.date})`,
       };
-      if (files.length) shareData.files = files;
-      if (urls.length) shareData.url = urls[0];
+    if (files.length) shareData.files = files;
+    if (urls.length) shareData.url = urls[0];
+    if (files.length) {
+      setPrepared(shareData);
+      return;
+    }
+    await sendShare(shareData);
+  };
 
-      if (navigator.canShare && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-      } else if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
+  const sendShare = async (shareData: ShareData) => {
+    try {
+      if (!navigator.share || (navigator.canShare && !navigator.canShare(shareData))) {
         throw new Error('El navegador no soporta compartir nativo');
       }
+      await navigator.share(shareData);
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
         // User cancelled the share dialog
       } else if ((err as Error).message.includes('soporta compartir')) {
-        setFilenameError('Tu navegador no permite compartir archivos directamente. Usá la opción "Copiar enlace" o descargá el PDF.');
+        setFilenameError('El navegador no permite compartir este contenido.');
       } else {
         setFilenameError('No se pudo completar el envío. Probá de nuevo o usá otro método.');
       }
@@ -176,13 +179,24 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
     handleClose();
   };
 
+  const downloadPrepared = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const pdfAvailable = study?.hasPdf && !study?.pendingAttachment;
   const viewerAvailable = Boolean(study?.viewer);
 
   return (
-    <dialog id="share" ref={dialogRef} className="dialog" aria-labelledby="share-title" data-busy={String(busy)}
-      onCancel={(event) => { if (busy) event.preventDefault(); else handleCancel(); }}>
-      <form id="share-form" onSubmit={(event) => { event.preventDefault(); if (id && !busy) handleConfirm(); }}>
+    <dialog id="share" ref={dialogRef} className="dialog" aria-labelledby="share-title" data-busy={String(busy || preparing)}
+      onCancel={(event) => { if (busy || preparing) event.preventDefault(); else handleCancel(); }}>
+      <form id="share-form" onSubmit={(event) => { event.preventDefault(); if (id && !busy && !preparing) void handleConfirm(); }}>
         <div className="dialog-heading">
           <div><h2 id="share-title">Compartir estudio</h2>
             <p id="share-copy">{study ? `«${study.title}»` : ''}</p>
@@ -193,7 +207,7 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
         </div>
         <p className="form-error" id="share-error" role="alert" hidden={!error && !filenameError}>{error || filenameError}</p>
         <button type="button" className="button secondary reconnect" hidden={!sessionLost} onClick={onReconnect}>Reconectar Google Drive</button>
-        <fieldset disabled={busy || sessionLost}>
+        <fieldset disabled={busy || sessionLost || preparing || Boolean(prepared)}>
           <legend>Qué compartir</legend>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {pdfAvailable && (
@@ -226,13 +240,13 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
                 <span>Enlace al visor</span>
               </label>
             )}
-            {study?.documentIds?.length && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px', opacity: 0.6 }}>
-                <input type="checkbox" disabled />
-                <svg className="icon" style={{ width: 20, height: 20, flex: 'none' }}><use href="#i-file" /></svg>
-                <span>{study.documentIds.length} documento(s) asociado(s) (se incluirán si tienen PDF)</span>
-              </label>
-            )}
+            {associatedDocuments.map(document => <label key={document.id}>
+              <input type="checkbox" value={document.id} checked={documentIds.includes(document.id)} onChange={(event) => {
+                setDocumentIds(event.currentTarget.checked ? [...documentIds, document.id] : documentIds.filter(id => id !== document.id));
+                setFilenameError('');
+              }} />
+              PDF asociado · {document.reportName || document.title}
+            </label>)}
             {!hasShareableContent && (
               <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>Este estudio no tiene archivos ni enlaces para compartir</span>
             )}
@@ -246,15 +260,28 @@ export function ShareDialog({ onReconnect, error, busy, sessionLost }: ShareDial
             onInput={(e) => { setFilename(e.currentTarget.value); setFilenameError(''); }}
             placeholder="ej. ecografia-abdominal-2024-01-15"
             maxLength={120}
-            disabled={busy || sessionLost}
+            disabled={busy || sessionLost || preparing || Boolean(prepared)}
           />
           <p className="hint">El nombre se usará para el PDF compartido. No cambia el archivo original.</p>
         </label>
         <div className="dialog-actions">
-          <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar</button>
-          <button type="submit" className="button primary" id="share-confirm" disabled={busy || sessionLost || !hasShareableContent}>
-            {busy ? 'Compartiendo…' : 'Compartir'}
-          </button>
+          <button type="button" className="button quiet" disabled={busy || preparing} onClick={handleCancel}>Cancelar</button>
+          {!prepared && !includePdf && !documentIds.length && includeViewer && study?.viewer && <>
+            <a href={`https://wa.me/?text=${encodeURIComponent(study.viewer)}`} target="_blank" rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
+            <a href={`mailto:?body=${encodeURIComponent(study.viewer)}`}>Abrir correo con enlace</a>
+          </>}
+          {prepared ? <>
+            <p role="status">Listo para compartir {prepared.files?.map(file => file.name).join(', ')}{prepared.url ? ` · ${prepared.url}` : ''}</p>
+            <button type="button" onClick={() => setPrepared(null)}>Volver</button>
+            {prepared.files?.map((file, index) => <button type="button" key={index} onClick={() => downloadPrepared(file)}>Descargar {file.name}</button>)}
+            {prepared.url && <>
+              <a href={`https://wa.me/?text=${encodeURIComponent(prepared.url)}`} target="_blank" rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
+              <a href={`mailto:?body=${encodeURIComponent(prepared.url)}`}>Abrir correo con enlace</a>
+            </>}
+            <button type="button" className="button primary" id="share-send" onClick={() => void sendShare(prepared)}>Compartir</button>
+          </> : <button type="submit" className="button primary" id="share-confirm" disabled={busy || preparing || sessionLost || !hasShareableContent}>
+            {preparing ? 'Preparando…' : includePdf || documentIds.length ? 'Preparar archivo' : 'Compartir'}
+          </button>}
         </div>
       </form>
     </dialog>

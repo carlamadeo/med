@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { analyzePdf, validatePdf } from '@data/pdf-analysis';
 import { driveOperationRepo } from '@data';
-import type { StudyDraft } from '@domain/models';
+import type { Study, StudyDraft } from '@domain/models';
 import { portalNames } from '@domain/library';
 import { isValidDate, todayLocal } from '@domain/utils';
 import { useFocusTrap } from '../utils/focusTrap';
@@ -127,9 +127,10 @@ export function EditorDialog({
         const operation = formRef.current?.querySelector<HTMLSelectElement>('#operation-id');
         if (operation) operation.value = current?.operationId ?? '';
         setTypes(current?.types ?? []);
-        reportFileRef.current = null;
+        const candidateFile = (current as (Study & { file?: File }) | null)?.file ?? null;
+        reportFileRef.current = candidateFile;
         reportRemoved.current = false;
-        setSelectedReport(null);
+        setSelectedReport(candidateFile);
         setCheckingReport(false);
         if (reportInputRef.current) reportInputRef.current.value = '';
         formRef.current?.querySelector<HTMLInputElement>('[name=types]')?.setCustomValidity('');
@@ -335,7 +336,7 @@ export function EditorDialog({
         const data = new FormData(form);
         const selectedStudy = editingStudy.value;
         if (checkingReport) return;
-        const selectedReport = reportRemoved.current ? undefined : reportInputRef.current?.files?.[0];
+        const selectedReport = reportRemoved.current ? undefined : reportInputRef.current?.files?.[0] ?? reportFileRef.current ?? undefined;
         void onSave({
           title: String(data.get('title') ?? '').trim(),
           date: String(data.get('date') ?? '').trim(),
@@ -346,7 +347,7 @@ export function EditorDialog({
           reportName: selectedReport?.name ?? '',
           file: selectedReport ?? undefined,
           removeReport: data.has('removeReport'),
-          driveFileId: selectedStudy?.id,
+          driveFileId: selectedStudy?.driveFileId || undefined,
           revision: selectedStudy?.revision,
           operationId: String(data.get('operationId') ?? ''),
           documentIds: data.getAll('documentIds').map(String),

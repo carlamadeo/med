@@ -1,5 +1,19 @@
 import type { OutboxEntry } from '@data/outbox';
-import { pendingChanges, syncMessage, syncing, operations, portals, studies, medicalEvents } from '../state/store';
+import { pendingChanges, syncMessage, syncing, operations, portals, studies, medicalEvents, appointments } from '../state/store';
+import type { AppointmentDraft } from '@domain/models';
+
+function AppointmentDetails({ value }: { value: AppointmentDraft }) {
+  const statuses = { scheduled: 'Programado', completed: 'Realizado', cancelled: 'Cancelado', absent: 'No asistí' };
+  const coverages = { all: 'Total', partial: 'Parcial', none: 'Sin cobertura' };
+  return <>
+    <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
+    <p>Profesional: {value.professional || '—'}</p>
+    <p>Detalles: {value.notes || '—'}</p>
+    <p>Estado: {statuses[value.status]}</p>
+    <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} · Cobertura: {value.coverage ? coverages[value.coverage] : 'Desconocida'}</p>
+    <p>Recordatorio: {value.reminderMinutes ? `${value.reminderMinutes} minutos antes` : 'Sin recordatorio'}</p>
+  </>;
+}
 
 interface PendingChangesSectionProps {
   onDiscard: (entry: OutboxEntry) => void;
@@ -30,7 +44,11 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
           : entry.eventId ? medicalEvents.value.find((event) => event.id === entry.eventId) : undefined;
         return (
         <li key={entry.id}>
-          {entry.kind === 'delete'
+          {entry.kind === 'appointment-save'
+            ? `Turno ${entry.appointmentDraft?.date ?? ''} ${entry.appointmentDraft?.time ?? ''}`
+            : entry.kind === 'restore'
+            ? 'Recuperar estudio'
+            : entry.kind === 'delete'
             ? `Eliminar ${studies.value.find((s) => s.id === entry.studyId)?.title ?? 'estudio'}`
             : entry.kind === 'operation-delete'
             ? `Eliminar ${operations.value.find((op) => op.id === entry.operationId)?.name ?? 'operación'}`
@@ -72,7 +90,19 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
             <p>Fecha: {entry.eventDraft.date}</p><p>Médico: {entry.eventDraft.doctor || '—'}</p>
             <p>Notas: {entry.eventDraft.notes || '—'}</p>
           </details>}
-          {entry.status === 'conflict' && <details>
+          {entry.status === 'conflict' && entry.kind === 'appointment-save' && entry.appointmentDraft && <details>
+            <summary>Comparar con Drive</summary>
+            <p>Mi cambio</p><AppointmentDetails value={entry.appointmentDraft} />
+            {(() => {
+              const remoteAppointment = appointments.value.find(item => item.id === entry.appointmentId);
+              return remoteAppointment ? <>
+                <p>Versión de Drive</p><AppointmentDetails value={remoteAppointment} />
+                <p>Revisión de Drive: {remoteAppointment.revision}</p>
+                <button type="button" className="button secondary" disabled={isSyncing || !navigator.onLine || !remoteAppointment.revision} onClick={() => onResolveConflict(entry, remoteAppointment.revision)}>Conservar mi cambio</button>
+              </> : <p>No se pudo mostrar la versión de Drive. Conectate y reintentá.</p>;
+            })()}
+          </details>}
+          {entry.status === 'conflict' && entry.kind !== 'appointment-save' && <details>
             <summary>Comparar con Drive</summary>
             <p>Mi cambio: {entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Eliminar registro')}</p>
             {remote ? <>

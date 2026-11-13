@@ -6,7 +6,7 @@
  * vuelvan a renderizar automáticamente cuando cambian.
  */
 import { signal, computed } from '@preact/signals';
-import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, MedicalEvent, ViewMode, Filters } from '@domain/models';
+import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, MedicalEvent, Episode, Appointment, ViewMode, Filters } from '@domain/models';
 import type { OutboxEntry } from '@data/outbox';
 import { filterStudies, type StudySortOrder } from '@domain/library';
 
@@ -27,6 +27,8 @@ export const studies = signal<Study[]>([]);
 export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
 export const medicalEvents = signal<MedicalEvent[]>([]);
+export const episodes = signal<Episode[]>([]);
+export const appointments = signal<Appointment[]>([]);
 
 export const view = signal<ViewMode>('cronologia');
 export const sortOrder = signal<StudySortOrder>('date-desc');
@@ -126,6 +128,46 @@ export const visibleMedicalEvents = computed<MedicalEvent[]>(() => {
     const draft = entry.eventDraft;
     const index = result.findIndex((event) => event.id === draft.id);
     const local: MedicalEvent = { ...draft, id: draft.id ?? `pending-${entry.id}`, revision: draft.revision ?? '', syncStatus: entry.status };
+    if (index >= 0) result[index] = local;
+    else result.push(local);
+  }
+  return result;
+});
+
+export const visibleEpisodes = computed<Episode[]>(() => {
+  const result = [...episodes.value];
+  for (const entry of pendingChanges.value) {
+    if (entry.kind === 'episode-delete' && entry.episodeId) {
+      const index = result.findIndex((episode) => episode.id === entry.episodeId);
+      const episode = result[index];
+      if (episode) result[index] = { ...episode, syncStatus: entry.status };
+      continue;
+    }
+    if (entry.kind !== 'episode-save' || !entry.episodeDraft || entry.id === undefined) continue;
+    const draft = entry.episodeDraft;
+    const index = result.findIndex((episode) => episode.id === draft.id);
+    const local: Episode = {
+      id: draft.id ?? `pending-${entry.id}`,
+      illness: draft.illness,
+      observations: draft.observations ?? [],
+      medications: draft.medications ?? [],
+      closed: draft.closed === true,
+      revision: draft.revision ?? '',
+      syncStatus: entry.status,
+    };
+    if (index >= 0) result[index] = local;
+    else result.push(local);
+  }
+  return result;
+});
+
+export const visibleAppointments = computed<Appointment[]>(() => {
+  const result = [...appointments.value];
+  for (const entry of pendingChanges.value) {
+    if (entry.kind !== 'appointment-save' || !entry.appointmentDraft || entry.id === undefined) continue;
+    const draft = entry.appointmentDraft;
+    const index = result.findIndex(item => item.id === draft.id);
+    const local: Appointment = { ...draft, id: draft.id ?? `pending-${entry.id}`, revision: draft.revision ?? '', syncStatus: entry.status };
     if (index >= 0) result[index] = local;
     else result.push(local);
   }

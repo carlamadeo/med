@@ -52,6 +52,42 @@ test('aborting stops a worker job promptly', async ({ page }) => {
   expect(result).toBe('AbortError');
 });
 
+test('reads a PNG image with OCR in a worker', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 600;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = 'white'; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'black'; context.font = '40px Arial';
+    ['Estudio: Ecografia', 'Fecha: 18/03/2024', 'Medico: Dra. Ana Perez'].forEach((line, index) => context.fillText(line, 70, 100 + index * 90));
+    const blob = await new Promise<Blob>(resolve => canvas.toBlob(value => resolve(value!), 'image/png'));
+    const path = '/src/data/pdf-analysis.ts';
+    const { analyzePdf } = await import(path);
+    const progress: Array<{ stage: string }> = [];
+    const fields = await analyzePdf(new File([blob], 'informe.png', { type: 'image/png' }), new AbortController().signal, () => {}, (event: { stage: string }) => progress.push(event));
+    return { fields, progress };
+  });
+  expect(result.fields.date).toBe('2024-03-18');
+  expect(result.fields.types).toEqual(['Ecografía']);
+  expect(result.progress.some(event => event.stage === 'ocr')).toBe(true);
+});
+
+test('cancels image OCR when the user cancels before recognition', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    const blob = await new Promise<Blob>(resolve => canvas.toBlob(value => resolve(value!), 'image/png'));
+    const path = '/src/data/pdf-analysis.ts';
+    const { analyzePdf } = await import(path);
+    const controller = new AbortController();
+    try { await analyzePdf(new File([blob], 'informe.png'), controller.signal, () => controller.abort()); return 'unexpected success'; }
+    catch (error) { return (error as Error).name; }
+  });
+  expect(result).toBe('AbortError');
+});
+
 test('recognizes a scanned report with Spanish OCR off the UI thread', async ({ page }) => {
   test.setTimeout(90000);
   await page.goto('/');

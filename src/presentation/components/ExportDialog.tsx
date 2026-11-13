@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { exporting, exportScope, exportError, setExporting, setExportScope, setExportError, filteredStudies, visibleStudies, operations, portals, medicalEvents } from '../state/store';
+import { exporting, exportScope, exportError, setExporting, setExportScope, setExportError, filteredStudies, visibleStudies, operations, portals, medicalEvents, episodes, appointments, pendingChanges, directoryWarning } from '../state/store';
 import { useFocusTrap } from '../utils/focusTrap';
-import { reportUrl } from '@domain/library';
+import { driveAuth, driveStudyRepo } from '@data';
 import type { Study } from '@domain/models';
 
 interface ExportDialogProps {
@@ -26,17 +26,6 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-async function fetchPdfFile(fileId: string): Promise<File | null> {
-  try {
-    const response = await fetch(reportUrl(fileId));
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    return new File([blob], `${fileId}.pdf`, { type: 'application/pdf' });
-  } catch {
-    return null;
-  }
-}
-
 export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const isExporting = exporting.value;
@@ -46,6 +35,7 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
   const [includePdfs, setIncludePdfs] = useState(true);
   const [includeViewerLinks, setIncludeViewerLinks] = useState(true);
   const [filename, setFilename] = useState(`mis-estudios-${formatDateForFilename()}.zip`);
+  const [busy, setBusy] = useState(false);
 
   useFocusTrap(dialogRef, isExporting);
 
@@ -62,6 +52,11 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
     dialogRef.current?.close();
     setExporting(false);
     setExportError(null);
+
+    if (pendingChanges.value.length || directoryWarning.value) {
+      setExportError('Sincronizá los cambios pendientes y cargá todos los registros antes de exportar.');
+      return;
+    }
   };
 
   const handleCancel = () => {
@@ -80,8 +75,8 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
     setExportError(null);
 
     const studiesToExport = getStudiesToExport();
-    if (studiesToExport.length === 0) {
-      setExportError('No hay estudios para exportar');
+    if (studiesToExport.length === 0 && (scope === 'filtered' || !hasOtherRecords)) {
+      setExportError('No hay registros para exportar');
       return;
     }
 
@@ -92,33 +87,42 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
     }
 
     try {
-      const zip = await createExportZip(selectedStudies, includePdfs, includeViewerLinks);
+      setBusy(true);
+      const token = await driveAuth.getAccessToken();
+      const owner = await driveAuth.getAccountId();
+      const zip = await createExportZip(selectedStudies, includePdfs, includeViewerLinks, scope);
+      if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
+        throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
+      }
       downloadBlob(zip, filename);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Error al crear la exportación');
       return;
+    } finally {
+      setBusy(false);
     }
 
     handleClose();
   };
 
-  const hasStudies = getStudiesToExport().length > 0;
+  const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
+  const hasRecords = getStudiesToExport().length > 0 || (scope === 'all' && hasOtherRecords);
 
   return (
-    <dialog id="export" ref={dialogRef} className="dialog" aria-labelledby="export-title" data-busy={String(isExporting)}
-      onCancel={(event) => { if (isExporting) event.preventDefault(); else handleCancel(); }}>
-      <form id="export-form" onSubmit={(event) => { event.preventDefault(); if (!isExporting) handleConfirm(); }}>
+    <dialog id="export" ref={dialogRef} className="dialog" aria-labelledby="export-title" data-busy={String(busy)}
+      onCancel={(event) => { if (busy) event.preventDefault(); else handleCancel(); }}>
+      <form id="export-form" onSubmit={(event) => { event.preventDefault(); if (!busy) void handleConfirm(); }}>
         <div className="dialog-heading">
           <div><h2 id="export-title">Exportar historia</h2>
             <p id="export-copy">Descargá una copia portable de tus registros</p>
           </div>
-          <button type="button" className="icon-button" aria-label="Cerrar" disabled={isExporting} onClick={handleCancel}>
+          <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy} onClick={handleCancel}>
             <svg className="icon"><use href="#i-close" /></svg>
           </button>
         </div>
         <p className="form-error" id="export-error" role="alert" hidden={!error && !expError}>{error || expError}</p>
         <button type="button" className="button secondary reconnect" hidden={!sessionLost} onClick={onReconnect}>Reconectar Google Drive</button>
-        <fieldset disabled={isExporting || sessionLost}>
+        <fieldset disabled={busy || sessionLost}>
           <legend>Qué exportar</legend>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px' }}>
@@ -143,7 +147,8 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
             </label>
           </div>
         </fieldset>
-        <fieldset disabled={isExporting || sessionLost}>
+        <p>La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La filtrada incluye solo los estudios seleccionados.</p>
+        <fieldset disabled={busy || sessionLost}>
           <legend>Contenido a incluir</legend>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px' }}>
@@ -174,14 +179,14 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
             onInput={(e) => setFilename(e.currentTarget.value)}
             placeholder="mis-estudios-2024-01-15.zip"
             maxLength={120}
-            disabled={isExporting || sessionLost}
+            disabled={busy || sessionLost}
           />
           <p className="hint">La exportación se descargará como un archivo ZIP</p>
         </label>
         <div className="dialog-actions">
-          <button type="button" className="button quiet" disabled={isExporting} onClick={handleCancel}>Cancelar</button>
-          <button type="submit" className="button primary" id="export-confirm" disabled={isExporting || sessionLost || !hasStudies}>
-            {isExporting ? 'Exportando…' : 'Exportar'}
+          <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar</button>
+          <button type="submit" className="button primary" id="export-confirm" disabled={busy || sessionLost || !hasRecords}>
+            {busy ? 'Exportando…' : 'Exportar'}
           </button>
         </div>
       </form>
@@ -189,11 +194,13 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
   );
 }
 
-async function createExportZip(studiesToExport: Study[], includePdfs: boolean, includeViewerLinks: boolean): Promise<Blob> {
+async function createExportZip(studiesToExport: Study[], includePdfs: boolean, includeViewerLinks: boolean, scope: 'all' | 'filtered'): Promise<Blob> {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
 
   const manifest = {
+    version: 1,
+    scope,
     exportedAt: new Date().toISOString(),
     totalStudies: studiesToExport.length,
     studies: studiesToExport.map(s => ({
@@ -203,7 +210,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
       types: s.types,
       doctor: s.doctor,
       portal: s.portal,
-      viewer: s.viewer,
+      viewer: includeViewerLinks ? s.viewer : '',
       reportName: s.reportName,
       hasPdf: s.hasPdf,
       operationId: s.operationId,
@@ -218,11 +225,10 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
 
   for (const study of studiesToExport) {
     if (includePdfs && study.hasPdf && pdfsFolder) {
-      const pdfFile = await fetchPdfFile(study.driveFileId);
-      if (pdfFile) {
-        const safeName = study.reportName || study.title || `estudio-${study.id}`;
-        pdfsFolder.file(`${safeName}.pdf`, pdfFile);
-      }
+      let pdfFile: File;
+      try { pdfFile = await driveStudyRepo.getPdfFile(study.driveFileId); }
+      catch { throw new Error(`No se pudo incluir el PDF de «${study.title}». Revisá la conexión y volvé a intentar.`); }
+      pdfsFolder.file(`${study.id}.pdf`, await pdfFile.arrayBuffer());
     }
 
     if (includeViewerLinks && study.viewer) {
@@ -234,6 +240,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     zip.file('viewer-links.txt', viewerLinks.join('\n\n'));
   }
 
+  if (scope === 'all') {
   const operationsList = operations.value.map(op => ({
     id: op.id,
     name: op.name,
@@ -265,6 +272,9 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     documentIds: e.documentIds,
   }));
   zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
+  zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
+  zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
+  }
 
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }

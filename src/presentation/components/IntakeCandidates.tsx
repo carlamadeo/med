@@ -1,5 +1,5 @@
-import { useEffect } from 'preact/hooks';
-import { driveIntakeRepo } from '@data';
+import { useEffect, useRef } from 'preact/hooks';
+import { driveAuth, driveIntakeRepo } from '@data';
 import { intakeCandidates, intakeLoading, intakeError, approvedFolderId, setIntakeCandidates, setIntakeLoading, setIntakeError, updateCandidateStatus, isEditorOpen } from '../state/store';
 import type { StudyDraft } from '@domain/models';
 import type { IntakeCandidate } from '@domain/repository';
@@ -23,10 +23,16 @@ function formatDate(dateStr: string): string {
 }
 
 export function IntakeCandidates({ onOpenEditor }: IntakeCandidatesProps) {
+  const generation = useRef(0);
   const candidates = intakeCandidates.value;
   const loading = intakeLoading.value;
   const error = intakeError.value;
   const folderId = approvedFolderId.value;
+
+  useEffect(() => {
+    const unsubscribe = driveAuth.onAuthChange(() => { generation.current += 1; });
+    return () => { generation.current += 1; unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     if (!folderId) return;
@@ -57,18 +63,25 @@ export function IntakeCandidates({ onOpenEditor }: IntakeCandidatesProps) {
   const pendingCandidates = candidates.filter(c => c.status === 'pending');
 
   const handleImport = async (candidate: IntakeCandidate) => {
+    const currentGeneration = generation.current;
     updateCandidateStatus(candidate.id, 'pending');
     try {
+      const token = await driveAuth.getAccessToken();
+      const owner = driveAuth.cachedAccountId();
+      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
       const file = await driveIntakeRepo.getPdfFile(candidate.id);
+      if (currentGeneration !== generation.current || driveAuth.cachedAccountId() !== owner || await driveAuth.getAccessToken() !== token) return;
 
       onOpenEditor({
         _candidateId: candidate.id,
         _candidateName: candidate.name,
         file,
       });
-      updateCandidateStatus(candidate.id, 'imported');
-    } catch {
       updateCandidateStatus(candidate.id, 'new');
+    } catch {
+      if (currentGeneration !== generation.current) return;
+      updateCandidateStatus(candidate.id, 'new');
+      setIntakeError('No se pudo abrir el documento. Revisá la conexión y volvé a intentar.');
     }
   };
 

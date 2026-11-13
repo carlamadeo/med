@@ -8,6 +8,7 @@ export interface Study {
   viewer: string;
   reportName: string;
   hasPdf: boolean;
+  attachmentMime?: 'image/jpeg' | 'image/png';
   driveFileId: string;
   driveModifiedTime: string;
   /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
@@ -103,7 +104,7 @@ export interface PortalDraft {
   revision?: string;
 }
 
-export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'episodios' | 'intake';
+export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'episodios' | 'turnos' | 'intake';
 
 export interface Filters {
   query: string;
@@ -140,6 +141,7 @@ export interface Episode {
   illness: string;
   observations: SymptomObservation[];
   medications: Medication[];
+  closed?: boolean;
   revision: string;
   syncStatus?: 'pending' | 'conflict' | 'failed';
 }
@@ -148,9 +150,31 @@ export interface EpisodeDraft {
   illness: string;
   observations?: SymptomObservation[];
   medications?: Medication[];
+  closed?: boolean;
   id?: string;
   createId?: string;
   revision?: string;
+}
+
+export interface AppointmentDraft {
+  date: string;
+  time: string;
+  timeZone: string;
+  professional: string;
+  notes: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'absent';
+  cost: number | null;
+  coverage: 'all' | 'partial' | 'none' | null;
+  reminderMinutes?: 15 | 60 | 1440 | null;
+  id?: string;
+  createId?: string;
+  revision?: string;
+}
+
+export interface Appointment extends AppointmentDraft {
+  id: string;
+  revision: string;
+  syncStatus?: 'pending' | 'conflict' | 'failed';
 }
 
 export interface DriveFile {

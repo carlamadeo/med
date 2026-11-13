@@ -13,6 +13,54 @@ const baseDraft = {
   reportName: '',
 };
 
+describe('study recovery', () => {
+  beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+
+  it('lists and restores a deleted study with its metadata', async () => {
+    const study = await driveStudyRepo.get(SEED_PDF_ID);
+    await driveStudyRepo.delete(study.id, study.revision);
+    const deleted = await driveStudyRepo.listDeleted();
+    expect(deleted).toHaveLength(1);
+    expect(deleted[0]).toMatchObject({ id: study.id, title: study.title, recoverable: true });
+    const restored = await driveStudyRepo.restore(deleted[0]!.id, deleted[0]!.revision);
+    expect(restored).toMatchObject({ id: study.id, title: study.title, hasPdf: true });
+  });
+
+  it('rejects recovery when the deleted record changed', async () => {
+    const study = await driveStudyRepo.get(SEED_PDF_ID);
+    await driveStudyRepo.delete(study.id, study.revision);
+    const [deleted] = await driveStudyRepo.listDeleted();
+    touchRemote(study.id);
+    await expect(driveStudyRepo.restore(study.id, deleted!.revision)).rejects.toBeInstanceOf(DriveConflictError);
+    expect(fakeDriveFile(study.id)?.trashed).toBe(true);
+  });
+
+  it('retries an already completed restoration and provides the cached list offline', async () => {
+    const study = await driveStudyRepo.get(SEED_PDF_ID);
+    await driveStudyRepo.delete(study.id, study.revision);
+    const [deleted] = await driveStudyRepo.listDeleted();
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    expect((await driveStudyRepo.listDeleted())[0]?.id).toBe(study.id);
+    online.mockReturnValue(true);
+    await driveStudyRepo.restore(study.id, deleted!.revision);
+    await expect(driveStudyRepo.restore(study.id, deleted!.revision)).resolves.toMatchObject({ id: study.id });
+  });
+});
+
+describe('image attachments', () => {
+  beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+
+  it('stores a PNG with its MIME type and keeps it when editing metadata', async () => {
+    const file = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'informe.png', { type: 'image/png' });
+    const saved = await driveStudyRepo.save({ ...baseDraft, file });
+    expect(saved).toMatchObject({ hasPdf: false, attachmentMime: 'image/png', reportName: 'informe.png' });
+    expect(fakeDriveFile(saved.id)?.mimeType).toBe('image/png');
+    const updated = await driveStudyRepo.save({ ...baseDraft, title: 'Otro título', driveFileId: saved.id, revision: saved.revision });
+    expect(updated).toMatchObject({ attachmentMime: 'image/png', reportName: 'informe.png' });
+    expect(fakeDriveFile(saved.id)?.mimeType).toBe('image/png');
+  });
+});
+
 describe('DriveOperationRepository', () => {
   beforeEach(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
 
