@@ -28,6 +28,7 @@
     "@tanstack/virtual-core": "^3.19.11",
     "@tesseract.js-data/spa": "1.0.0",
     "comlink": "^4.4.2",
+    "jszip": "^3.10.2",
     "pdfjs-dist": "6.5.438",
     "preact": "^10.23.0",
     "tesseract.js": "7.0.0"

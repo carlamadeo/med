@@ -1,4 +1,4 @@
-import { isSignedIn } from '../state/store';
+import { isSignedIn, setExporting, setRecoveringStudyId } from '../state/store';
 import { ThemeToggle } from './ThemeToggle';
 
 interface LibraryHeaderProps {
@@ -23,6 +23,30 @@ export function LibraryHeader({ onSignOut }: LibraryHeaderProps) {
           >
             Salir
           </button>
+          {isSignedIn.value && (
+            <>
+              <button
+                id="export-history"
+                type="button"
+                className="icon-button"
+                aria-label="Exportar historia"
+                title="Exportar historia"
+                onClick={() => setExporting(true)}
+              >
+                <svg className="icon"><use href="#i-download" /></svg>
+              </button>
+              <button
+                id="recover-studies"
+                type="button"
+                className="icon-button"
+                aria-label="Recuperar estudios eliminados"
+                title="Recuperar estudios eliminados"
+                onClick={() => setRecoveringStudyId('')}
+              >
+                <svg className="icon"><use href="#i-restore" /></svg>
+              </button>
+            </>
+          )}
           <span className="private"><svg className="icon" aria-hidden="true"><use href="#i-lock" /></svg> Privado</span>
           <ThemeToggle />
         </div>

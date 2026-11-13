@@ -43,6 +43,13 @@ export const deletingStudyId = signal<string | null>(null);
 export const sharingStudyId = signal<string | null>(null);
 export const shareSelection = signal<{ includePdf: boolean; includeViewer: boolean; filename: string } | null>(null);
 
+export const exporting = signal(false);
+export const exportScope = signal<'all' | 'filtered'>('all');
+export const exportError = signal<string | null>(null);
+
+export const recoveringStudyId = signal<string | null>(null);
+export const recoveryError = signal<string | null>(null);
+
 export const pendingChanges = signal<OutboxEntry[]>([]);
 export const syncMessage = signal('');
 export const syncing = signal(false);
@@ -185,6 +192,29 @@ export function markSourceAvailable(sourceId: string): void {
 
 export function isSourceUnavailable(sourceId: string): boolean {
   return unavailableSources.value.has(sourceId);
+}
+
+export function setExporting(v: boolean): void {
+  exporting.value = v;
+}
+
+export function setExportScope(scope: 'all' | 'filtered'): void {
+  exportScope.value = scope;
+}
+
+export function setExportError(msg: string | null): void {
+  exportError.value = msg;
+}
+
+export function setRecoveringStudyId(id: string | null): void {
+  recoveringStudyId.value = id;
+  if (!id) {
+    recoveryError.value = null;
+  }
+}
+
+export function setRecoveryError(msg: string | null): void {
+  recoveryError.value = msg;
 }
 
 // ------------------------------------------------------------------

@@ -7,6 +7,8 @@ export * from './FilterBar';
 export * from './EditorDialog';
 export * from './ConfirmDialog';
 export * from './ShareDialog';
+export * from './ExportDialog';
+export * from './RecoveryDialog';
 export * from './Operations';
 export * from './Portals';
 export * from './PendingChangesSection';

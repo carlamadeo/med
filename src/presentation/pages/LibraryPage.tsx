@@ -19,6 +19,8 @@ import {
   studies,
   error,
   deletingStudyId,
+  exportError,
+  recoveryError,
   setStudies,
   setLoading,
   setError,
@@ -51,6 +53,8 @@ import {
   AccessSection,
   LibraryIntro,
   ShareDialog,
+  ExportDialog,
+  RecoveryDialog,
 } from '../components';
 import { handleDriveError } from '../utils/driveErrorHandler';
 
@@ -501,6 +505,16 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
         onReconnect={() => void connectDrive()}
         error={error.value}
         busy={false}
+        sessionLost={sessionLost}
+      />
+      <ExportDialog
+        onReconnect={() => void connectDrive()}
+        error={exportError.value}
+        sessionLost={sessionLost}
+      />
+      <RecoveryDialog
+        onReconnect={() => void connectDrive()}
+        error={recoveryError.value}
         sessionLost={sessionLost}
       />
       <OnboardingDialog />
