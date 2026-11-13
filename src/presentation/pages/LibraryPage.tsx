@@ -43,13 +43,9 @@ import {
   syncMessage,
   syncing,
   offline,
-  setOffline,
   directoryWarning,
-  view,
-  setApprovedFolderId,
-  setIntakeCandidates,
-  setIntakeError,
 } from '../state/store';
+import { useAuth } from '../hooks/useAuth';
 import type { Study, StudyDraft } from '@domain/models';
 import {
   EditorDialog,
@@ -71,7 +67,6 @@ const outbox = new Outbox();
 
 export function LibraryPage() {
   const pendingId = useRef('');
-  const activeSyncs = useRef(0);
   const editorOwner = useRef<Promise<string | null>>(Promise.resolve(null));
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   const [typesReady, setTypesReady] = useState(false);
@@ -80,6 +75,8 @@ export function LibraryPage() {
   const [editorError, setEditorError] = useState<string | null>(null);
   const [sessionLost, setSessionLost] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const clearEditorError = useCallback(() => setEditorError(null), []);
 
   useEffect(() => {
     const check = () => { void checkAppointmentReminders().catch(() => {}); };
@@ -96,116 +93,6 @@ export function LibraryPage() {
       setTypesReady(true);
     }).catch(() => setBootFailed(true));
   }, []);
-
-  // Auth listener
-  useEffect(() => {
-    let authSequence = 0;
-    const unsub = driveAuth.onAuthChange((signedIn: boolean) => {
-      const sequence = ++authSequence;
-      if (!signedIn) {
-        setIsSignedIn(false);
-        view.value = 'cronologia';
-        clearFilters();
-        setApprovedFolderId(null);
-        setIntakeCandidates([]);
-        setIntakeError(null);
-        loadSequence.current += 1;
-        directorySequence.current += 1;
-        pendingChanges.value = [];
-        syncMessage.value = '';
-      }
-      if (!signedIn && (isEditorOpen.value || deletingStudyId.value)) {
-        setStudies([]);
-        operations.value = [];
-        portals.value = [];
-        medicalEvents.value = [];
-        episodes.value = [];
-        appointments.value = [];
-        setSessionLost(true);
-        return;
-      }
-      if (signedIn) {
-        void (async () => {
-          try {
-            const token = await driveAuth.getAccessToken();
-            let owner = driveAuth.cachedAccountId();
-            if (navigator.onLine) {
-              try { owner = await driveAuth.getAccountId(); }
-              catch { if (!owner) { await driveAuth.signOut(); setError('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.'); return; } }
-            }
-            if (!owner) { await driveAuth.signOut(); setError('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.'); return; }
-            const originalEditorOwner = isEditorOpen.value ? await editorOwner.current : null;
-            if (sequence !== authSequence || await driveAuth.getAccessToken() !== token) return;
-            if (isEditorOpen.value && originalEditorOwner !== owner) setEditorOpen(false);
-            setIsSignedIn(true);
-            setSessionLost(false);
-            setEditorError(null);
-            void loadStudies();
-            void loadDirectories();
-            void prepareOutbox();
-          } catch (err) {
-            if (sequence !== authSequence) return;
-            await driveAuth.signOut();
-            setError(err instanceof Error ? err.message : 'No se pudo verificar la cuenta de Google Drive.');
-          }
-        })();
-      } else if (!isEditorOpen.value && !deletingStudyId.value) {
-        setStudies([]);
-        operations.value = [];
-        portals.value = [];
-        medicalEvents.value = [];
-        episodes.value = [];
-        appointments.value = [];
-        setError(null);
-        setLoading(false);
-      }
-    });
-    if (driveAuth.configured) {
-      driveAuth.restoreSession();
-    }
-    return () => { authSequence += 1; unsub(); };
-  }, []);
-
-  // Global event listeners
-  useEffect(() => {
-    const refresh = () => {
-      if (!document.hidden && isSignedIn.value && driveAuth.isSignedIn() && !isEditorOpen.value && !deletingStudyId.value) void loadStudies(true);
-    };
-    const online = () => { setOffline(false); if (isSignedIn.value && driveAuth.isSignedIn()) { void prepareOutbox(); void loadStudies(true); void loadDirectories(); } };
-    const disconnected = () => setOffline(true);
-    const outboxChanged = () => { if (isSignedIn.value && driveAuth.isSignedIn()) void prepareOutbox(); };
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('online', online);
-    window.addEventListener('offline', disconnected);
-    window.addEventListener('mis-estudios-outbox-changed', outboxChanged);
-    return () => {
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('online', online);
-      window.removeEventListener('offline', disconnected);
-      window.removeEventListener('mis-estudios-outbox-changed', outboxChanged);
-    };
-  }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (!isSignedIn.value || !typesReady || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
-          document.querySelector('dialog[open]')) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
-      if (event.key === 'Escape') {
-        clearFilters();
-      } else if (event.key === '/') {
-        event.preventDefault();
-        document.querySelector<HTMLInputElement>('#search')?.focus();
-      } else if (event.key.toLowerCase() === 'n' && !event.repeat) {
-        event.preventDefault();
-        openEditor(null);
-      }
-    };
-    document.addEventListener('keydown', handleShortcut);
-    return () => document.removeEventListener('keydown', handleShortcut);
-  }, [typesReady]);
 
   // --- Studies ---
   const loadSequence = useRef(0);
@@ -268,11 +155,40 @@ export function LibraryPage() {
     } catch { syncMessage.value = 'No se pudo verificar la cuenta para sincronizar los cambios pendientes.'; }
   }, []);
 
+  const { connectDrive } = useAuth({
+    loadStudies,
+    loadDirectories,
+    prepareOutbox,
+    editorOwner,
+    setSessionLost,
+    onEditorReconnect: clearEditorError,
+  });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!isSignedIn.value || !typesReady || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+          document.querySelector('dialog[open]')) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (event.key === 'Escape') {
+        clearFilters();
+      } else if (event.key === '/') {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('#search')?.focus();
+      } else if (event.key.toLowerCase() === 'n' && !event.repeat) {
+        event.preventDefault();
+        openEditor(null);
+      }
+    };
+    document.addEventListener('keydown', handleShortcut);
+    return () => document.removeEventListener('keydown', handleShortcut);
+  }, [typesReady]);
+
   const syncOutbox = useCallback(async (owner: string) => {
     if (!navigator.locks) { syncMessage.value = 'Este navegador no puede sincronizar cambios pendientes de forma segura.'; return; }
     const token = await driveAuth.getAccessToken();
     const assertToken = async () => { if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError(); };
-    activeSyncs.current += 1;
     syncing.value = true; syncMessage.value = '';
     try {
       await outbox.sync(owner, {
@@ -300,7 +216,7 @@ export function LibraryPage() {
       await loadStudies(true);
       await loadDirectories();
     } catch { syncMessage.value = 'No se pudieron sincronizar los cambios pendientes.'; }
-    finally { activeSyncs.current -= 1; syncing.value = activeSyncs.current > 0; }
+    finally { syncing.value = false; }
   }, []);
 
   const discardPending = useCallback(async (entry: OutboxEntry) => {
@@ -376,17 +292,6 @@ export function LibraryPage() {
       syncMessage.value = err instanceof Error ? err.message : 'No se pudo resolver el conflicto.';
     }
   }, []);
-
-  async function connectDrive(): Promise<void> {
-    setError(null);
-    try {
-      await driveAuth.signIn();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'No se pudo conectar Google Drive.';
-      setError(message);
-      if (isEditorOpen.value) setEditorError(message);
-    }
-  }
 
   // --- Editor ---
   function openEditor(studyOrDraft: Study | null | (Partial<StudyDraft> & { _candidateId: string; _candidateName: string })) {
@@ -475,7 +380,7 @@ export function LibraryPage() {
   }
 
   // --- Delete ---
-async function deleteStudyById(studyOrId: Study | string): Promise<void> {
+  async function deleteStudyById(studyOrId: Study | string): Promise<void> {
     const studyId = typeof studyOrId === 'string' ? studyOrId : studyOrId.id;
     const study = typeof studyOrId === 'string' ? studies.value.find((s) => s.id === studyId) : studyOrId;
 

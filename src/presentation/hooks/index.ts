@@ -1,1 +1,1 @@
-// No hooks exported yet - will add when needed
+export { useAuth } from './useAuth';
