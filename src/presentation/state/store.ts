@@ -40,6 +40,9 @@ export const editingStudy = signal<Study | null>(null);
 export const isEditorOpen = signal(false);
 export const deletingStudyId = signal<string | null>(null);
 
+export const sharingStudyId = signal<string | null>(null);
+export const shareSelection = signal<{ includePdf: boolean; includeViewer: boolean; filename: string } | null>(null);
+
 export const pendingChanges = signal<OutboxEntry[]>([]);
 export const syncMessage = signal('');
 export const syncing = signal(false);
@@ -151,6 +154,17 @@ export function setEditorOpen(v: boolean): void {
 
 export function setDeletingStudyId(id: string | null): void {
   deletingStudyId.value = id;
+}
+
+export function setSharingStudyId(id: string | null): void {
+  sharingStudyId.value = id;
+  if (!id) {
+    shareSelection.value = null;
+  }
+}
+
+export function setShareSelection(selection: { includePdf: boolean; includeViewer: boolean; filename: string } | null): void {
+  shareSelection.value = selection;
 }
 
 export function setOffline(v: boolean): void {

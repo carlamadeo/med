@@ -29,6 +29,7 @@ import {
   setEditingStudy,
   setEditorOpen,
   setDeletingStudyId,
+  setSharingStudyId,
   operations,
   portals,
   medicalEvents,
@@ -49,6 +50,7 @@ import {
   StudyListContainer,
   AccessSection,
   LibraryIntro,
+  ShareDialog,
 } from '../components';
 import { handleDriveError } from '../utils/driveErrorHandler';
 
@@ -434,6 +436,13 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
       });
     } finally { setDeleting(false); }
   }
+
+  function openShare(study: Study): void {
+    const hasShareable = study.hasPdf || study.viewer || study.documentIds?.length;
+    if (!hasShareable) return;
+    setSharingStudyId(study.id);
+  }
+
   return (
     <>
       <LibraryHeader onSignOut={() => void driveAuth.signOut()} />
@@ -443,6 +452,7 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
           <StudyListContainer
             onEdit={openEditor}
             onDelete={(study: Study) => setDeletingStudyId(study.id)}
+            onShare={openShare}
             onClearFilters={clearFilters}
             onSearch={(query) => { filters.value = { ...filters.value, query }; }}
             onRetryLoad={loadStudies}
@@ -485,6 +495,12 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
         onReconnect={() => void connectDrive()}
         error={error.value}
         busy={deleting}
+        sessionLost={sessionLost}
+      />
+      <ShareDialog
+        onReconnect={() => void connectDrive()}
+        error={error.value}
+        busy={false}
         sessionLost={sessionLost}
       />
       <OnboardingDialog />

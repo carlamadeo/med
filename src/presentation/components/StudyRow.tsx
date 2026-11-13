@@ -23,6 +23,7 @@ interface StudyRowProps {
   study: Study;
   onEdit: (study: Study) => void;
   onDelete: (study: Study) => void;
+  onShare: (study: Study) => void;
   virtualIndex?: number;
   virtualStart?: number;
   measure?: (element: HTMLLIElement | null) => void;
@@ -39,7 +40,7 @@ function UnavailableSource({ label }: { label: string }) {
   );
 }
 
-export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, measure, monthLabel }: StudyRowProps) {
+export function StudyRow({ study, onEdit, onDelete, onShare, virtualIndex, virtualStart, measure, monthLabel }: StudyRowProps) {
   const pdfUnavailable = study.hasPdf && isSourceUnavailable(study.driveFileId);
   const viewerUnavailable = study.viewer && isSourceUnavailable(study.viewer);
   const isOffline = offline.value;
@@ -136,6 +137,17 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
               onClick={() => window.print()}
             >
               <svg className="icon"><use href="#i-print" /></svg>
+            </button>
+          )}
+          {(study.hasPdf || study.viewer || study.documentIds?.length) && !study.syncStatus && (
+            <button
+              className="icon-button share"
+              type="button"
+              aria-label={`Compartir ${study.title}`}
+              title={`Compartir ${study.title}`}
+              onClick={() => onShare(study)}
+            >
+              <svg className="icon"><use href="#i-share" /></svg>
             </button>
           )}
         </div>

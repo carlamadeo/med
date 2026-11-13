@@ -11,6 +11,7 @@ import type { Study } from '@domain/models';
 interface StudyListContainerProps {
   onEdit: (study: Study) => void;
   onDelete: (study: Study) => void;
+  onShare?: (study: Study) => void;
   onClearFilters: () => void;
   onSearch: (query: string) => void;
   onRetryLoad: () => void;
@@ -25,6 +26,7 @@ interface StudyListContainerProps {
 export function StudyListContainer({
   onEdit,
   onDelete,
+  onShare,
   onClearFilters,
   onSearch,
   onRetryLoad,
@@ -136,7 +138,7 @@ export function StudyListContainer({
                   {filtered.length} {filtered.length === 1 ? 'estudio encontrado' : 'estudios encontrados'}
                 </p>
               )}
-              <StudyList onEdit={onEdit} onDelete={onDelete} />
+              <StudyList onEdit={onEdit} onDelete={onDelete} onShare={onShare ?? (() => {})} />
             </>
           )}
         </>

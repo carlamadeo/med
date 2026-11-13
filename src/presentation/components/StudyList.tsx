@@ -8,9 +8,10 @@ import type { Study } from '@domain/models';
 interface StudyListProps {
   onEdit: (study: Study) => void;
   onDelete: (study: Study) => void;
+  onShare?: (study: Study) => void;
 }
 
-export function StudyList({ onEdit, onDelete }: StudyListProps) {
+export function StudyList({ onEdit, onDelete, onShare = () => {} }: StudyListProps) {
   const items = filteredStudies.value;
   const container = useRef<HTMLDivElement>(null);
   const printResults = useRef<HTMLUListElement>(null);
@@ -93,7 +94,7 @@ export function StudyList({ onEdit, onDelete }: StudyListProps) {
           const firstOfMonth = isChronological && month !== items[item.index - 1]?.date.slice(0, 7);
           const [year, monthNumber] = month.split('-').map(Number);
           const monthLabel = firstOfMonth && year && monthNumber ? `${year} · ${new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(new Date(year, monthNumber - 1, 1))}` : undefined;
-          return <StudyRow key={study.id} study={study} onEdit={onEdit} onDelete={onDelete}
+          return <StudyRow key={study.id} study={study} onEdit={onEdit} onDelete={onDelete} onShare={onShare}
             virtualIndex={item.index} virtualStart={item.start} measure={list.measureElement} monthLabel={monthLabel} />;
         })}
       </ul>
