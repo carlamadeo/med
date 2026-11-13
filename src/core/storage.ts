@@ -22,6 +22,7 @@ interface StudyRecord {
   driveModifiedTime: string;
   revision: string;
   operationId?: string;
+  documentIds?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -68,7 +69,7 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
 }
 
 export const storage = {
-  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache'): Promise<T[] | null> {
+  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache'): Promise<T[] | null> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readonly');
     const matches = (await tx.store.get('cacheOwner'))?.value === owner;
@@ -77,7 +78,7 @@ export const storage = {
     return Array.isArray(value) ? value as T[] : null;
   },
 
-  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache', value: T[]): Promise<void> {
+  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache', value: T[]): Promise<void> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readwrite');
     if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({ key, value });

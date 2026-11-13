@@ -13,6 +13,7 @@ export interface Study {
   /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
   revision: string;
   operationId?: string;
+  documentIds?: string[];
   syncStatus?: 'pending' | 'conflict' | 'failed';
   pendingAttachment?: boolean;
 }
@@ -35,6 +36,25 @@ export interface StudyDraft {
   /** Required when editing (`driveFileId` set): the `Study.revision` the form was opened with. */
   revision?: string;
   operationId?: string;
+  documentIds?: string[];
+}
+
+export interface MedicalEvent {
+  id: string;
+  kind: 'consultation' | 'prescription';
+  date: string;
+  doctor: string;
+  notes: string;
+  studyIds: string[];
+  documentIds: string[];
+  revision: string;
+  syncStatus?: 'pending' | 'conflict' | 'failed';
+}
+
+export interface MedicalEventDraft extends Omit<MedicalEvent, 'id' | 'revision' | 'syncStatus'> {
+  id?: string;
+  createId?: string;
+  revision?: string;
 }
 
 export interface Operation {
@@ -48,6 +68,7 @@ export interface Operation {
   type?: string;
   notes?: string;
   revision?: string;
+  syncStatus?: 'pending' | 'conflict' | 'failed';
 }
 
 export interface OperationDraft {
@@ -82,7 +103,7 @@ export interface PortalDraft {
   revision?: string;
 }
 
-export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones';
+export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos';
 
 export interface Filters {
   query: string;

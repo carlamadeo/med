@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb';
-import type { StudyDraft, OperationDraft, Portal, PortalDraft } from '@domain/models';
+import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft } from '@domain/models';
 import { DriveConflictError } from './drive-repository';
 
 export interface OutboxAdapter {
@@ -10,6 +10,7 @@ export interface OutboxAdapter {
   saveOperation(draft: OperationDraft): Promise<void>;
   deleteOperation(id: string, revision: string): Promise<void>;
   savePortal(draft: PortalDraft): Promise<void>;
+  saveEvent(draft: MedicalEventDraft): Promise<void>;
   deletePortal(portal: Portal): Promise<void>;
   lock(name: string, callback: () => Promise<void>): Promise<void>;
 }
@@ -17,13 +18,15 @@ export interface OutboxAdapter {
 export interface OutboxEntry {
   id?: number;
   owner: string;
-  kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete';
+  kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save';
   status: 'pending' | 'conflict' | 'failed';
   studyId?: string;
   revision?: string;
   draft?: Omit<StudyDraft, 'file'>;
   operationDraft?: OperationDraft;
   portalDraft?: PortalDraft;
+  eventDraft?: MedicalEventDraft;
+  eventId?: string;
   operationId?: string;
   portalId?: string;
   portal?: Portal;
@@ -49,6 +52,15 @@ export class Outbox {
     const db = await dbPromise;
     const tx = db.transaction('entries', 'readwrite');
     const existing = await tx.store.index('owner').getAll(entry.owner);
+    if (entry.draft?.documentIds?.some((id) => existing.some((item) => item.studyId === id && (item.kind === 'delete' || (item.kind === 'save' && (item.attachment || item.draft?.removeReport)))))) {
+      await tx.done;
+      throw new Error('Un documento vinculado tiene un cambio pendiente.');
+    }
+    if (entry.studyId && (entry.kind === 'delete' || (entry.kind === 'save' && (entry.attachment || entry.draft?.removeReport))) &&
+        existing.some((item) => item.draft?.documentIds?.includes(entry.studyId!) || item.eventDraft?.documentIds.includes(entry.studyId!))) {
+      await tx.done;
+      throw new Error('Hay un vínculo pendiente con este documento.');
+    }
     if (entry.draft?.operationId && existing.some((item) => item.kind === 'operation-delete' && item.operationId === entry.draft?.operationId)) {
       await tx.done;
       throw new Error('La operación tiene una eliminación pendiente.');
@@ -57,8 +69,8 @@ export class Outbox {
       await tx.done;
       throw new Error('Hay un estudio pendiente vinculado a esta operación.');
     }
-    if (entry.studyId || entry.operationId || entry.portalId) {
-      if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId))) {
+    if (entry.studyId || entry.operationId || entry.portalId || entry.eventId) {
+      if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId) || (entry.eventId && item.eventId === entry.eventId))) {
         await tx.done;
         throw new Error('Este registro ya tiene un cambio pendiente.');
       }
@@ -88,6 +100,10 @@ export class Outbox {
 
   async enqueuePortalSave(owner: string, draft: PortalDraft): Promise<void> {
     await this.enqueue({ owner, kind: 'portal-save', status: 'pending', portalId: draft.id, portalDraft: draft });
+  }
+
+  async enqueueEventSave(owner: string, draft: MedicalEventDraft): Promise<void> {
+    await this.enqueue({ owner, kind: 'event-save', status: 'pending', eventId: draft.id, eventDraft: draft });
   }
 
   async enqueuePortalDelete(owner: string, portal: Portal): Promise<void> {
@@ -123,6 +139,7 @@ export class Outbox {
     else if (entry.kind === 'operation-delete' && entry.operationId) replacement.revision = revision;
     else if (entry.kind === 'portal-save' && replacement.portalDraft?.id) replacement.portalDraft.revision = revision;
     else if (entry.kind === 'portal-delete' && replacement.portal?.id) replacement.portal.revision = revision;
+    else if (entry.kind === 'event-save' && replacement.eventDraft?.id) replacement.eventDraft.revision = revision;
     else { await tx.done; throw new Error('Este conflicto requiere revisión manual.'); }
     await tx.store.add(replacement);
     await tx.store.delete(id);
@@ -156,6 +173,9 @@ export class Outbox {
             await remote.savePortal(entry.portalDraft);
           } else if (entry.kind === 'portal-delete' && entry.portal) {
             await remote.deletePortal(entry.portal);
+          } else if (entry.kind === 'event-save' && entry.eventDraft) {
+            if (!entry.eventDraft.id && !entry.eventDraft.createId) { entry.eventDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+            await remote.saveEvent(entry.eventDraft);
           } else {
             entry.lastError = 'Cambio pendiente inválido.';
             entry.status = 'failed';

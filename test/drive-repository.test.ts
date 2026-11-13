@@ -267,6 +267,14 @@ describe('DriveStudyRepository', () => {
       expect(fakeDriveFile(saved.id)).toMatchObject({ mimeType: 'application/pdf', content: '%PDF-1.4 test' });
     });
 
+    it('does not accept a retry when an existing PDF has different content', async () => {
+      const original = new File(['%PDF-1.4 original'], 'informe.pdf', { type: 'application/pdf' });
+      const changed = new File(['%PDF-1.4 diferente'], 'informe.pdf', { type: 'application/pdf' });
+      await driveStudyRepo.save({ ...baseDraft, id: 'reserved-pdf', file: original });
+      await expect(driveStudyRepo.save({ ...baseDraft, id: 'reserved-pdf', file: changed })).rejects.toThrow('revis');
+      expect(fakeDriveFile('reserved-pdf')?.content).toBe('%PDF-1.4 original');
+    });
+
     it('keeps the stored PDF when only the ficha is edited', async () => {
       const updated = await driveStudyRepo.save({
         ...baseDraft,

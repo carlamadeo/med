@@ -8,5 +8,6 @@ export {
   driveStudyRepo,
   driveOperationRepo,
   drivePortalRepo,
+  driveMedicalEventRepo,
 } from './drive-repository';
 export type { DriveFileMetadata } from '@domain/repository';

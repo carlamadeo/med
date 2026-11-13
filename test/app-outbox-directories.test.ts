@@ -14,9 +14,11 @@ it('queues an operation and a portal offline and creates them in Drive after rec
   await vi.waitFor(() => expect(driveAuth.cachedAccountId()).toBe('account-one'));
   const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
   act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
-  act(() => { typeInto('#operation-name', 'Cirugía pendiente'); });
+  act(() => { typeInto('#operation-name', 'Cirugía pendiente'); typeInto('#operation-date', '2024-01-01'); typeInto('#operation-type', 'Procedimiento'); });
   await act(async () => { $<HTMLFormElement>('#operation-form').requestSubmit(); });
   await vi.waitFor(() => expect(document.querySelector('#pending-changes')?.textContent).toContain('Cirugía pendiente'));
+  expect(document.querySelector('#operations-list')?.textContent).toContain('Cirugía pendiente');
+  expect(document.querySelector('#operations-list')?.textContent).toContain('Pendiente de sincronización');
   act(() => { $<HTMLButtonElement>('#tab-portales').click(); });
   act(() => { typeInto('#portal-name', 'Clínica pendiente'); typeInto('#portal-url', 'https://example.com'); });
   await act(async () => { $<HTMLFormElement>('#portal-form').requestSubmit(); });

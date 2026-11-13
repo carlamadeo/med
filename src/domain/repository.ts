@@ -1,6 +1,11 @@
-import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile } from './models';
+import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, MedicalEvent, MedicalEventDraft } from './models';
 
 export type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile };
+
+export interface MedicalEventRepository {
+  list(): Promise<MedicalEvent[]>;
+  save(draft: MedicalEventDraft): Promise<MedicalEvent>;
+}
 
 export interface StudyRepository {
   /** Served from the local cache while fresh; `force` always asks Drive. */
@@ -55,4 +60,5 @@ export interface DriveFileMetadata {
   viewer: string;
   reportName: string;
   operationId?: string;
+  documentIds?: string[];
 }

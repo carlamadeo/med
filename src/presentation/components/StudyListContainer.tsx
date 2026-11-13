@@ -3,6 +3,7 @@ import { FilterBar } from './FilterBar';
 import { StudyList } from './StudyList';
 import { EmptyState } from './EmptyState';
 import { Operations } from './Operations';
+import { MedicalEvents } from './MedicalEvents';
 import { Portals } from './Portals';
 import { LibraryTabs } from './LibraryTabs';
 import type { Study } from '@domain/models';
@@ -51,8 +52,9 @@ export function StudyListContainer({
       )}
       <LibraryTabs availableTypes={availableTypes} />
       {view.value === 'operaciones' && <Operations />}
+      {view.value === 'eventos' && <MedicalEvents />}
       {view.value === 'portales' && <Portals />}
-      {view.value !== 'operaciones' && view.value !== 'portales' && (
+      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && (
         <>
           <div className="section-head">
             <div className="section-title">

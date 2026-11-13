@@ -3,7 +3,7 @@
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
  */
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
-import { getStudyTypes, viewerURL } from '@domain/utils';
+import { getStudyTypes, isValidStudyDate, viewerURL } from '@domain/utils';
 import { validatePdf } from '@data/pdf-analysis';
 import { Outbox, type OutboxEntry } from '@data/outbox';
 import {
@@ -11,6 +11,7 @@ import {
   driveStudyRepo,
   driveOperationRepo,
   drivePortalRepo,
+  driveMedicalEventRepo,
   DriveSessionError,
 } from '@data';
 import {
@@ -30,6 +31,7 @@ import {
   setDeletingStudyId,
   operations,
   portals,
+  medicalEvents,
   pendingChanges,
   syncMessage,
   syncing,
@@ -88,6 +90,7 @@ export function LibraryPage() {
         setStudies([]);
         operations.value = [];
         portals.value = [];
+        medicalEvents.value = [];
         setSessionLost(true);
         return;
       }
@@ -120,6 +123,7 @@ export function LibraryPage() {
         setStudies([]);
         operations.value = [];
         portals.value = [];
+        medicalEvents.value = [];
         setError(null);
         setLoading(false);
       }
@@ -199,14 +203,16 @@ export function LibraryPage() {
   const loadDirectories = useCallback(async () => {
     if (!isSignedIn.value) return;
     const seq = ++directorySequence.current;
-    const [operationResult, portalResult] = await Promise.allSettled([
+    const [operationResult, portalResult, eventResult] = await Promise.allSettled([
       driveOperationRepo.list(),
-      drivePortalRepo.list()
+      drivePortalRepo.list(),
+      driveMedicalEventRepo.list(),
     ]);
     if (seq !== directorySequence.current || !isSignedIn.value) return;
     if (operationResult.status === 'fulfilled') operations.value = operationResult.value;
     if (portalResult.status === 'fulfilled') portals.value = portalResult.value;
-    directoryWarning.value = operationResult.status === 'rejected' || portalResult.status === 'rejected';
+    if (eventResult.status === 'fulfilled') medicalEvents.value = eventResult.value;
+    directoryWarning.value = operationResult.status === 'rejected' || portalResult.status === 'rejected' || eventResult.status === 'rejected';
   }, []);
 
   // --- Outbox ---
@@ -241,6 +247,7 @@ export function LibraryPage() {
         saveOperation: async (draft) => { await assertToken(); await driveOperationRepo.save(draft); await assertToken(); },
         deleteOperation: async (id, revision) => { await assertToken(); await driveOperationRepo.delete(id, revision); await assertToken(); },
         savePortal: async (draft) => { await assertToken(); await drivePortalRepo.save(draft); await assertToken(); },
+        saveEvent: async (draft) => { await assertToken(); await driveMedicalEventRepo.save(draft); await assertToken(); },
         deletePortal: async (portal) => { await assertToken(); await drivePortalRepo.delete(portal); await assertToken(); },
         lock: async (name, callback) => { await navigator.locks.request(name, callback); },
       });
@@ -302,6 +309,11 @@ export function LibraryPage() {
           if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
           portals.value = current;
           currentRevision = current.find((item) => item.id === entry.portalId)?.revision;
+        } else if (entry.eventId) {
+          const current = await driveMedicalEventRepo.list();
+          if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+          medicalEvents.value = current;
+          currentRevision = current.find((item) => item.id === entry.eventId)?.revision;
         }
         if (!currentRevision || currentRevision !== reviewedRevision) throw new Error('La versión de Drive cambió o ya no está disponible. Revisala nuevamente.');
         await outbox.retryConflict(owner, entry.id!, currentRevision);
@@ -349,6 +361,7 @@ export function LibraryPage() {
     setEditorError(null);
     try {
       if (!draft.title) { setEditorError('Ingresá un nombre para el estudio.'); setSaving(false); return; }
+      if (!isValidStudyDate(draft.date)) { setEditorError('Ingresá una fecha válida que no sea futura.'); setSaving(false); return; }
       if (!draft.types.length) { setEditorError('Elegí al menos un tipo de estudio.'); setSaving(false); return; }
       try { draft.viewer = viewerURL(draft.viewer); }
       catch { setEditorError('Pegá un enlace al visor que empiece con https:// o http://.'); setSaving(false); return; }

@@ -3,7 +3,7 @@ import { driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError } fro
 import { Outbox } from '@data/outbox';
 import { isValidDate } from '@domain/utils';
 import type { Operation, OperationDraft, Study } from '@domain/models';
-import { operations, studies, filters, view } from '../state/store';
+import { operations, visibleOperations, studies, filters, view } from '../state/store';
 
 const outbox = new Outbox();
 
@@ -44,7 +44,8 @@ export function Operations() {
     setBusy(true); setMessage('');
 
     if (!draft.name.trim()) { setMessage('Ingresá un nombre para la operación.'); setBusy(false); return; }
-    if (draft.date && !isValidDate(draft.date)) { setMessage('Ingresá una fecha válida.'); setBusy(false); return; }
+    if (!isValidDate(draft.date)) { setMessage('Ingresá una fecha válida.'); setBusy(false); return; }
+    if (!draft.type?.trim()) { setMessage('Ingresá el procedimiento.'); setBusy(false); return; }
 
     const owner = await getOwner();
     if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
@@ -158,10 +159,10 @@ export function Operations() {
       <fieldset disabled={busy}>
         <legend>{editing ? 'Editar operación' : 'Agregar operación'}</legend>
         <label>Nombre <input id="operation-name" name="name" required maxLength={120} defaultValue={editing?.name ?? ''} /></label>
-        <label>Fecha <input type="date" name="date" defaultValue={editing?.date ?? ''} /></label>
+        <label>Fecha <input id="operation-date" type="date" name="date" required defaultValue={editing?.date ?? ''} /></label>
         <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''} /></label>
         <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''} /></label>
-        <label>Intervención <input name="type" defaultValue={editing?.type ?? ''} /></label>
+        <label>Procedimiento <input id="operation-type" name="type" required defaultValue={editing?.type ?? ''} /></label>
         <label>Notas <textarea name="notes" defaultValue={editing?.notes ?? ''} /></label>
         <button className="button primary" type="submit">Guardar operación</button>
         {editing && <button className="button quiet" type="button" onClick={() => setEditing(null)}>Cancelar</button>}
@@ -169,13 +170,14 @@ export function Operations() {
     </form>
     {message && <p role="alert">{message}</p>}
     <ul id="operations-list">
-      {[...operations.value].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).map((op) => {
+      {[...visibleOperations.value].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).map((op) => {
         const count = studies.value.filter((study) => study.operationId === op.id).length;
-        return <li key={op.id}><h3>{op.name}</h3><p>{[op.date, op.surgeon, op.institution, op.type].filter(Boolean).join(' · ')}</p><p>{op.notes}</p>
-          <button type="button" onClick={() => { filters.value = { ...filters.value, operationId: op.id }; view.value = 'cronologia'; }}>Ver estudios ({count})</button>
-          <button type="button" data-detail onClick={() => setDetailId(op.id)}>Ficha y vínculos</button>
-          <button type="button" onClick={() => setEditing(op)}>Editar</button>
-          <button type="button" disabled={busy} onClick={() => void remove(op)}>Eliminar</button>
+        return <li key={op.id}><h3>{op.name}</h3><p>Cirugía</p><p>{[op.date, op.surgeon, op.institution, op.type].filter(Boolean).join(' · ')}</p><p>{op.notes}</p>
+          {op.syncStatus && <p>{op.syncStatus === 'conflict' ? 'Requiere revisión' : op.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
+          <button type="button" disabled={Boolean(op.syncStatus)} onClick={() => { filters.value = { ...filters.value, operationId: op.id }; view.value = 'cronologia'; }}>Ver estudios ({count})</button>
+          <button type="button" data-detail disabled={Boolean(op.syncStatus)} onClick={() => setDetailId(op.id)}>Ficha y vínculos</button>
+          <button type="button" disabled={Boolean(op.syncStatus)} onClick={() => setEditing(op)}>Editar</button>
+          <button type="button" disabled={busy || Boolean(op.syncStatus)} onClick={() => void remove(op)}>Eliminar</button>
         </li>;
       })}
     </ul>

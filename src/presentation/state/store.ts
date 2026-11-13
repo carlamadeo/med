@@ -6,7 +6,7 @@
  * vuelvan a renderizar automáticamente cuando cambian.
  */
 import { signal, computed } from '@preact/signals';
-import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, ViewMode, Filters } from '@domain/models';
+import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, MedicalEvent, ViewMode, Filters } from '@domain/models';
 import type { OutboxEntry } from '@data/outbox';
 import { filterStudies, type StudySortOrder } from '@domain/library';
 
@@ -17,6 +17,7 @@ import { filterStudies, type StudySortOrder } from '@domain/library';
 export const studies = signal<Study[]>([]);
 export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
+export const medicalEvents = signal<MedicalEvent[]>([]);
 
 export const view = signal<ViewMode>('cronologia');
 export const sortOrder = signal<StudySortOrder>('date-desc');
@@ -63,8 +64,40 @@ export const visibleStudies = computed<Study[]>(() => {
       hasPdf: Boolean(previous?.hasPdf && !draft.removeReport && !entry.attachment),
       driveFileId: previous?.driveFileId ?? '',
       driveModifiedTime: previous?.driveModifiedTime ?? '', revision: draft.revision ?? '',
-      operationId: draft.operationId, syncStatus: entry.status, pendingAttachment: Boolean(entry.attachment),
+      operationId: draft.operationId, documentIds: draft.documentIds ?? previous?.documentIds,
+      syncStatus: entry.status, pendingAttachment: Boolean(entry.attachment),
     };
+    if (index >= 0) result[index] = local;
+    else result.push(local);
+  }
+  return result;
+});
+
+export const visibleOperations = computed<Operation[]>(() => {
+  const result = [...operations.value];
+  for (const entry of pendingChanges.value) {
+    if (entry.kind !== 'operation-save' || !entry.operationDraft || entry.id === undefined) continue;
+    const draft = entry.operationDraft;
+    const index = result.findIndex((operation) => operation.id === draft.id);
+    const previous = index >= 0 ? result[index] : undefined;
+    const local: Operation = {
+      id: previous?.id ?? `pending-${entry.id}`, name: draft.name, studyIds: previous?.studyIds ?? [],
+      color: draft.color ?? '', date: draft.date, surgeon: draft.surgeon, institution: draft.institution,
+      type: draft.type, notes: draft.notes, revision: draft.revision, syncStatus: entry.status,
+    };
+    if (index >= 0) result[index] = local;
+    else result.push(local);
+  }
+  return result;
+});
+
+export const visibleMedicalEvents = computed<MedicalEvent[]>(() => {
+  const result = [...medicalEvents.value];
+  for (const entry of pendingChanges.value) {
+    if (entry.kind !== 'event-save' || !entry.eventDraft || entry.id === undefined) continue;
+    const draft = entry.eventDraft;
+    const index = result.findIndex((event) => event.id === draft.id);
+    const local: MedicalEvent = { ...draft, id: draft.id ?? `pending-${entry.id}`, revision: draft.revision ?? '', syncStatus: entry.status };
     if (index >= 0) result[index] = local;
     else result.push(local);
   }

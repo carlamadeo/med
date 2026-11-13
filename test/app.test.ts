@@ -363,6 +363,16 @@ describe('the editor', () => {
     expect(fakeDriveFile('study-1')?.description).not.toContain('Borrador privado');
   });
 
+  it('rejects a future study date without clearing the draft', () => {
+    edit('study-1');
+    typeInto('#editor-title-field', 'Borrador para conservar');
+    const date = field('date');
+    date.value = '9999-12-31';
+    date.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(date.checkValidity()).toBe(false);
+    expect(field('title').value).toBe('Borrador para conservar');
+  });
+
   it('asks for a name when the title is only spaces', async () => {
     edit('study-1');
     field('title').value = '   ';
@@ -452,7 +462,7 @@ describe('saving', () => {
 
     const reservations = fetchSpy.mock.calls.filter(([url]) => String(url).includes('generateIds'));
     expect(reservations).toHaveLength(1);
-    expect(rowIds().filter((id) => id?.startsWith('generated-'))).toHaveLength(1);
+    await vi.waitFor(() => expect(rowIds().filter((id) => id?.startsWith('generated-'))).toHaveLength(1));
   });
 
   it('locks the dialog while saving: no closing, no editing, and a progress label', async () => {
@@ -601,11 +611,20 @@ describe('keyboard shortcuts', () => {
 });
 
 describe('operations', () => {
+  it('requires a date and procedure for a new surgery', () => {
+    act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
+    typeInto('#operation-name', 'Cirugía');
+    expect($<HTMLInputElement>('#operation-date').validity.valueMissing).toBe(true);
+    expect($<HTMLInputElement>('#operation-type').validity.valueMissing).toBe(true);
+  });
+
   it('creates an operation inside the study editor without losing study fields', async () => {
     act(() => { $<HTMLButtonElement>('[data-add]').click(); });
     typeInto('#editor-title-field', 'Estudio en preparación');
     act(() => { $<HTMLButtonElement>('#create-operation').click(); });
     typeInto('#new-operation-name', 'Cirugía nueva');
+    typeInto('[name=newOperationDate]', '2024-01-01');
+    typeInto('[name=newOperationType]', 'Procedimiento');
     await act(async () => { $<HTMLButtonElement>('#save-new-operation').click(); });
     await vi.waitFor(() => expect($<HTMLSelectElement>('#operation-id').selectedOptions[0]?.textContent).toBe('Cirugía nueva'));
     expect($<HTMLInputElement>('#editor-title-field').value).toBe('Estudio en preparación');
@@ -614,6 +633,8 @@ describe('operations', () => {
   it('creates an operation and associates a study from the editor', async () => {
     act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
     typeInto('#operation-name', 'Cirugía de rodilla');
+    typeInto('#operation-date', '2024-01-01');
+    typeInto('#operation-type', 'Procedimiento');
     await act(async () => { $<HTMLFormElement>('#operation-form').requestSubmit(); });
     await vi.waitFor(() => expect(document.querySelector('#operations-list')?.textContent).toContain('Cirugía de rodilla'));
     act(() => { $<HTMLButtonElement>('#tab-cronologia').click(); });
@@ -630,6 +651,8 @@ describe('operations', () => {
   it('links and unlinks an existing study from an operation detail', async () => {
     act(() => { $<HTMLButtonElement>('#tab-operaciones').click(); });
     typeInto('#operation-name', 'Operación con estudios');
+    typeInto('#operation-date', '2024-01-01');
+    typeInto('#operation-type', 'Procedimiento');
     await act(async () => { $<HTMLFormElement>('#operation-form').requestSubmit(); });
     await vi.waitFor(() => expect(document.querySelector('#operations-list')?.textContent).toContain('Operación con estudios'));
     const item = [...document.querySelectorAll<HTMLLIElement>('#operations-list li')].find((li) => li.textContent?.includes('Operación con estudios'))!;

@@ -1,5 +1,5 @@
 import type { OutboxEntry } from '@data/outbox';
-import { pendingChanges, syncMessage, syncing, operations, portals, studies } from '../state/store';
+import { pendingChanges, syncMessage, syncing, operations, portals, studies, medicalEvents } from '../state/store';
 
 interface PendingChangesSectionProps {
   onDiscard: (entry: OutboxEntry) => void;
@@ -26,7 +26,8 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
       <ul>{changes.map((entry) => {
         const remote = entry.studyId ? studies.value.find((study) => study.id === entry.studyId)
           : entry.operationId ? operations.value.find((operation) => operation.id === entry.operationId)
-          : entry.portalId ? portals.value.find((portal) => portal.id === entry.portalId) : undefined;
+          : entry.portalId ? portals.value.find((portal) => portal.id === entry.portalId)
+          : entry.eventId ? medicalEvents.value.find((event) => event.id === entry.eventId) : undefined;
         return (
         <li key={entry.id}>
           {entry.kind === 'delete'
@@ -35,7 +36,7 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
             ? `Eliminar ${operations.value.find((op) => op.id === entry.operationId)?.name ?? 'operación'}`
             : entry.kind === 'portal-delete'
             ? `Eliminar ${entry.portal?.displayName ?? 'portal'}`
-            : entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? 'Cambio sin datos válidos'}
+            : entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Cambio sin datos válidos')}
           {entry.status === 'conflict' ? ' · requiere revisión' : entry.status === 'failed' ? ' · no se puede sincronizar' : ''}
           {entry.draft && (
             <span> · {entry.draft.date} · {entry.draft.types.join(', ')} · {entry.draft.doctor}</span>
@@ -67,11 +68,15 @@ export function PendingChangesSection({ onDiscard, onRetrySync, onResolveConflic
               <p>Notas: {entry.portalDraft.notes || '—'}</p>
             </details>
           )}
+          {entry.eventDraft && <details><summary>Ver datos pendientes</summary>
+            <p>Fecha: {entry.eventDraft.date}</p><p>Médico: {entry.eventDraft.doctor || '—'}</p>
+            <p>Notas: {entry.eventDraft.notes || '—'}</p>
+          </details>}
           {entry.status === 'conflict' && <details>
             <summary>Comparar con Drive</summary>
-            <p>Mi cambio: {entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? 'Eliminar registro'}</p>
+            <p>Mi cambio: {entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Eliminar registro')}</p>
             {remote ? <>
-              <p>Versión de Drive: {'title' in remote ? remote.title : 'displayName' in remote ? remote.displayName : remote.name}</p>
+              <p>Versión de Drive: {'title' in remote ? remote.title : 'displayName' in remote ? remote.displayName : 'name' in remote ? remote.name : remote.kind === 'consultation' ? 'Consulta' : 'Receta'}</p>
               {'date' in remote && <p>Fecha en Drive: {remote.date || '—'}</p>}
               {'doctor' in remote && <p>Médico en Drive: {remote.doctor || '—'}</p>}
               {'types' in remote && <p>Tipos en Drive: {remote.types.join(', ') || '—'}</p>}

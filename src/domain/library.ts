@@ -45,7 +45,7 @@ export function filterStudies(
     if (to && study.date > to) return false;
     if (operationId && study.operationId !== operationId) return false;
     if (portal && normalize(study.portal) !== normalizedPortal) return false;
-    if (onlyPdf && !study.hasPdf) return false;
+    if (onlyPdf && !study.hasPdf && !study.documentIds?.length) return false;
     if (onlyViewer && !study.viewer) return false;
     if (type && !study.types.some((value) => normalize(value) === normalizedType)) return false;
     if (categories.size && !study.types.some((value) => categories.has(normalize(value)))) return false;

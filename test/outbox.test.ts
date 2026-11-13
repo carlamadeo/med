@@ -13,6 +13,7 @@ const adapter = (account = owner): OutboxAdapter => ({
   saveOperation: vi.fn(async () => {}),
   deleteOperation: vi.fn(async () => {}),
   savePortal: vi.fn(async () => {}),
+  saveEvent: vi.fn(async () => {}),
   deletePortal: vi.fn(async () => {}),
   lock: async (_name, callback) => callback(),
 });
@@ -116,6 +117,18 @@ describe('offline outbox', () => {
     expect(await queue.list(owner)).toEqual([]);
   });
 
+  it('reserves and retries a medical event without changing its identity', async () => {
+    await queue.enqueueEventSave(owner, { kind: 'prescription', date: '2024-01-01', doctor: '', notes: 'Nota', studyIds: ['study-1'], documentIds: [] });
+    const remote = adapter();
+    vi.mocked(remote.saveEvent).mockRejectedValueOnce(new Error('sin conexión'));
+    await queue.sync(owner, remote);
+    expect((await queue.list(owner))[0]?.eventDraft?.createId).toBe('reserved-1');
+    await queue.sync(owner, remote);
+    expect(remote.reserveId).toHaveBeenCalledTimes(1);
+    expect(remote.saveEvent).toHaveBeenLastCalledWith(expect.objectContaining({ createId: 'reserved-1' }));
+    expect(await queue.list(owner)).toEqual([]);
+  });
+
   it('rejects a second pending change to the same study', async () => {
     await queue.enqueueSave(owner, { ...draft, driveFileId: 'one', revision: '1' });
     await expect(queue.enqueueDelete(owner, 'one', '1')).rejects.toThrow('pendiente');
@@ -160,6 +173,12 @@ describe('offline outbox', () => {
     expect(remote.saveOperation).toHaveBeenLastCalledWith(expect.objectContaining({ createId: 'operation-id' }));
     expect(remote.savePortal).toHaveBeenCalledWith(expect.objectContaining({ createId: 'portal-id' }));
     expect(await queue.list(owner)).toEqual([]);
+  });
+
+  it('does not remove a PDF while another pending study links it', async () => {
+    await queue.enqueueSave(owner, { ...draft, driveFileId: 'target', revision: '1', documentIds: ['source'] });
+    await expect(queue.enqueueDelete(owner, 'source', '1')).rejects.toThrow('vínculo pendiente');
+    expect(await queue.list(owner)).toHaveLength(1);
   });
 
   it('does not queue a link to an operation that is pending deletion', async () => {

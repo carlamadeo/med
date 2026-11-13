@@ -19,7 +19,7 @@ it('queues a new study offline and synchronizes it on reconnection', async () =>
   await act(async () => { $<HTMLFormElement>('#editor-form').requestSubmit(); });
   await vi.waitFor(() => expect(document.querySelector('#pending-changes')?.textContent).toContain('Guardado sin red'));
   expect(await queue.list('account-one')).toHaveLength(1);
-  expect(document.querySelector('#results')?.textContent).toContain('Guardado sin red');
+  await vi.waitFor(() => expect(document.querySelector('#results')?.textContent).toContain('Guardado sin red'));
   expect(document.querySelector('#results')?.textContent).toContain('Pendiente de sincronización');
   online.mockReturnValue(true);
   act(() => { window.dispatchEvent(new Event('online')); });

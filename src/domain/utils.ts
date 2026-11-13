@@ -35,3 +35,13 @@ export function isValidDate(date: unknown): date is string {
   const instant = new Date(`${date}T00:00:00Z`);
   return Number.isFinite(instant.getTime()) && instant.toISOString().slice(0, 10) === date;
 }
+
+/** Calendar date in the user's local time zone, for study dates. */
+export function todayLocal(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+export function isValidStudyDate(date: unknown): date is string {
+  return isValidDate(date) && date <= todayLocal();
+}

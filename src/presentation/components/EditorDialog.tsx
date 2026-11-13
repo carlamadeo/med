@@ -7,6 +7,7 @@ import { analyzePdf, validatePdf } from '@data/pdf-analysis';
 import { driveOperationRepo } from '@data';
 import type { StudyDraft } from '@domain/models';
 import { portalNames } from '@domain/library';
+import { isValidDate, todayLocal } from '@domain/utils';
 import { useFocusTrap } from '../utils/focusTrap';
 import {
   editingStudy,
@@ -54,7 +55,11 @@ export function EditorDialog({
   const [progress, setProgress] = useState<number | null>(null);
   const [removeReport, setRemoveReport] = useState(false);
   const [reportName, setReportName] = useState(study?.reportName ?? '');
+  const [selectedReport, setSelectedReport] = useState<File | null>(null);
+  const [checkingReport, setCheckingReport] = useState(false);
+  const [candidates, setCandidates] = useState<Partial<Record<'date' | 'types' | 'doctor' | 'title', string | string[]>>>({});
   const [operationId, setOperationId] = useState(study?.operationId ?? '');
+  const [documentIds, setDocumentIds] = useState<string[]>(study?.documentIds ?? []);
   const [creatingOperation, setCreatingOperation] = useState(false);
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState('');
@@ -70,8 +75,8 @@ export function EditorDialog({
   const analysisCtrl = useRef<AbortController | null>(null);
   const analysisTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportFileRef = useRef<File | null>(null);
+  const reportRemoved = useRef(false);
 
-  const touched = useRef<Set<'date' | 'types' | 'doctor' | 'title'>>(new Set());
   const suggested = useRef<Map<'date' | 'types' | 'doctor' | 'title', string>>(new Map());
 
   useEffect(() => {
@@ -79,10 +84,18 @@ export function EditorDialog({
       editorGeneration.current += 1;
       analysisCtrl.current?.abort();
       if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+      if (checkingReport) {
+        reportFileRef.current = null;
+        reportRemoved.current = true;
+        if (reportInputRef.current) reportInputRef.current.value = '';
+        setSelectedReport(null);
+        setCheckingReport(false);
+        setCandidates({});
+      }
       setReading(false);
       setProgress(null);
     }
-  }, [sessionLost]);
+  }, [sessionLost, checkingReport]);
 
   // Open/close dialog imperatively - subscribe to signal directly
   useEffect(() => {
@@ -97,6 +110,7 @@ export function EditorDialog({
         setCreatingOperation(false);
         setOperationError('');
         setOperationId(current?.operationId ?? '');
+        setDocumentIds(current?.documentIds ?? []);
         if (!dialog.open) dialog.showModal();
         (current ? formRef.current?.querySelector<HTMLInputElement>('[name=title]') : reportInputRef.current)?.focus();
         // Reset DOM values immediately, before a user can choose a new file or type.
@@ -114,13 +128,15 @@ export function EditorDialog({
         if (operation) operation.value = current?.operationId ?? '';
         setTypes(current?.types ?? []);
         reportFileRef.current = null;
+        reportRemoved.current = false;
+        setSelectedReport(null);
+        setCheckingReport(false);
         if (reportInputRef.current) reportInputRef.current.value = '';
         formRef.current?.querySelector<HTMLInputElement>('[name=types]')?.setCustomValidity('');
         setRemoveReport(false);
         setReportName(current?.reportName ?? '');
         setStatus('Buscamos la fecha, los tipos y el médico en el PDF.');
         setStatusState('');
-        touched.current = new Set();
         suggested.current = new Map();
       } else {
         dialog.close();
@@ -131,7 +147,7 @@ export function EditorDialog({
     const closed = () => { editorGeneration.current += 1; analysisCtrl.current?.abort(); setEditorOpen(false); };
     const markTouched = (event: Event) => {
       const name = (event.target as HTMLInputElement).name;
-      if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') { touched.current.add(name); suggested.current.delete(name); }
+      if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') { suggested.current.delete(name); }
     };
     formRef.current?.addEventListener('input', markTouched, true);
     dialog.addEventListener('close', closed);
@@ -172,10 +188,6 @@ export function EditorDialog({
     }
   };
 
-  const isEmpty = (name: 'date' | 'types' | 'doctor' | 'title'): boolean => {
-    return fieldValue(name).length === 0;
-  };
-
   const handleReportChange = async (_e: Event) => {
     analysisCtrl.current?.abort();
     setReading(false);
@@ -186,9 +198,13 @@ export function EditorDialog({
       }
     }
     suggested.current = new Map();
+    setCandidates({});
 
     const file = reportInputRef.current?.files?.[0] ?? null;
     reportFileRef.current = file;
+    reportRemoved.current = false;
+    setSelectedReport(file);
+    setCheckingReport(Boolean(file));
 
     if (!file) {
       setStatus('Podés adjuntar un PDF o completar la ficha manualmente.');
@@ -216,10 +232,14 @@ export function EditorDialog({
 
     try {
       await validatePdf(file);
+      if (active()) setCheckingReport(false);
     } catch (err) {
       clearTimeout(analysisTimeout.current!);
       if (active()) {
         if (reportInputRef.current) reportInputRef.current.value = '';
+        reportFileRef.current = null;
+        setSelectedReport(null);
+        setCheckingReport(false);
         setStatus(err instanceof Error ? err.message : 'Elegí un archivo PDF válido.');
         setStatusState('error');
         setReading(false);
@@ -245,25 +265,13 @@ export function EditorDialog({
           found.types.map((t, i) => (i && t !== t.toUpperCase() ? t[0]!.toLowerCase() + t.slice(1) : t))
         );
       }
-      const labels: Record<'date' | 'types' | 'doctor' | 'title', string> = {
-        date: 'fecha',
-        types: 'tipos',
-        doctor: 'médico',
-        title: 'título',
-      };
-      const applied: string[] = [];
+      const proposals: Partial<Record<'date' | 'types' | 'doctor' | 'title', string | string[]>> = {};
       for (const name of ['date', 'types', 'doctor', 'title'] as const) {
         const value = detected[name];
-        if (value?.length && isEmpty(name as 'date' | 'types' | 'doctor' | 'title') && !touched.current.has(name as 'date' | 'types' | 'doctor' | 'title')) {
-          setFieldValue(name as 'date' | 'types' | 'doctor' | 'title', value);
-          suggested.current.set(name as 'date' | 'types' | 'doctor' | 'title', JSON.stringify(value));
-          const label = labels[name];
-          if (label && name !== 'title') applied.push(label);
-        }
+        if (value?.length) proposals[name] = value;
       }
-      const missing = ['date', 'types', 'doctor'].filter(n => isEmpty(n as 'date' | 'types' | 'doctor')).map(n => labels[n as 'date' | 'types' | 'doctor']);
-      const review = applied.length ? `Revisá ${new Intl.ListFormat('es').format(applied)}. ` : '';
-      setStatus(review + (missing.length ? 'Completá los campos que falten.' : 'Podés editar los datos antes de guardar.'));
+      setCandidates(proposals);
+      setStatus(Object.keys(proposals).length ? 'Revisá las sugerencias y aceptá las que correspondan.' : 'No encontramos sugerencias. Podés completar los datos manualmente.');
       setStatusState('review');
     } catch {
       if (active()) {
@@ -282,7 +290,6 @@ export function EditorDialog({
     const first = formRef.current?.querySelector<HTMLInputElement>('[name=types]');
     first?.setCustomValidity(selected.length ? '' : 'Elegí al menos un tipo de estudio.');
     setTypes(selected);
-    touched.current.add('types');
     suggested.current.delete('types');
   };
 
@@ -291,6 +298,8 @@ export function EditorDialog({
     if (!form || operationBusy) return;
     if (!navigator.onLine) { setOperationError('Sin conexión, creá la operación desde la vista Operaciones y vinculala después de sincronizar.'); return; }
     const data = new FormData(form);
+    if (!isValidDate(data.get('newOperationDate'))) { setOperationError('Ingresá una fecha válida para la cirugía.'); return; }
+    if (!String(data.get('newOperationType') ?? '').trim()) { setOperationError('Ingresá el procedimiento.'); return; }
     const generation = editorGeneration.current;
     setOperationBusy(true); setOperationError('');
     try {
@@ -318,7 +327,6 @@ export function EditorDialog({
       <form ref={formRef} id="editor-form" onInput={(event) => {
         const name = (event.target as HTMLInputElement).name;
         if (name === 'date' || name === 'types' || name === 'doctor' || name === 'title') {
-          touched.current.add(name);
           suggested.current.delete(name);
         }
       }} onSubmit={(event) => {
@@ -326,7 +334,8 @@ export function EditorDialog({
         const form = event.currentTarget as HTMLFormElement;
         const data = new FormData(form);
         const selectedStudy = editingStudy.value;
-        const selectedReport = reportInputRef.current?.files?.[0];
+        if (checkingReport) return;
+        const selectedReport = reportRemoved.current ? undefined : reportInputRef.current?.files?.[0];
         void onSave({
           title: String(data.get('title') ?? '').trim(),
           date: String(data.get('date') ?? '').trim(),
@@ -340,6 +349,7 @@ export function EditorDialog({
           driveFileId: selectedStudy?.id,
           revision: selectedStudy?.revision,
           operationId: String(data.get('operationId') ?? ''),
+          documentIds: data.getAll('documentIds').map(String),
         });
       }}>
       <fieldset hidden={sessionLost} disabled={busy || operationBusy || sessionLost} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -370,11 +380,49 @@ export function EditorDialog({
             onChange={handleReportChange}
           />
         </label>
+        {selectedReport && <div id="selected-report">
+          <p>{selectedReport.name} · {selectedReport.size.toLocaleString('es-AR')} bytes · {checkingReport ? 'Validando archivo' : 'Listo para revisar · todavía sin guardar'}</p>
+          <button type="button" className="button quiet" data-remove-selected-report onClick={() => {
+            analysisCtrl.current?.abort();
+            if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+            for (const [name, value] of suggested.current) {
+              if (JSON.stringify(fieldValue(name)) === value) setFieldValue(name, name === 'types' ? [] : '');
+            }
+            suggested.current = new Map();
+            setCandidates({});
+            reportFileRef.current = null;
+            reportRemoved.current = true;
+            if (reportInputRef.current) reportInputRef.current.value = '';
+            setSelectedReport(null);
+            setCheckingReport(false);
+            setReading(false);
+            setProgress(null);
+            setStatusState('');
+            setStatus('Archivo retirado. Podés elegir otro PDF.');
+          }}>Quitar archivo seleccionado</button>
+        </div>}
         <p id="detection" className="hint" role="status" data-state="">Buscamos la fecha, los tipos y el médico en el PDF.</p>
+        {Object.keys(candidates).length > 0 && <section id="extraction-suggestions" aria-label="Sugerencias de lectura">
+          <p>Estas sugerencias no se guardan hasta que las aceptes.</p>
+          {(['date', 'types', 'doctor', 'title'] as const).map((name) => {
+            const value = candidates[name];
+            if (!value) return null;
+            const label = { date: 'Fecha', types: 'Tipos', doctor: 'Médico', title: 'Título' }[name];
+            return <div key={name}>
+              <span>{label}: {Array.isArray(value) ? value.join(', ') : value}</span>
+              <button type="button" data-accept-suggestion={name} onClick={() => {
+                setFieldValue(name, value);
+                suggested.current.set(name, JSON.stringify(value));
+                setCandidates((current) => { const next = { ...current }; delete next[name]; return next; });
+              }}>Aceptar {label.toLowerCase()}</button>
+              <button type="button" onClick={() => setCandidates((current) => { const next = { ...current }; delete next[name]; return next; })}>Descartar {label.toLowerCase()}</button>
+            </div>;
+          })}
+        </section>}
         {reading && (
           <div className="analysis-progress" aria-busy="true">
             <progress max="100" value={progress ?? undefined} aria-label="Progreso de lectura del PDF" />
-            <button type="button" className="secondary" data-cancel-analysis onClick={() => {
+            <button type="button" className="secondary" data-cancel-analysis disabled={checkingReport} onClick={() => {
               analysisCtrl.current?.abort();
               if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
               setReading(false);
@@ -393,13 +441,27 @@ export function EditorDialog({
         )}
       </div>
 
+      {(documentIds.length > 0 || studies.value.some((item) => item.hasPdf && item.id !== study?.id)) && <fieldset>
+        <legend>Documentos de otros estudios</legend>
+        <p className="hint">Vinculá documentos existentes sin crear otra copia.</p>
+        {studies.value.filter((item) => item.hasPdf && item.id !== study?.id).map((item) => <label key={item.id}>
+          <input type="checkbox" name="documentIds" value={item.id} checked={documentIds.includes(item.id)} onChange={(event) => {
+            const checked = event.currentTarget.checked;
+            setDocumentIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id));
+          }} /> {item.reportName || item.title} · {item.title}
+        </label>)}
+        {documentIds.filter((id) => !studies.value.some((item) => item.id === id && item.hasPdf)).map((id) => <label key={id}>
+          <input type="checkbox" name="documentIds" value={id} checked onChange={() => setDocumentIds((current) => current.filter((item) => item !== id))} /> Documento no disponible
+        </label>)}
+      </fieldset>}
+
       <label>
         Nombre del estudio
         <input
           id="editor-title-field"
           name="title"
           value={title}
-          onInput={(e: Event) => { setTitle((e.currentTarget as HTMLInputElement).value); touched.current.add('title'); suggested.current.delete('title'); }}
+          onInput={(e: Event) => { setTitle((e.currentTarget as HTMLInputElement).value); suggested.current.delete('title'); }}
           maxLength={160}
           placeholder="Ej. Ecografía abdominal"
           required
@@ -412,9 +474,9 @@ export function EditorDialog({
           name="date"
           type="date"
           value={date}
-          onInput={(e: Event) => { setDate((e.currentTarget as HTMLInputElement).value); touched.current.add('date'); suggested.current.delete('date'); }}
+          onInput={(e: Event) => { setDate((e.currentTarget as HTMLInputElement).value); suggested.current.delete('date'); }}
           min="1900-01-01"
-          max="9999-12-31"
+          max={todayLocal()}
           required
         />
       </label>
@@ -442,7 +504,7 @@ export function EditorDialog({
           <input
             name="doctor"
             value={doctor}
-            onInput={(e: Event) => { setDoctor((e.currentTarget as HTMLInputElement).value); touched.current.add('doctor'); suggested.current.delete('doctor'); }}
+            onInput={(e: Event) => { setDoctor((e.currentTarget as HTMLInputElement).value); suggested.current.delete('doctor'); }}
             maxLength={120}
             placeholder="Ej. Dra. Ana Pérez"
           />
@@ -517,7 +579,7 @@ export function EditorDialog({
         <button type="button" className="button quiet" data-close onClick={handleClose}>
           Cancelar
         </button>
-        <button type="submit" className="button primary" id="save" disabled={busy || sessionLost}>
+        <button type="submit" className="button primary" id="save" disabled={busy || sessionLost || checkingReport}>
           {busy ? 'Guardando…' : (isEdit ? 'Guardar cambios' : 'Guardar estudio')}
         </button>
       </div>

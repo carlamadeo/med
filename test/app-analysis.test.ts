@@ -25,6 +25,7 @@ const status = () => $('#detection').textContent;
 const editor = () => $<HTMLDialogElement>('#editor');
 const choose = (file: File | null) => chooseFile('report', file);
 const userTypes = typeInto;
+async function accept(name: string) { await vi.waitFor(() => expect(document.querySelector(`[data-accept-suggestion="${name}"]`)).not.toBeNull()); $<HTMLButtonElement>(`[data-accept-suggestion="${name}"]`).click(); }
 
 function pdf(content = '%PDF-1.4 fake', name = 'informe.pdf') {
   return new File([content], name, { type: 'application/pdf' });
@@ -59,6 +60,20 @@ describe('opening the editor', () => {
 });
 
 describe('reading a PDF', () => {
+  it('shows the selected PDF and lets the user remove it before saving', async () => {
+    let signal!: AbortSignal;
+    analyze.mockImplementation((_file, abortSignal) => { signal = abortSignal; return new Promise<ExtractedFields>(() => {}); });
+    openNew();
+    choose(pdf('%PDF-1.4 contenido', 'prueba.pdf'));
+    await vi.waitFor(() => expect(document.querySelector('#selected-report')?.textContent).toContain('prueba.pdf'));
+    expect(document.querySelector('#selected-report')?.textContent).toContain('bytes');
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalled());
+    $<HTMLButtonElement>('[data-remove-selected-report]').click();
+    await vi.waitFor(() => expect(document.querySelector('#selected-report')).toBeNull());
+    expect(signal.aborted).toBe(true);
+    expect(editor().open).toBe(true);
+  });
+
   it('stops analyzing a private PDF when the session ends', async () => {
     let signal!: AbortSignal;
     analyze.mockImplementation((_file, abortSignal) => {
@@ -72,6 +87,32 @@ describe('reading a PDF', () => {
     await vi.waitFor(() => expect(signal.aborted).toBe(true));
   });
 
+  it('keeps extracted values as proposals until individually accepted', async () => {
+    analyze.mockResolvedValue(FOUND);
+    openNew();
+    choose(pdf());
+    await vi.waitFor(() => expect(document.querySelector('#extraction-suggestions')?.textContent).toContain('2024-03-18'));
+    expect(field('date').value).toBe('');
+    expect(field('doctor').value).toBe('');
+    $<HTMLButtonElement>('[data-accept-suggestion="date"]').click();
+    expect(field('date').value).toBe('2024-03-18');
+    expect(field('doctor').value).toBe('');
+  });
+
+  it('discards one proposal without changing other suggestions or typed values', async () => {
+    analyze.mockResolvedValue(FOUND);
+    openNew();
+    userTypes('#editor-form [name="doctor"]', 'Mi profesional');
+    choose(pdf());
+    await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    const discard = [...document.querySelectorAll<HTMLButtonElement>('#extraction-suggestions button')].find((button) => button.textContent === 'Descartar médico')!;
+    discard.click();
+    expect(field('doctor').value).toBe('Mi profesional');
+    await accept('date');
+    expect(field('date').value).toBe('2024-03-18');
+    expect(document.querySelector('[data-accept-suggestion="types"]')).not.toBeNull();
+  });
+
   it('fills the empty fields and tells the user what to review', async () => {
     analyze.mockResolvedValue(FOUND);
     openNew();
@@ -79,11 +120,13 @@ describe('reading a PDF', () => {
     choose(pdf());
 
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    for (const name of ['date', 'types', 'doctor', 'title']) await accept(name);
     expect(field('date').value).toBe('2024-03-18');
     expect(ticked()).toEqual(['Ecografía', 'Mamografía']);
     expect(field('doctor').value).toBe('Dra. Ana Pérez');
     expect(field('title').value).toBe('Ecografía y mamografía');
-    expect(status()).toBe('Revisá fecha, tipos y médico. Podés editar los datos antes de guardar.');
+    expect(status()).toBe('Revisá las sugerencias y aceptá las que correspondan.');
   });
 
   it('asks for what it could not find', async () => {
@@ -93,7 +136,7 @@ describe('reading a PDF', () => {
     choose(pdf());
 
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
-    expect(status()).toBe('Revisá fecha. Completá los campos que falten.');
+    expect(status()).toBe('Revisá las sugerencias y aceptá las que correspondan.');
     expect(ticked()).toEqual([]);
   });
 
@@ -142,7 +185,8 @@ describe('reading a PDF', () => {
 
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
     expect(field('title').value).toBe('Mi título');
-    expect(field('date').value).toBe('2024-03-18'); // untouched fields are still filled
+    await accept('date');
+    expect(field('date').value).toBe('2024-03-18');
   });
 
   it('never overwrites a field the user typed and then emptied again', async () => {
@@ -182,7 +226,7 @@ describe('reading a PDF', () => {
     expect(field('date').value).toBe('2024-01-15');
     expect(field('doctor').value).toBe('Dra. Ana Pérez');
     expect(ticked()).toEqual(['Ecografía']);
-    expect(status()).toBe('Podés editar los datos antes de guardar.');
+    expect(status()).toBe('Revisá las sugerencias y aceptá las que correspondan.');
   });
 });
 
@@ -191,7 +235,8 @@ describe('changing or removing the PDF', () => {
     analyze.mockResolvedValueOnce(FOUND).mockResolvedValueOnce({});
     openNew();
     choose(pdf());
-    await vi.waitFor(() => expect(field('date').value).toBe('2024-03-18'));
+    await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    for (const name of ['date', 'types', 'doctor', 'title']) await accept(name);
     userTypes('#editor-form [name="doctor"]', 'Dr. Escrito A Mano');
 
     choose(pdf('%PDF-1.4 otro', 'otro.pdf'));
@@ -206,7 +251,8 @@ describe('changing or removing the PDF', () => {
     analyze.mockResolvedValue(FOUND);
     openNew();
     choose(pdf());
-    await vi.waitFor(() => expect(field('date').value).toBe('2024-03-18'));
+    await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    for (const name of ['date', 'types', 'doctor', 'title']) await accept(name);
 
     choose(null);
 
@@ -228,7 +274,8 @@ describe('changing or removing the PDF', () => {
     choose(pdf('%PDF-1.4 uno', 'uno.pdf'));
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledTimes(1));
     choose(pdf('%PDF-1.4 dos', 'dos.pdf'));
-    await vi.waitFor(() => expect(field('date').value).toBe('2023-05-05'));
+    await accept('date');
+    expect(field('date').value).toBe('2023-05-05');
     expect(slowSignal.aborted).toBe(true); // the old reading is stopped, not just ignored
     finishSlow({ date: '1999-09-09' });
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -238,6 +285,15 @@ describe('changing or removing the PDF', () => {
 });
 
 describe('when reading goes wrong', () => {
+  it('rejects PDFs larger than 20 MB before analysis', async () => {
+    openNew();
+    const large = new File(['%PDF-', new Uint8Array(20 * 1024 * 1024)], 'grande.pdf', { type: 'application/pdf' });
+    choose(large);
+    await vi.waitFor(() => expect(status()).toContain('límite de 20 MB'));
+    expect(analyze).not.toHaveBeenCalled();
+    expect(document.querySelector('#selected-report')).toBeNull();
+  });
+
   it('rejects a file that is not a PDF and clears the picker', async () => {
     openNew();
 
@@ -311,6 +367,7 @@ describe('when reading goes wrong', () => {
     choose(pdf());
 
     await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    await accept('title');
     expect(field('title').value).toBe('Ecografía y mamografía');
   });
 
@@ -318,7 +375,8 @@ describe('when reading goes wrong', () => {
     analyze.mockResolvedValue(FOUND);
     openNew();
     choose(pdf());
-    await vi.waitFor(() => expect(field('date').value).toBe('2024-03-18'));
+    await vi.waitFor(() => expect($('#detection').dataset.state).toBe('review'));
+    for (const name of ['date', 'types', 'doctor', 'title']) await accept(name);
     editor().close();
 
     openNew();

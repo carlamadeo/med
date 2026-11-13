@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('queues a study offline and syncs it after reconnecting to the same account', async ({ page, context }, testInfo) => {
   const created: Record<string, unknown>[] = [];
-  const ids = ['test-study', 'test-operation', 'test-portal'];
+  const ids = ['test-study', 'test-operation', 'test-portal', 'test-event'];
   let reserved = 0;
   await page.route('https://accounts.google.com/**', (route) => route.fulfill({ body: '', contentType: 'text/javascript' }));
   await page.route('https://www.googleapis.com/**', async (route) => {
@@ -23,6 +23,7 @@ test('queues a study offline and syncs it after reconnecting to the same account
         { id: 'test-study', name: 'Informe de prueba', description: JSON.stringify({ id: 'test-study', title: 'Informe de prueba', date: '2024-04-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', operationId: '' }), appProperties: { misEstudios: 'estudio-v1' } },
         { id: 'test-operation', name: 'Cirugía pendiente', description: JSON.stringify({ name: 'Cirugía pendiente', date: '', surgeon: '', institution: '', type: '', notes: '', color: '' }), appProperties: { misEstudios: 'operacion-v1' } },
         { id: 'test-portal', name: 'Clínica pendiente', description: JSON.stringify({ name: 'Clínica pendiente', displayName: 'Clínica pendiente', url: 'https://example.com/', notes: '' }), appProperties: { misEstudios: 'portal-v1' } },
+        { id: 'test-event', name: 'Consulta', description: JSON.stringify({ kind: 'consultation', date: '2024-04-01', doctor: '', notes: 'Consulta de prueba', studyIds: ['test-study'], documentIds: [] }), appProperties: { misEstudios: 'evento-medico-v1' } },
       ];
       const metadata = body.includes('\r\n\r\n') ? JSON.parse(body.split('\r\n\r\n')[1]!.split('\r\n--')[0]!) : { ...fallback[created.length], mimeType: 'application/json' };
       const file = { ...metadata, version: '1', modifiedTime: '2024-01-01T00:00:00Z', trashed: false };
@@ -42,6 +43,13 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com') ?? '{}').accountId)).toBe('test-account');
   await context.setOffline(true);
   await page.getByRole('button', { name: 'Agregar estudio' }).first().click();
+  await page.locator('#editor-form input[name="report"]').setInputFiles({
+    name: 'prueba.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nprueba'),
+  });
+  await expect(page.locator('#selected-report')).toContainText('prueba.pdf');
+  await expect(page.locator('#selected-report')).toContainText('bytes');
+  await page.getByRole('button', { name: 'Quitar archivo seleccionado' }).click();
+  await expect(page.locator('#selected-report')).toHaveCount(0);
   await page.locator('#editor-title-field').fill('Informe de prueba');
   await page.locator('#editor-date-field').fill('2024-04-01');
   await page.locator('#study-types input[value="Otro"]').check();
@@ -56,6 +64,8 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await context.setOffline(true);
   await page.getByRole('button', { name: 'Operaciones', exact: true }).click();
   await page.locator('#operation-name').fill('Cirugía pendiente');
+  await page.locator('#operation-date').fill('2024-01-01');
+  await page.locator('#operation-type').fill('Procedimiento');
   await page.getByRole('button', { name: 'Guardar operación' }).click();
   await expect(page.locator('#pending-changes')).toContainText('Cirugía pendiente');
   await page.getByRole('button', { name: 'Portales', exact: true }).click();
@@ -68,4 +78,14 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await expect(page.locator('#portals-list')).toContainText('Clínica pendiente');
   await page.getByRole('button', { name: 'Operaciones', exact: true }).click();
   await expect(page.locator('#operations-list')).toContainText('Cirugía pendiente');
+  await context.setOffline(true);
+  await page.getByRole('button', { name: 'Consultas y recetas' }).click();
+  await page.locator('#event-date').fill('2024-04-01');
+  await page.locator('#event-notes').fill('Consulta de prueba');
+  await page.locator('[data-event-study="test-study"]').check();
+  await page.getByRole('button', { name: 'Guardar evento' }).click();
+  await expect(page.locator('#events-list')).toContainText('Pendiente de sincronización');
+  await context.setOffline(false);
+  await expect(page.locator('#pending-changes')).toHaveCount(0);
+  await expect(page.locator('#events-list')).toContainText('Consulta de prueba');
 });

@@ -3,6 +3,7 @@
  */
 import type { Study } from '@domain/models';
 import { reportUrl } from '@domain/library';
+import { studies } from '../state/store';
 
 function formatDate(dateStr: string): string {
   const parts = dateStr.split('-');
@@ -59,12 +60,17 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
             </a>
           ) : null}
           {study.pendingAttachment && <span>PDF pendiente de sincronización</span>}
+          {study.documentIds?.map((id) => {
+            const source = studies.value.find((item) => item.id === id && item.hasPdf);
+            return source ? <a key={id} className="record-link" href={reportUrl(id)} target="_blank" rel="noopener noreferrer">PDF asociado: {source.reportName || source.title}</a>
+              : <span key={id}>Documento asociado no disponible</span>;
+          })}
           {study.viewer ? (
             <a className="record-link viewer-link" href={study.viewer} target="_blank" rel="noopener noreferrer">
               <svg className="icon"><use href="#i-external" /></svg> Abrir visor
             </a>
           ) : null}
-          {!study.hasPdf && !study.pendingAttachment && !study.viewer && <span className="no-attachment">Sin archivos adjuntos</span>}
+          {!study.hasPdf && !study.pendingAttachment && !study.documentIds?.length && !study.viewer && <span className="no-attachment">Sin archivos adjuntos</span>}
         </div>
         <div className="record-actions">
           <button
