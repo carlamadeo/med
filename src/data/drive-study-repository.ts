@@ -1,6 +1,7 @@
 import { DriveConflictError, type DriveClient, type DriveFileResponse } from './drive-api';
 import { storage, type StudyRecord } from '@core/storage';
 import { documentAssociationIds } from '@domain/document-compatibility';
+import { validateStudyDraft } from '@domain/validation/study';
 import type { Study, StudyDraft, StudyRepository, DriveFileMetadata } from '@domain/repository';
 import { validateDocument } from './pdf-analysis';
 
@@ -112,6 +113,8 @@ export class DriveStudyRepository implements StudyRepository {
   }
 
   async save(draft: StudyDraft): Promise<Study> {
+    const validationErrors = validateStudyDraft(draft);
+    if (validationErrors.length) throw new Error(validationErrors[0]);
     const token = await this.client.getAccessToken();
     const owner = await this.cacheOwner();
     const isUpdate = Boolean(draft.driveFileId);

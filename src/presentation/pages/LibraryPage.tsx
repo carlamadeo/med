@@ -3,8 +3,9 @@
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
  */
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
-import { getStudyTypes, isValidStudyDate, viewerURL, todayLocal } from '@domain/utils';
+import { getStudyTypes, todayLocal } from '@domain/utils';
 import { validatePdf } from '@data/pdf-analysis';
+import { validateStudyDraft } from '@domain/validation/study';
 import { Outbox, type OutboxEntry } from '@data/outbox';
 import {
   driveAuth,
@@ -338,11 +339,8 @@ export function LibraryPage() {
     setSaving(true);
     setEditorError(null);
     try {
-      if (!draft.title) { setEditorError('Ingresá un nombre para el estudio.'); setSaving(false); return; }
-      if (!isValidStudyDate(draft.date)) { setEditorError('Ingresá una fecha válida que no sea futura.'); setSaving(false); return; }
-      if (!draft.types.length) { setEditorError('Elegí al menos un tipo de estudio.'); setSaving(false); return; }
-      try { draft.viewer = viewerURL(draft.viewer); }
-      catch { setEditorError('Pegá un enlace al visor que empiece con https:// o http://.'); setSaving(false); return; }
+      const validationErrors = validateStudyDraft(draft);
+      if (validationErrors.length) { setEditorError(validationErrors[0] ?? 'Error de validación'); setSaving(false); return; }
       if (draft.file) await validatePdf(draft.file);
       const ownerOk = await verifyEditorOwner();
       if (!ownerOk) { setSaving(false); return; }
