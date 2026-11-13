@@ -3,7 +3,7 @@
  */
 import type { Study } from '@domain/models';
 import { reportUrl } from '@domain/library';
-import { studies } from '../state/store';
+import { studies, isSourceUnavailable, offline } from '../state/store';
 
 function formatDate(dateStr: string): string {
   const parts = dateStr.split('-');
@@ -29,7 +29,25 @@ interface StudyRowProps {
   monthLabel?: string;
 }
 
+function UnavailableSource({ label }: { label: string }) {
+  return (
+    <span className="record-link unavailable">
+      <svg className="icon"><use href="#i-file" /></svg>
+      <span className="unavailable-icon" aria-hidden="true">⚠</span>
+      {label} (no disponible)
+    </span>
+  );
+}
+
 export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, measure, monthLabel }: StudyRowProps) {
+  const pdfUnavailable = study.hasPdf && isSourceUnavailable(study.driveFileId);
+  const viewerUnavailable = study.viewer && isSourceUnavailable(study.viewer);
+  const isOffline = offline.value;
+
+  function OnlineIndicator() {
+    return isOffline ? <span className="online-indicator" aria-label="Requiere conexión">⟳</span> : null;
+  }
+
   return (
     <li className="record" data-id={study.id} data-index={virtualIndex} tabIndex={0} ref={measure} style={virtualStart === undefined ? undefined : { position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualStart}px)` }}>
       {monthLabel && <p className="month-heading">{monthLabel}</p>}
@@ -55,20 +73,36 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
       <div className="record-controls">
         <div className="record-links">
           {study.hasPdf ? (
-            <a className="record-link pdf-link" href={reportUrl(study.id)} target="_blank" rel="noopener noreferrer">
-              <svg className="icon"><use href="#i-file" /></svg> Informe PDF
-            </a>
+            pdfUnavailable ? (
+              <UnavailableSource label="Informe PDF" />
+            ) : (
+              <a className="record-link pdf-link" href={reportUrl(study.id)} target="_blank" rel="noopener noreferrer">
+                <svg className="icon"><use href="#i-file" /></svg> Informe PDF <OnlineIndicator />
+              </a>
+            )
           ) : null}
           {study.pendingAttachment && <span>PDF pendiente de sincronización</span>}
           {study.documentIds?.map((id) => {
             const source = studies.value.find((item) => item.id === id && item.hasPdf);
-            return source ? <a key={id} className="record-link" href={reportUrl(id)} target="_blank" rel="noopener noreferrer">PDF asociado: {source.reportName || source.title}</a>
-              : <span key={id}>Documento asociado no disponible</span>;
+            const idUnavailable = isSourceUnavailable(id);
+            return source ? (
+              idUnavailable ? (
+                <UnavailableSource key={id} label={`PDF asociado: ${source.reportName || source.title}`} />
+              ) : (
+                <a key={id} className="record-link" href={reportUrl(id)} target="_blank" rel="noopener noreferrer">PDF asociado: {source.reportName || source.title} <OnlineIndicator /></a>
+              )
+            ) : (
+              <span key={id}>Documento asociado no disponible</span>
+            );
           })}
           {study.viewer ? (
-            <a className="record-link viewer-link" href={study.viewer} target="_blank" rel="noopener noreferrer">
-              <svg className="icon"><use href="#i-external" /></svg> Abrir visor
-            </a>
+            viewerUnavailable ? (
+              <UnavailableSource label="Abrir visor" />
+            ) : (
+              <a className="record-link viewer-link" href={study.viewer} target="_blank" rel="noopener noreferrer">
+                <svg className="icon"><use href="#i-external" /></svg> Abrir visor <OnlineIndicator />
+              </a>
+            )
           ) : null}
           {!study.hasPdf && !study.pendingAttachment && !study.documentIds?.length && !study.viewer && <span className="no-attachment">Sin archivos adjuntos</span>}
         </div>
@@ -93,6 +127,17 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
           >
             <svg className="icon"><use href="#i-trash" /></svg>
           </button>
+          {(study.hasPdf || study.pendingAttachment || study.documentIds?.length || study.viewer) && (
+            <button
+              className="icon-button print"
+              type="button"
+              aria-label={`Imprimir ${study.title}`}
+              title={`Imprimir ${study.title}`}
+              onClick={() => window.print()}
+            >
+              <svg className="icon"><use href="#i-print" /></svg>
+            </button>
+          )}
         </div>
       </div>
     </li>

@@ -76,6 +76,9 @@ label input, label select { font-weight: 450; }
 .record-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 5px 6px; font-size: .82rem; font-weight: 650; text-decoration: none; }
 .record-link:hover { text-decoration: underline; }
 .record-link .icon { width: 16px; height: 16px; }
+.record-link.unavailable { color: var(--color-error); cursor: not-allowed; pointer-events: none; }
+.record-link.unavailable .unavailable-icon { margin-right: 4px; font-size: 0.75em; }
+.online-indicator { font-size: 0.75em; color: var(--color-text-tertiary); margin-left: 4px; opacity: 0.8; }
 .no-attachment { font-size: .78rem; color: var(--muted); }
 .icon-button { display: grid; place-items: center; color: var(--muted); width: 44px; height: 44px; flex: none; border: 0; border-radius: 8px; background: transparent; padding: 0; }
 .record-actions { gap: 0; }

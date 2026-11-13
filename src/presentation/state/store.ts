@@ -46,6 +46,9 @@ export const syncing = signal(false);
 export const offline = signal(!navigator.onLine);
 export const directoryWarning = signal(false);
 
+// Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
+export const unavailableSources = signal<Set<string>>(new Set());
+
 // ------------------------------------------------------------------
 // Derivados
 // ------------------------------------------------------------------
@@ -152,6 +155,22 @@ export function setDeletingStudyId(id: string | null): void {
 
 export function setOffline(v: boolean): void {
   offline.value = v;
+}
+
+export function markSourceUnavailable(sourceId: string): void {
+  const current = new Set(unavailableSources.value);
+  current.add(sourceId);
+  unavailableSources.value = current;
+}
+
+export function markSourceAvailable(sourceId: string): void {
+  const current = new Set(unavailableSources.value);
+  current.delete(sourceId);
+  unavailableSources.value = current;
+}
+
+export function isSourceUnavailable(sourceId: string): boolean {
+  return unavailableSources.value.has(sourceId);
 }
 
 // ------------------------------------------------------------------
