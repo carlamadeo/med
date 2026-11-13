@@ -74,8 +74,8 @@ export function StudyList({ onEdit, onDelete, onShare = () => {} }: StudyListPro
   if (!items.length) return <p id="list-status" className="list-status" role="status">No hay estudios que mostrar</p>;
 
   return (
-    <><div ref={container} className="virtual-results" style={{ height: '60vh', overflowY: 'auto' }}>
-      <ul id="results" className="results" aria-label="Lista de estudios" style={{ height: list.getTotalSize(), position: 'relative' }} onKeyDown={(event) => {
+    <><div ref={container} className="virtual-results" style={{ height: '60vh', overflowY: 'auto', overflowX: 'hidden', maxWidth: '100%' }}>
+      <ul id="results" className="results" aria-label="Lista de estudios" style={{ height: list.getTotalSize(), position: 'relative', width: '100%', maxWidth: '100%' }} onKeyDown={(event) => {
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
         const target = event.target;
         if (!(target instanceof HTMLLIElement) || !target.matches('li.record')) return;

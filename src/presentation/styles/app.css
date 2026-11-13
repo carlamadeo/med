@@ -12,8 +12,9 @@
   --surface: var(--color-surface);
 }
 *, *::before, *::after { box-sizing: border-box; }
+html { overflow-x: hidden; }
 [hidden], .symbols { display: none !important; }
-body { margin: 0; background: var(--color-bg); transition: background-color var(--transition-normal), color var(--transition-normal); }
+body { margin: 0; background: var(--color-bg); transition: background-color var(--transition-normal), color var(--transition-normal); overflow-x: hidden; }
 button, input, select { font: inherit; }
 button, select { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .65; }
