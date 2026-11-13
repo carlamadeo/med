@@ -6,13 +6,51 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test",
-    "build": "node scripts/build.mjs",
-    "start": "node scripts/preview.mjs"
+    "dev": "vite",
+    "predev": "npm run vendor",
+    "build": "tsc && vite build",
+    "prebuild": "npm run vendor",
+    "preview": "vite preview",
+    "start": "vite preview",
+    "vendor": "node scripts/vendor.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:offline": "npm run build && playwright test --config playwright.offline.config.ts",
+    "test:outbox": "playwright test --config playwright.outbox.config.ts",
+    "test:lighthouse": "npm run build && lhci autorun",
+    "lint": "eslint . && stylelint 'src/**/*.css'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@preact/signals": "^2.0.0",
+    "@tanstack/virtual-core": "^3.19.11",
     "@tesseract.js-data/spa": "1.0.0",
+    "comlink": "^4.4.2",
     "pdfjs-dist": "6.5.438",
+    "preact": "^10.23.0",
     "tesseract.js": "7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.46.0",
+    "@types/node": "^26.6.6",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^9.9.0",
+    "eslint-plugin-preact": "^0.1.0",
+    "fake-indexeddb": "^6.2.8",
+    "idb": "^8.0.4",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
+    "prettier": "^3.3.0",
+    "stylelint": "^16.8.0",
+    "stylelint-config-standard": "^36.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }

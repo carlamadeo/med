@@ -1,0 +1,227 @@
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+
+interface MisEstudiosDB extends DBSchema {
+  studies: { key: string; value: StudyRecord; indexes: { 'by-date': string; 'by-type': string } };
+  operations: { key: string; value: OperationRecord; indexes: { 'by-name': string } };
+  portals: { key: string; value: PortalRecord; indexes: { 'by-name': string } };
+  'pdf-blobs': { key: string; value: { studyId: string; blob: Blob; timestamp: number } };
+  meta: { key: string; value: { key: string; value: unknown } };
+}
+
+interface StudyRecord {
+  id: string;
+  title: string;
+  date: string;
+  types: string[];
+  doctor: string;
+  portal: string;
+  viewer: string;
+  reportName: string;
+  hasPdf: boolean;
+  driveFileId: string;
+  driveModifiedTime: string;
+  revision: string;
+  operationId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface OperationRecord {
+  id: string;
+  name: string;
+  studyIds: string[];
+  color: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface PortalRecord {
+  name: string;
+  displayName: string;
+  url: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+let dbPromise: Promise<IDBPDatabase<MisEstudiosDB>> | null = null;
+
+function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
+  if (!dbPromise) {
+    dbPromise = openDB<MisEstudiosDB>('mis-estudios', 1, {
+      upgrade(db: IDBPDatabase<MisEstudiosDB>) {
+        const studies = db.createObjectStore('studies', { keyPath: 'id' });
+        studies.createIndex('by-date', 'date');
+        studies.createIndex('by-type', 'types');
+
+        const operations = db.createObjectStore('operations', { keyPath: 'id' });
+        operations.createIndex('by-name', 'name');
+
+        const portals = db.createObjectStore('portals', { keyPath: 'name' });
+        portals.createIndex('by-name', 'displayName');
+
+        db.createObjectStore('pdf-blobs', { keyPath: 'studyId' });
+        db.createObjectStore('meta', { keyPath: 'key' });
+      },
+    });
+  }
+  return dbPromise!;
+}
+
+export const storage = {
+  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache'): Promise<T[] | null> {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readonly');
+    const matches = (await tx.store.get('cacheOwner'))?.value === owner;
+    const value = matches ? (await tx.store.get(key))?.value : undefined;
+    await tx.done;
+    return Array.isArray(value) ? value as T[] : null;
+  },
+
+  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache', value: T[]): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readwrite');
+    if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({ key, value });
+    await tx.done;
+  },
+  /** Cache ownership and data are checked in the same transaction across tabs. */
+  async bindStudySession(owner: string): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'pdf-blobs', 'meta'], 'readwrite');
+    const meta = tx.objectStore('meta');
+    if ((await meta.get('cacheOwner'))?.value !== owner) {
+      await Promise.all([tx.objectStore('studies').clear(), tx.objectStore('pdf-blobs').clear(), meta.clear()]);
+      await meta.put({ key: 'cacheOwner', value: owner });
+    }
+    await tx.done;
+  },
+
+  async readSessionStudies(owner: string): Promise<StudyRecord[] | null> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readonly');
+    const matches = (await tx.objectStore('meta').get('cacheOwner'))?.value === owner;
+    const records = matches ? await tx.objectStore('studies').getAll() : null;
+    await tx.done;
+    return records;
+  },
+
+  async readCompleteSessionStudies(owner: string): Promise<{ records: StudyRecord[]; lastSync: number } | null> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readonly');
+    const meta = tx.objectStore('meta');
+    const matches = (await meta.get('cacheOwner'))?.value === owner;
+    const lastSync = matches ? (await meta.get('lastSync'))?.value : undefined;
+    const records = typeof lastSync === 'number' ? await tx.objectStore('studies').getAll() : null;
+    await tx.done;
+    return records && typeof lastSync === 'number' ? { records, lastSync } : null;
+  },
+
+  async writeSessionStudies(owner: string, records: StudyRecord[], replace = false): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readwrite');
+    if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) {
+      const store = tx.objectStore('studies');
+      if (replace) await store.clear();
+      await Promise.all(records.map((record) => store.put(record)));
+      if (replace) await tx.objectStore('meta').put({ key: 'lastSync', value: Date.now() });
+    }
+    await tx.done;
+  },
+
+  async deleteSessionStudy(owner: string, id: string): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'meta'], 'readwrite');
+    if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) await tx.objectStore('studies').delete(id);
+    await tx.done;
+  },
+  async getStudies(): Promise<StudyRecord[]> {
+    const db = await getDB();
+    return db.getAll('studies');
+  },
+
+  async getStudy(id: string): Promise<StudyRecord | undefined> {
+    const db = await getDB();
+    return db.get('studies', id);
+  },
+
+  async setStudies(studies: StudyRecord[]): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('studies', 'readwrite');
+    await Promise.all(studies.map((s) => tx.store.put(s)));
+    await tx.done;
+  },
+
+  /** Removes everything derived from the user's Drive (used on sign-out). */
+  async clearStudyCache(): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(['studies', 'pdf-blobs', 'meta'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('studies').clear(),
+      tx.objectStore('pdf-blobs').clear(),
+      tx.objectStore('meta').clear(),
+      tx.done,
+    ]);
+  },
+
+  async getOperations(): Promise<OperationRecord[]> {
+    const db = await getDB();
+    return db.getAll('operations');
+  },
+
+  async getOperation(id: string): Promise<OperationRecord | undefined> {
+    const db = await getDB();
+    return db.get('operations', id);
+  },
+
+  async setOperations(ops: OperationRecord[]): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('operations', 'readwrite');
+    await Promise.all(ops.map((o) => tx.store.put(o)));
+    await tx.done;
+  },
+
+  async deleteOperation(id: string): Promise<void> {
+    const db = await getDB();
+    await db.delete('operations', id);
+  },
+
+  async getPortals(): Promise<PortalRecord[]> {
+    const db = await getDB();
+    return db.getAll('portals');
+  },
+
+  async getPortal(name: string): Promise<PortalRecord | undefined> {
+    const db = await getDB();
+    return db.get('portals', name);
+  },
+
+  async setPortals(portals: PortalRecord[]): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction('portals', 'readwrite');
+    await Promise.all(portals.map((p) => tx.store.put(p)));
+    await tx.done;
+  },
+
+  async deletePortal(name: string): Promise<void> {
+    const db = await getDB();
+    await db.delete('portals', name);
+  },
+
+  async getMeta(key: string): Promise<unknown> {
+    const db = await getDB();
+    const record = await db.get('meta', key);
+    return record?.value;
+  },
+
+  async setMeta(key: string, value: unknown): Promise<void> {
+    const db = await getDB();
+    await db.put('meta', { key, value });
+  },
+
+  async isStale(maxAgeMs = 24 * 60 * 60 * 1000): Promise<boolean> {
+    const lastSync = (await this.getMeta('lastSync')) as number | undefined;
+    if (!lastSync) return true;
+    return Date.now() - lastSync > maxAgeMs;
+  },
+};
+
+export type { StudyRecord, OperationRecord, PortalRecord };

@@ -2,3 +2,13 @@ dist/
 node_modules/
 .env
 .data/
+
+public/vendor/
+.playwright-mcp/
+.kilo/
+.vscode/
+
+coverage/
+.lighthouseci/
+playwright-report/
+test-results/
