@@ -54,6 +54,33 @@ export function Appointments() {
     } finally { setBusy(false); }
   }
 
+  async function deleteAppointment(appointment: Appointment) {
+    if (!confirm(`Eliminar el turno del ${appointment.date} a las ${appointment.time}?`)) return;
+    try {
+      const token = await driveAuth.getAccessToken();
+      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+      if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); return; }
+      if (!appointment.revision) { setMessage('El turno no tiene revisión válida.'); return; }
+      setBusy(true);
+      if (!navigator.onLine) {
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
+        await outbox.enqueueAppointmentDelete(owner, appointment.id, appointment.revision);
+        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+        setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
+      } else {
+        await driveAppointmentRepo.delete(appointment.id, appointment.revision);
+        if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+        appointments.value = appointments.value.filter((appt) => appt.id !== appointment.id);
+      }
+      if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+      if (navigator.onLine) setMessage('Turno eliminado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el turno.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <section className="directory" aria-labelledby="appointments-title">
     <h2 id="appointments-title">Turnos médicos</h2>
     <form key={editing?.id ?? 'new'} onSubmit={event => { event.preventDefault(); void save(event.currentTarget); }}>
@@ -83,6 +110,7 @@ export function Appointments() {
       <p>Importe: {item.cost === null ? 'Desconocido' : item.cost} · Cobertura: {item.coverage === 'all' ? 'Total' : item.coverage === 'partial' ? 'Parcial' : item.coverage === 'none' ? 'Sin cobertura' : 'Desconocida'}</p>
       {item.syncStatus && <p>{item.syncStatus === 'conflict' ? 'Requiere revisión' : 'Pendiente de sincronización'}</p>}
       <button type="button" disabled={Boolean(item.syncStatus)} onClick={() => setEditing(item)}>Editar</button>
+      <button type="button" disabled={Boolean(item.syncStatus)} onClick={() => deleteAppointment(item)}>Eliminar</button>
     </li>)}</ul>
   </section>;
 }

@@ -283,7 +283,7 @@ export class DriveStudyRepository implements StudyRepository {
     const age = Date.now() - Date.parse(file.appProperties.deletedAt ?? '');
     if (!Number.isFinite(age) || age < 0 || age >= 30 * 86400000) throw new Error('Este estudio ya no está disponible para recuperación desde la aplicación.');
     await this.client.assertSession(token);
-    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: null, restoredRevision: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
+    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: undefined, restoredRevision: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
     await this.client.assertSession(token);
     const study = this.client.parseRecord(restored);
     await storage.writeSessionStudies(owner, [this.studyToRecord(study)]);

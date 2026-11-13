@@ -147,7 +147,7 @@ export function ExportDialog({ onReconnect, error, sessionLost }: ExportDialogPr
             </label>
           </div>
         </fieldset>
-        <p>La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La filtrada incluye solo los estudios seleccionados.</p>
+        <p>La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La filtrada incluye los estudios seleccionados y sus entidades relacionadas (operaciones, portales, consultas/recetas vinculadas).</p>
         <fieldset disabled={busy || sessionLost}>
           <legend>Contenido a incluir</legend>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -198,6 +198,12 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
 
+  const studyIds = new Set(studiesToExport.map(s => s.id));
+
+  const relatedOperations = operations.value.filter(op => op.studyIds?.some(id => studyIds.has(id)));
+  const relatedPortals = portals.value.filter(p => studiesToExport.some(s => s.portal === p.id));
+  const relatedEvents = medicalEvents.value.filter(e => e.studyIds.some(id => studyIds.has(id)) || e.documentIds.some(id => studyIds.has(id)));
+
   const manifest = {
     version: 1,
     scope,
@@ -240,40 +246,48 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     zip.file('viewer-links.txt', viewerLinks.join('\n\n'));
   }
 
-  if (scope === 'all') {
-  const operationsList = operations.value.map(op => ({
-    id: op.id,
-    name: op.name,
-    date: op.date,
-    surgeon: op.surgeon,
-    institution: op.institution,
-    type: op.type,
-    notes: op.notes,
-    studyIds: op.studyIds,
-  }));
-  zip.file('operations.json', JSON.stringify(operationsList, null, 2));
+  if (scope === 'all' || (scope === 'filtered' && (relatedOperations.length > 0 || relatedPortals.length > 0 || relatedEvents.length > 0 || episodes.value.length > 0 || appointments.value.length > 0))) {
+    if (scope === 'all' || relatedOperations.length > 0) {
+      const operationsList = (scope === 'all' ? operations.value : relatedOperations).map(op => ({
+        id: op.id,
+        name: op.name,
+        date: op.date,
+        surgeon: op.surgeon,
+        institution: op.institution,
+        type: op.type,
+        notes: op.notes,
+        studyIds: op.studyIds,
+      }));
+      zip.file('operations.json', JSON.stringify(operationsList, null, 2));
+    }
 
-  const portalsList = portals.value.map(p => ({
-    id: p.id,
-    name: p.name,
-    displayName: p.displayName,
-    url: p.url,
-    notes: p.notes,
-  }));
-  zip.file('portals.json', JSON.stringify(portalsList, null, 2));
+    if (scope === 'all' || relatedPortals.length > 0) {
+      const portalsList = (scope === 'all' ? portals.value : relatedPortals).map(p => ({
+        id: p.id,
+        name: p.name,
+        displayName: p.displayName,
+        url: p.url,
+        notes: p.notes,
+      }));
+      zip.file('portals.json', JSON.stringify(portalsList, null, 2));
+    }
 
-  const eventsList = medicalEvents.value.map(e => ({
-    id: e.id,
-    kind: e.kind,
-    date: e.date,
-    doctor: e.doctor,
-    notes: e.notes,
-    studyIds: e.studyIds,
-    documentIds: e.documentIds,
-  }));
-  zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
-  zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
-  zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
+    if (scope === 'all' || relatedEvents.length > 0) {
+      const eventsList = (scope === 'all' ? medicalEvents.value : relatedEvents).map(e => ({
+        id: e.id,
+        kind: e.kind,
+        date: e.date,
+        doctor: e.doctor,
+        notes: e.notes,
+        studyIds: e.studyIds,
+        documentIds: e.documentIds,
+      }));
+      zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
+    }
+
+    // Episodes and appointments don't have direct study references, include all in both scopes
+    zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
+    zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
   }
 
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });

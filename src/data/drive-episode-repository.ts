@@ -90,6 +90,64 @@ export class DriveEpisodeRepository {
     const cached = await storage.readSessionDirectory<Episode>(owner, 'episodesCache');
     if (cached) await storage.writeSessionDirectory(owner, 'episodesCache', cached.filter((item) => item.id !== id));
   }
+
+  async listDeleted(): Promise<Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }>> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    const result: Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }> = [];
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<typeof result[number]>(owner, 'deletedEpisodesCache');
+      if (!cached) throw new Error('Conectate para consultar los episodios eliminados antes de recuperarlos sin conexión.');
+      return cached.map(item => {
+        const age = Date.now() - Date.parse(item.deletedAt);
+        return { ...item, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 };
+      });
+    }
+    let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', 'files', {
+        q: `trashed = true and appProperties has { key='misEstudios' and value='episodio-v1' }`,
+        fields: `nextPageToken,files(${ENTRY_FIELDS})`, pageSize: '100',
+        ...(pageToken ? { pageToken } : {}),
+      })).then(r => r.json() as Promise<DriveFileResponse>);
+      for (const file of response.files ?? []) {
+        if (!file.trashed || file.appProperties?.misEstudios !== 'episodio-v1') continue;
+        const episode = this.parse({ ...file, trashed: false });
+        const deletedAt = file.appProperties.deletedAt ?? '';
+        const age = Date.now() - Date.parse(deletedAt);
+        const lastObsDate = episode.observations.map(o => o.date).sort().at(-1) ?? '';
+        result.push({ id: episode.id, title: episode.illness || 'Episodio de salud', date: lastObsDate, revision: episode.revision, deletedAt, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 });
+      }
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    await this.client.assertSession(token);
+    await storage.writeSessionDirectory(owner, 'deletedEpisodesCache', result);
+    return result;
+  }
+
+  async restore(id: string, revision: string): Promise<Episode> {
+    const ID_PATTERN = /^[\w-]+$/;
+    if (!ID_PATTERN.test(id) || !revision) throw new Error('El episodio no tiene una revisión válida.');
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    if (file.appProperties?.misEstudios !== 'episodio-v1') throw new DriveConflictError('episodio');
+    if (!file.trashed && file.appProperties.restoredRevision === revision) {
+      await this.client.assertSession(token);
+      return this.parse(file);
+    }
+    if (!file.trashed || file.version !== revision) throw new DriveConflictError('episodio');
+    const age = Date.now() - Date.parse(file.appProperties.deletedAt ?? '');
+    if (!Number.isFinite(age) || age < 0 || age >= 30 * 86400000) throw new Error('Este episodio ya no está disponible para recuperación desde la aplicación.');
+    await this.client.assertSession(token);
+    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: undefined, restoredRevision: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
+    await this.client.assertSession(token);
+    const episode = this.parse(restored);
+    await storage.writeSessionDirectory(owner, 'episodesCache', [...(await storage.readSessionDirectory<Episode>(owner, 'episodesCache') ?? []).filter(item => item.id !== id), episode]);
+    const cached = await storage.readSessionDirectory<{ id: string }>(owner, 'deletedEpisodesCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'deletedEpisodesCache', cached.filter(item => item.id !== id));
+    return episode;
+  }
 }
 
 const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';

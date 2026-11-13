@@ -44,6 +44,33 @@ export function MedicalEvents() {
     setBusy(false);
   }
 
+  async function deleteEvent(event: MedicalEvent) {
+    if (!confirm(`Eliminar la ${event.kind === 'consultation' ? 'consulta' : 'receta'} del ${event.date}?`)) return;
+    try {
+      const token = await driveAuth.getAccessToken();
+      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+      if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); return; }
+      if (!event.revision) { setMessage('El evento no tiene revisión válida.'); return; }
+      setBusy(true);
+      if (!navigator.onLine) {
+        if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
+        await outbox.enqueueEventDelete(owner, event.id, event.revision);
+        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+        setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
+      } else {
+        await driveMedicalEventRepo.delete(event.id, event.revision);
+        if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+        medicalEvents.value = medicalEvents.value.filter((ev) => ev.id !== event.id);
+      }
+      if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+      if (navigator.onLine) setMessage('Evento eliminado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el evento.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <section className="directory" aria-labelledby="events-title">
     <h2 id="events-title">Consultas y recetas</h2>
     <form id="event-form" key={editing?.id ?? 'new'} onSubmit={(event) => { event.preventDefault(); void save(event.currentTarget); }}>
@@ -82,6 +109,7 @@ export function MedicalEvents() {
       })}</ul>}
       {event.syncStatus && <p>{event.syncStatus === 'conflict' ? 'Requiere revisión' : event.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
       <button type="button" disabled={Boolean(event.syncStatus)} onClick={() => setEditing(event)}>Editar</button>
+      <button type="button" disabled={Boolean(event.syncStatus)} onClick={() => deleteEvent(event)}>Eliminar</button>
     </li>)}</ul>
   </section>;
 }

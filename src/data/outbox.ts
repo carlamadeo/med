@@ -10,19 +10,26 @@ export interface OutboxAdapter {
   restore(id: string, revision: string): Promise<void>;
   saveOperation(draft: OperationDraft): Promise<void>;
   deleteOperation(id: string, revision: string): Promise<void>;
+  restoreOperation(id: string, revision: string): Promise<void>;
   savePortal(draft: PortalDraft): Promise<void>;
-  saveEvent(draft: MedicalEventDraft): Promise<void>;
-  saveEpisode(draft: EpisodeDraft): Promise<void>;
-  saveAppointment(draft: AppointmentDraft): Promise<void>;
   deletePortal(portal: Portal): Promise<void>;
+  restorePortal(id: string, revision: string): Promise<void>;
+  saveEvent(draft: MedicalEventDraft): Promise<void>;
+  deleteEvent(id: string, revision: string): Promise<void>;
+  restoreEvent(id: string, revision: string): Promise<void>;
+  saveEpisode(draft: EpisodeDraft): Promise<void>;
   deleteEpisode(id: string, revision: string): Promise<void>;
+  restoreEpisode(id: string, revision: string): Promise<void>;
+  saveAppointment(draft: AppointmentDraft): Promise<void>;
+  deleteAppointment(id: string, revision: string): Promise<void>;
+  restoreAppointment(id: string, revision: string): Promise<void>;
   lock(name: string, callback: () => Promise<void>): Promise<void>;
 }
 
 export interface OutboxEntry {
   id?: number;
   owner: string;
-  kind: 'save' | 'delete' | 'restore' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save' | 'episode-save' | 'episode-delete' | 'appointment-save';
+  kind: 'save' | 'delete' | 'restore' | 'operation-save' | 'operation-delete' | 'operation-restore' | 'portal-save' | 'portal-delete' | 'portal-restore' | 'event-save' | 'event-delete' | 'event-restore' | 'episode-save' | 'episode-delete' | 'episode-restore' | 'appointment-save' | 'appointment-delete' | 'appointment-restore';
   status: 'pending' | 'conflict' | 'failed';
   studyId?: string;
   revision?: string;
@@ -128,6 +135,41 @@ export class Outbox {
     await this.enqueue({ owner, kind: 'appointment-save', status: 'pending', appointmentId: draft.id, appointmentDraft: draft });
   }
 
+  async enqueueEventDelete(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El evento no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'event-delete', status: 'pending', eventId: id, revision });
+  }
+
+  async enqueueAppointmentDelete(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El turno no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'appointment-delete', status: 'pending', appointmentId: id, revision });
+  }
+
+  async enqueueEpisodeRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El episodio no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'episode-restore', status: 'pending', episodeId: id, revision });
+  }
+
+  async enqueueAppointmentRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El turno no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'appointment-restore', status: 'pending', appointmentId: id, revision });
+  }
+
+  async enqueueEventRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El evento no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'event-restore', status: 'pending', eventId: id, revision });
+  }
+
+  async enqueueOperationRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('La operación no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'operation-restore', status: 'pending', operationId: id, revision });
+  }
+
+  async enqueuePortalRestore(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El portal no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'portal-restore', status: 'pending', portalId: id, revision });
+  }
+
   async enqueueEpisodeDelete(owner: string, id: string, revision: string): Promise<void> {
     if (!id || !revision) throw new Error('El episodio no tiene una revisión válida.');
     await this.enqueue({ owner, kind: 'episode-delete', status: 'pending', episodeId: id, revision });
@@ -162,14 +204,22 @@ export class Outbox {
     replacement.status = 'pending';
     if (entry.kind === 'save' && replacement.draft?.driveFileId) replacement.draft.revision = revision;
     else if (entry.kind === 'delete' && entry.studyId) replacement.revision = revision;
+    else if (entry.kind === 'restore' && entry.studyId) replacement.revision = revision;
     else if (entry.kind === 'operation-save' && replacement.operationDraft?.id) replacement.operationDraft.revision = revision;
     else if (entry.kind === 'operation-delete' && entry.operationId) replacement.revision = revision;
+    else if (entry.kind === 'operation-restore' && entry.operationId) replacement.revision = revision;
     else if (entry.kind === 'portal-save' && replacement.portalDraft?.id) replacement.portalDraft.revision = revision;
     else if (entry.kind === 'portal-delete' && replacement.portal?.id) replacement.portal.revision = revision;
+    else if (entry.kind === 'portal-restore' && entry.portalId) replacement.revision = revision;
     else if (entry.kind === 'event-save' && replacement.eventDraft?.id) replacement.eventDraft.revision = revision;
+    else if (entry.kind === 'event-delete' && entry.eventId) replacement.revision = revision;
+    else if (entry.kind === 'event-restore' && entry.eventId) replacement.revision = revision;
     else if (entry.kind === 'episode-save' && replacement.episodeDraft?.id) replacement.episodeDraft.revision = revision;
     else if (entry.kind === 'episode-delete' && entry.episodeId) replacement.revision = revision;
+    else if (entry.kind === 'episode-restore' && entry.episodeId) replacement.revision = revision;
     else if (entry.kind === 'appointment-save' && replacement.appointmentDraft?.id) replacement.appointmentDraft.revision = revision;
+    else if (entry.kind === 'appointment-delete' && entry.appointmentId) replacement.revision = revision;
+    else if (entry.kind === 'appointment-restore' && entry.appointmentId) replacement.revision = revision;
     else { await tx.done; throw new Error('Este conflicto requiere revisión manual.'); }
     await tx.store.add(replacement);
     await tx.store.delete(id);
@@ -216,6 +266,20 @@ export class Outbox {
             await remote.saveAppointment(entry.appointmentDraft);
           } else if (entry.kind === 'episode-delete' && entry.episodeId && entry.revision) {
             await remote.deleteEpisode(entry.episodeId, entry.revision);
+          } else if (entry.kind === 'event-delete' && entry.eventId && entry.revision) {
+            await remote.deleteEvent(entry.eventId, entry.revision);
+          } else if (entry.kind === 'appointment-delete' && entry.appointmentId && entry.revision) {
+            await remote.deleteAppointment(entry.appointmentId, entry.revision);
+          } else if (entry.kind === 'episode-restore' && entry.episodeId && entry.revision) {
+            await remote.restoreEpisode(entry.episodeId, entry.revision);
+          } else if (entry.kind === 'appointment-restore' && entry.appointmentId && entry.revision) {
+            await remote.restoreAppointment(entry.appointmentId, entry.revision);
+          } else if (entry.kind === 'event-restore' && entry.eventId && entry.revision) {
+            await remote.restoreEvent(entry.eventId, entry.revision);
+          } else if (entry.kind === 'operation-restore' && entry.operationId && entry.revision) {
+            await remote.restoreOperation(entry.operationId, entry.revision);
+          } else if (entry.kind === 'portal-restore' && entry.portalId && entry.revision) {
+            await remote.restorePortal(entry.portalId, entry.revision);
           } else {
             entry.lastError = 'Cambio pendiente inválido.';
             entry.status = 'failed';

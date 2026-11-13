@@ -86,7 +86,7 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
 }
 
 export const storage = {
-  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache'): Promise<T[] | null> {
+  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache'): Promise<T[] | null> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readonly');
     const matches = (await tx.store.get('cacheOwner'))?.value === owner;
@@ -95,7 +95,7 @@ export const storage = {
     return Array.isArray(value) ? value as T[] : null;
   },
 
-  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache', value: T[]): Promise<void> {
+  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache', value: T[]): Promise<void> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readwrite');
     if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({ key, value });

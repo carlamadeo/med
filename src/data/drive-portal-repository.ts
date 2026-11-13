@@ -6,7 +6,7 @@ import type { Portal, PortalDraft } from '@domain/repository';
 export class DrivePortalRepository {
   constructor(private client: DriveClient) {}
 
-  private parse(file: DriveFileResponse): Portal {
+  private parse(file: DriveFileResponse): Portal & { id: string; revision: string } {
     const ID_PATTERN = /^[\w-]+$/;
     if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.misEstudios !== 'portal-v1') throw new Error('Portal no disponible.');
     const item = this.client.parseDescription<PortalDraft>(file, 'Drive tiene un portal cuya ficha no se puede leer.');
@@ -82,10 +82,67 @@ export class DrivePortalRepository {
     const existing = await this.get(portal.id);
     if (!portal.revision || existing.revision !== portal.revision) throw new DriveConflictError('portal');
     await this.client.assertSession(token);
-    await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(portal.id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true }));
+    await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(portal.id)}`, { fields: 'id' }), this.client.jsonBody('PATCH', { trashed: true, appProperties: { misEstudios: 'portal-v1', deletedAt: new Date().toISOString() } }));
     await this.client.assertSession(token);
     const cached = await storage.readSessionDirectory<Portal>(owner, 'portalsCache');
     if (cached) await storage.writeSessionDirectory(owner, 'portalsCache', cached.filter((item) => item.id !== portal.id));
+  }
+
+  async listDeleted(): Promise<Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }>> {
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    const result: Array<{ id: string; title: string; date: string; deletedAt: string; revision: string; recoverable: boolean }> = [];
+    if (!navigator.onLine) {
+      const cached = await storage.readSessionDirectory<typeof result[number]>(owner, 'deletedPortalsCache');
+      if (!cached) throw new Error('Conectate para consultar los portales eliminados antes de recuperarlos sin conexión.');
+      return cached.map(item => {
+        const age = Date.now() - Date.parse(item.deletedAt);
+        return { ...item, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 };
+      });
+    }
+    let pageToken = '';
+    do {
+      const response = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', 'files', {
+        q: `trashed = true and appProperties has { key='misEstudios' and value='portal-v1' }`,
+        fields: `nextPageToken,files(${ENTRY_FIELDS})`, pageSize: '100',
+        ...(pageToken ? { pageToken } : {}),
+      })).then(r => r.json() as Promise<DriveFileResponse>);
+      for (const file of response.files ?? []) {
+        if (!file.trashed || file.appProperties?.misEstudios !== 'portal-v1') continue;
+        const portal = this.parse({ ...file, trashed: false });
+        const deletedAt = file.appProperties.deletedAt ?? '';
+        const age = Date.now() - Date.parse(deletedAt);
+        result.push({ id: portal.id, title: portal.displayName, date: '', revision: portal.revision, deletedAt, recoverable: Number.isFinite(age) && age >= 0 && age < 30 * 86400000 });
+      }
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken);
+    await this.client.assertSession(token);
+    await storage.writeSessionDirectory(owner, 'deletedPortalsCache', result);
+    return result;
+  }
+
+  async restore(id: string, revision: string): Promise<Portal> {
+    const ID_PATTERN = /^[\w-]+$/;
+    if (!ID_PATTERN.test(id) || !revision) throw new Error('El portal no tiene una revisión válida.');
+    const token = await this.client.getAccessToken();
+    const owner = await this.client.cacheOwner();
+    const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS })).then(r => r.json() as Promise<DriveFileResponse>);
+    if (file.appProperties?.misEstudios !== 'portal-v1') throw new DriveConflictError('portal');
+    if (!file.trashed && file.appProperties.restoredRevision === revision) {
+      await this.client.assertSession(token);
+      return this.parse(file);
+    }
+    if (!file.trashed || file.version !== revision) throw new DriveConflictError('portal');
+    const age = Date.now() - Date.parse(file.appProperties.deletedAt ?? '');
+    if (!Number.isFinite(age) || age < 0 || age >= 30 * 86400000) throw new Error('Este portal ya no está disponible para recuperación desde la aplicación.');
+    await this.client.assertSession(token);
+    const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, { fields: ENTRY_FIELDS }), this.client.jsonBody('PATCH', { trashed: false, appProperties: { ...file.appProperties, deletedAt: undefined, restoredRevision: revision } })).then(r => r.json() as Promise<DriveFileResponse>);
+    await this.client.assertSession(token);
+    const portal = this.parse(restored);
+    await storage.writeSessionDirectory(owner, 'portalsCache', [...(await storage.readSessionDirectory<Portal>(owner, 'portalsCache') ?? []).filter(item => item.id !== id), portal]);
+    const cached = await storage.readSessionDirectory<{ id: string }>(owner, 'deletedPortalsCache');
+    if (cached) await storage.writeSessionDirectory(owner, 'deletedPortalsCache', cached.filter(item => item.id !== id));
+    return portal;
   }
 }
 
