@@ -18,4 +18,5 @@ coverage/
 .lighthouseci/
 playwright-report/
 test-results/
+report_*.sarif.json
 

@@ -65,7 +65,7 @@ export function RecoveryDialog({ onReconnect, error, sessionLost }: RecoveryDial
     const element = dialogRef.current;
     if (!element) return;
     if (recoveringId && !element.open) {
-      loadDeletedItems();
+      void loadDeletedItems();
       element.showModal();
       element.querySelector<HTMLButtonElement>('.quiet')?.focus();
     } else if (!recoveringId && element.open) element.close();

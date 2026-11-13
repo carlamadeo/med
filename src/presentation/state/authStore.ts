@@ -8,7 +8,6 @@ import { signal } from '@preact/signals';
 // ------------------------------------------------------------------
 
 export const isSignedIn = signal(false);
-export const sessionLost = signal(false);
 
 // ------------------------------------------------------------------
 // Acciones - Auth
@@ -16,8 +15,4 @@ export const sessionLost = signal(false);
 
 export function setIsSignedIn(v: boolean): void {
   isSignedIn.value = v;
-}
-
-export function setSessionLost(v: boolean): void {
-  sessionLost.value = v;
 }

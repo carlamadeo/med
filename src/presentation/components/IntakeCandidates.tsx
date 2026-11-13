@@ -53,7 +53,7 @@ export function IntakeCandidates({ onOpenEditor }: IntakeCandidatesProps) {
         if (!cancelled) setIntakeLoading(false);
       }
     }
-    load();
+    void load();
     return () => { cancelled = true; };
   }, [folderId]);
 

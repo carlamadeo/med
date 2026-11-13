@@ -173,12 +173,6 @@ export function markSourceUnavailable(sourceId: string): void {
   unavailableSources.value = current;
 }
 
-export function markSourceAvailable(sourceId: string): void {
-  const current = new Set(unavailableSources.value);
-  current.delete(sourceId);
-  unavailableSources.value = current;
-}
-
 export function isSourceUnavailable(sourceId: string): boolean {
   return unavailableSources.value.has(sourceId);
 }
