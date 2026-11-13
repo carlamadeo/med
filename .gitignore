@@ -1,14 +1,21 @@
 dist/
 node_modules/
+public/vendor/
 .env
 .data/
 
-public/vendor/
-.playwright-mcp/
+.agent
+.agents
+.github/agents
 .kilo/
 .vscode/
+_bmad
+_bmad-output
+.playwright-mcp/
+.playwright-cli
 
 coverage/
 .lighthouseci/
 playwright-report/
 test-results/
+

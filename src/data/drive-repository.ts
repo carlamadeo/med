@@ -222,7 +222,12 @@ export class DriveClient {
 
   async cacheOwner(): Promise<string> {
     const token = await this.getAccessToken();
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    if (!this.cachedAccountId()) {
+      if (!navigator.onLine) throw new Error('Conectate para verificar tu cuenta de Google Drive.');
+      await this.getAccountId();
+      await this.assertSession(token);
+    }
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([this.cachedAccountId(), token])));
     const owner = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     await this.assertSession(token);
     await storage.bindStudySession(owner);

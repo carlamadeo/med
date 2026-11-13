@@ -13,6 +13,8 @@ export interface Study {
   /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
   revision: string;
   operationId?: string;
+  syncStatus?: 'pending' | 'conflict' | 'failed';
+  pendingAttachment?: boolean;
 }
 
 export interface StudyDraft {

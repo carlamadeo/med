@@ -86,8 +86,9 @@ export const storage = {
   /** Cache ownership and data are checked in the same transaction across tabs. */
   async bindStudySession(owner: string): Promise<void> {
     const db = await getDB();
-    const tx = db.transaction(['studies', 'pdf-blobs', 'meta'], 'readwrite');
+    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'meta'], 'readwrite');
     const meta = tx.objectStore('meta');
+    await Promise.all([tx.objectStore('operations').clear(), tx.objectStore('portals').clear()]);
     if ((await meta.get('cacheOwner'))?.value !== owner) {
       await Promise.all([tx.objectStore('studies').clear(), tx.objectStore('pdf-blobs').clear(), meta.clear()]);
       await meta.put({ key: 'cacheOwner', value: owner });
@@ -153,57 +154,15 @@ export const storage = {
   /** Removes everything derived from the user's Drive (used on sign-out). */
   async clearStudyCache(): Promise<void> {
     const db = await getDB();
-    const tx = db.transaction(['studies', 'pdf-blobs', 'meta'], 'readwrite');
+    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'meta'], 'readwrite');
     await Promise.all([
       tx.objectStore('studies').clear(),
       tx.objectStore('pdf-blobs').clear(),
+      tx.objectStore('operations').clear(),
+      tx.objectStore('portals').clear(),
       tx.objectStore('meta').clear(),
       tx.done,
     ]);
-  },
-
-  async getOperations(): Promise<OperationRecord[]> {
-    const db = await getDB();
-    return db.getAll('operations');
-  },
-
-  async getOperation(id: string): Promise<OperationRecord | undefined> {
-    const db = await getDB();
-    return db.get('operations', id);
-  },
-
-  async setOperations(ops: OperationRecord[]): Promise<void> {
-    const db = await getDB();
-    const tx = db.transaction('operations', 'readwrite');
-    await Promise.all(ops.map((o) => tx.store.put(o)));
-    await tx.done;
-  },
-
-  async deleteOperation(id: string): Promise<void> {
-    const db = await getDB();
-    await db.delete('operations', id);
-  },
-
-  async getPortals(): Promise<PortalRecord[]> {
-    const db = await getDB();
-    return db.getAll('portals');
-  },
-
-  async getPortal(name: string): Promise<PortalRecord | undefined> {
-    const db = await getDB();
-    return db.get('portals', name);
-  },
-
-  async setPortals(portals: PortalRecord[]): Promise<void> {
-    const db = await getDB();
-    const tx = db.transaction('portals', 'readwrite');
-    await Promise.all(portals.map((p) => tx.store.put(p)));
-    await tx.done;
-  },
-
-  async deletePortal(name: string): Promise<void> {
-    const db = await getDB();
-    await db.delete('portals', name);
   },
 
   async getMeta(key: string): Promise<unknown> {
@@ -224,4 +183,4 @@ export const storage = {
   },
 };
 
-export type { StudyRecord, OperationRecord, PortalRecord };
+export type { StudyRecord };

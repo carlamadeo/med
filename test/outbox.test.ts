@@ -47,6 +47,33 @@ describe('offline outbox', () => {
     expect(await queue.list(owner)).toEqual([]);
   });
 
+  it('serializes two sync requests for the same owner under the shared lock', async () => {
+    await queue.enqueueSave(owner, draft);
+    let releaseSave!: () => void;
+    let saveStarted!: () => void;
+    const saving = new Promise<void>((resolve) => { releaseSave = resolve; });
+    const started = new Promise<void>((resolve) => { saveStarted = resolve; });
+    let tail = Promise.resolve();
+    const remote = adapter();
+    remote.lock = async (_name, callback) => {
+      const prior = tail;
+      let release!: () => void;
+      tail = new Promise<void>((resolve) => { release = resolve; });
+      await prior;
+      try { await callback(); } finally { release(); }
+    };
+    vi.mocked(remote.save).mockImplementation(async () => { saveStarted(); await saving; });
+    const first = queue.sync(owner, remote);
+    await started;
+    const second = queue.sync(owner, remote);
+    expect(await queue.list(owner)).toHaveLength(1);
+    expect(remote.save).toHaveBeenCalledTimes(1);
+    releaseSave();
+    await Promise.all([first, second]);
+    expect(remote.save).toHaveBeenCalledTimes(1);
+    expect(await queue.list(owner)).toEqual([]);
+  });
+
   it('stops at a conflict without discarding it or sending later work', async () => {
     await queue.enqueueSave(owner, { ...draft, driveFileId: 'one', revision: '1' });
     await queue.enqueueSave(owner, { ...draft, driveFileId: 'two', revision: '1' });
@@ -59,6 +86,34 @@ describe('offline outbox', () => {
     expect(remote.save).toHaveBeenCalledTimes(1);
     await queue.sync(owner, remote);
     expect(remote.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks malformed work as failed and stops automatic retries', async () => {
+    const { openDB } = await import('idb');
+    const db = await openDB('mis-estudios-outbox', 1);
+    await db.add('entries', { owner, kind: 'save', status: 'pending' });
+    const remote = adapter();
+    await queue.sync(owner, remote);
+    expect((await queue.list(owner))[0]).toMatchObject({ status: 'failed', lastError: 'Cambio pendiente inválido.' });
+    await queue.sync(owner, remote);
+    expect(remote.save).not.toHaveBeenCalled();
+    expect((await queue.list(owner))[0]?.status).toBe('failed');
+    db.close();
+  });
+
+  it('replaces a conflicting study change with a new pending mutation at the reviewed revision', async () => {
+    await queue.enqueueSave(owner, { ...draft, driveFileId: 'one', revision: '1' });
+    const remote = adapter();
+    vi.mocked(remote.save).mockRejectedValueOnce(new DriveConflictError());
+    await queue.sync(owner, remote);
+    const old = (await queue.list(owner))[0]!;
+    await queue.retryConflict(owner, old.id!, '2');
+    const replacement = (await queue.list(owner))[0]!;
+    expect(replacement.id).not.toBe(old.id);
+    expect(replacement).toMatchObject({ status: 'pending', draft: { title: 'Informe', revision: '2', driveFileId: 'one' } });
+    await queue.sync(owner, remote);
+    expect(remote.save).toHaveBeenLastCalledWith(expect.objectContaining({ revision: '2' }));
+    expect(await queue.list(owner)).toEqual([]);
   });
 
   it('rejects a second pending change to the same study', async () => {

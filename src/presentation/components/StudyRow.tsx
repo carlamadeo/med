@@ -38,6 +38,7 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
         </span>
         <div className="record-text">
           <h3 className="record-title">{study.title}</h3>
+          {study.syncStatus && <p>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
           <p className="record-meta">
             <time dateTime={study.date}>{formatDate(study.date)}</time>
             {study.doctor && <span className="record-doctor">{study.doctor}</span>}
@@ -57,15 +58,17 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
               <svg className="icon"><use href="#i-file" /></svg> Informe PDF
             </a>
           ) : null}
+          {study.pendingAttachment && <span>PDF pendiente de sincronización</span>}
           {study.viewer ? (
             <a className="record-link viewer-link" href={study.viewer} target="_blank" rel="noopener noreferrer">
               <svg className="icon"><use href="#i-external" /></svg> Abrir visor
             </a>
           ) : null}
-          {!study.hasPdf && !study.viewer && <span className="no-attachment">Sin archivos adjuntos</span>}
+          {!study.hasPdf && !study.pendingAttachment && !study.viewer && <span className="no-attachment">Sin archivos adjuntos</span>}
         </div>
         <div className="record-actions">
           <button
+            disabled={Boolean(study.syncStatus)}
             className="icon-button edit"
             type="button"
             aria-label={`Editar ${study.title}`}
@@ -75,6 +78,7 @@ export function StudyRow({ study, onEdit, onDelete, virtualIndex, virtualStart, 
             <svg className="icon"><use href="#i-edit" /></svg>
           </button>
           <button
+            disabled={Boolean(study.syncStatus)}
             className="icon-button remove"
             type="button"
             aria-label={`Eliminar ${study.title}`}

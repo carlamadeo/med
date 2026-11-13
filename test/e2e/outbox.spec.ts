@@ -47,7 +47,8 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await page.locator('#study-types input[value="Otro"]').check();
   await page.getByRole('button', { name: 'Guardar estudio' }).click();
   await expect(page.locator('#pending-changes')).toContainText('Informe de prueba');
-  await expect(page.getByText('Tu estudio está pendiente')).toBeVisible();
+  const pendingRow = page.locator('#results li.record').filter({ hasText: 'Informe de prueba' });
+  await expect(pendingRow).toContainText('Pendiente de sincronización');
   await page.screenshot({ path: testInfo.outputPath('pending.png'), fullPage: true });
   await context.setOffline(false);
   await expect(page.locator('#pending-changes')).toHaveCount(0);

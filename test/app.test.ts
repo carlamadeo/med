@@ -356,10 +356,10 @@ describe('the editor', () => {
     edit('study-1');
     typeInto('#editor-form [name=title]', 'Borrador privado');
     await act(async () => { await driveAuth.signOut(); });
+    expect(field('title').closest('fieldset')?.hidden).toBe(true);
     gis.tokenResponse.access_token = 'other-account-token';
     await act(async () => { await driveAuth.signIn(); });
-    submitEditor();
-    await vi.waitFor(() => expect(text('#form-error')).toContain('otra cuenta'));
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#editor').open).toBe(false));
     expect(fakeDriveFile('study-1')?.description).not.toContain('Borrador privado');
   });
 
@@ -515,7 +515,7 @@ describe('saving', () => {
 
     await vi.waitFor(() => expect($('.reconnect', $('#editor')).hidden).toBe(false));
     expect(text('#form-error')).toBe('Volvé a conectar Google Drive para continuar.');
-    expect($('#access').hidden).toBe(true); // the dialog keeps the user's place
+    expect($('#access').hidden).toBe(false); // the library is hidden while the dialog keeps the user's place
     expect($<HTMLDialogElement>('#editor').open).toBe(true);
 
     server.resetHandlers();

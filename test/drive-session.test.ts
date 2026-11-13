@@ -103,11 +103,12 @@ describe('session', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     await refreshed.studies.list({ force: true });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const init = fetchSpy.mock.calls[0]![1] as RequestInit;
-    expect((init.headers as Headers).get('Authorization')).toBe('Bearer test-access-token');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    for (const [, options] of fetchSpy.mock.calls) {
+      expect(((options as RequestInit).headers as Headers).get('Authorization')).toBe('Bearer test-access-token');
+    }
     expect(gis.authorizations).toBe(1);
-    expect(storedSession()).toBe(saved);
+    expect(JSON.parse(storedSession()!)).toMatchObject({ expires, accountId: 'account-one' });
   });
 
   it('expired or malformed sessions are discarded', async () => {

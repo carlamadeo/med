@@ -6,6 +6,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as PdfAnalysis from '@data/pdf-analysis';
 import { analyzePdf } from '@data/pdf-analysis';
+import { driveAuth } from '@data';
 import type { ExtractedFields } from '@domain/extract';
 import { resetFakeDrive } from './fake-drive';
 import { $, TYPES, choose as chooseFile, closeDialogs, mountPage, reloadLibrary, typeInto } from './page';
@@ -58,6 +59,19 @@ describe('opening the editor', () => {
 });
 
 describe('reading a PDF', () => {
+  it('stops analyzing a private PDF when the session ends', async () => {
+    let signal!: AbortSignal;
+    analyze.mockImplementation((_file, abortSignal) => {
+      signal = abortSignal;
+      return new Promise<ExtractedFields>(() => {});
+    });
+    openNew();
+    choose(pdf());
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledTimes(1));
+    await driveAuth.signOut();
+    await vi.waitFor(() => expect(signal.aborted).toBe(true));
+  });
+
   it('fills the empty fields and tells the user what to review', async () => {
     analyze.mockResolvedValue(FOUND);
     openNew();

@@ -1,4 +1,4 @@
-import { filteredStudies, studies, loading, error, hasFilters, invalidRange, view } from '../state/store';
+import { filteredStudies, visibleStudies, loading, error, hasFilters, invalidRange, view } from '../state/store';
 import { FilterBar } from './FilterBar';
 import { StudyList } from './StudyList';
 import { EmptyState } from './EmptyState';
@@ -34,7 +34,7 @@ export function StudyListContainer({
   directoryWarning,
   pendingChangesCount
 }: StudyListContainerProps) {
-  const studiesList = studies.value;
+  const studiesList = visibleStudies.value;
   const filtered = filteredStudies.value;
   const isLoading = loading.value;
   const loadError = error.value;

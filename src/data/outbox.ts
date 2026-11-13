@@ -18,7 +18,7 @@ export interface OutboxEntry {
   id?: number;
   owner: string;
   kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete';
-  status: 'pending' | 'conflict';
+  status: 'pending' | 'conflict' | 'failed';
   studyId?: string;
   revision?: string;
   draft?: Omit<StudyDraft, 'file'>;
@@ -106,12 +106,35 @@ export class Outbox {
     await tx.done;
   }
 
+  /** Replaces a reviewed conflict atomically, keeping the local payload and attachment. */
+  async retryConflict(owner: string, id: number, revision: string): Promise<void> {
+    if (!owner || !revision) throw new Error('No se pudo verificar la revisión actual.');
+    const tx = (await dbPromise).transaction('entries', 'readwrite');
+    const entry = await tx.store.get(id);
+    if (!entry || entry.owner !== owner || entry.status !== 'conflict') {
+      await tx.done;
+      throw new Error('El cambio ya no está disponible para resolver.');
+    }
+    const { id: _oldId, lastError: _oldError, ...replacement } = entry;
+    replacement.status = 'pending';
+    if (entry.kind === 'save' && replacement.draft?.driveFileId) replacement.draft.revision = revision;
+    else if (entry.kind === 'delete' && entry.studyId) replacement.revision = revision;
+    else if (entry.kind === 'operation-save' && replacement.operationDraft?.id) replacement.operationDraft.revision = revision;
+    else if (entry.kind === 'operation-delete' && entry.operationId) replacement.revision = revision;
+    else if (entry.kind === 'portal-save' && replacement.portalDraft?.id) replacement.portalDraft.revision = revision;
+    else if (entry.kind === 'portal-delete' && replacement.portal?.id) replacement.portal.revision = revision;
+    else { await tx.done; throw new Error('Este conflicto requiere revisión manual.'); }
+    await tx.store.add(replacement);
+    await tx.store.delete(id);
+    await tx.done;
+  }
+
   async sync(owner: string, remote: OutboxAdapter): Promise<void> {
     await remote.lock(`mis-estudios-outbox:${owner}`, async () => {
       if (await remote.accountId() !== owner) return;
       const db = await dbPromise;
       for (const entry of await this.list(owner)) {
-        if (entry.id === undefined || entry.status === 'conflict') break;
+        if (entry.id === undefined || entry.status !== 'pending') break;
         try {
           if (await remote.accountId() !== owner) return;
           if (entry.kind === 'save' && entry.draft) {
@@ -135,7 +158,7 @@ export class Outbox {
             await remote.deletePortal(entry.portal);
           } else {
             entry.lastError = 'Cambio pendiente inválido.';
-            entry.status = 'pending';
+            entry.status = 'failed';
             await db.put('entries', entry);
             break;
           }

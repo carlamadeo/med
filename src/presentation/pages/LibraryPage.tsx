@@ -54,6 +54,7 @@ const outbox = new Outbox();
 
 export function LibraryPage() {
   const pendingId = useRef('');
+  const activeSyncs = useRef(0);
   const editorOwner = useRef<Promise<string | null>>(Promise.resolve(null));
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   const [typesReady, setTypesReady] = useState(false);
@@ -73,7 +74,16 @@ export function LibraryPage() {
 
   // Auth listener
   useEffect(() => {
+    let authSequence = 0;
     const unsub = driveAuth.onAuthChange((signedIn) => {
+      const sequence = ++authSequence;
+      if (!signedIn) {
+        setIsSignedIn(false);
+        loadSequence.current += 1;
+        directorySequence.current += 1;
+        pendingChanges.value = [];
+        syncMessage.value = '';
+      }
       if (!signedIn && (isEditorOpen.value || deletingStudyId.value)) {
         setStudies([]);
         operations.value = [];
@@ -81,13 +91,31 @@ export function LibraryPage() {
         setSessionLost(true);
         return;
       }
-      setIsSignedIn(signedIn);
       if (signedIn) {
-        setSessionLost(false);
-        setEditorError(null);
-        void loadStudies();
-        void loadDirectories();
-        void prepareOutbox();
+        void (async () => {
+          try {
+            const token = await driveAuth.getAccessToken();
+            let owner = driveAuth.cachedAccountId();
+            if (navigator.onLine) {
+              try { owner = await driveAuth.getAccountId(); }
+              catch (err) { if (!owner) throw err; }
+            }
+            if (!owner) throw new Error('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.');
+            const originalEditorOwner = isEditorOpen.value ? await editorOwner.current : null;
+            if (sequence !== authSequence || await driveAuth.getAccessToken() !== token) return;
+            if (isEditorOpen.value && originalEditorOwner !== owner) setEditorOpen(false);
+            setIsSignedIn(true);
+            setSessionLost(false);
+            setEditorError(null);
+            void loadStudies();
+            void loadDirectories();
+            void prepareOutbox();
+          } catch (err) {
+            if (sequence !== authSequence) return;
+            await driveAuth.signOut();
+            setError(err instanceof Error ? err.message : 'No se pudo verificar la cuenta de Google Drive.');
+          }
+        })();
       } else if (!isEditorOpen.value && !deletingStudyId.value) {
         setStudies([]);
         operations.value = [];
@@ -99,17 +127,17 @@ export function LibraryPage() {
     if (driveAuth.configured) {
       driveAuth.restoreSession();
     }
-    return () => unsub();
+    return () => { authSequence += 1; unsub(); };
   }, []);
 
   // Global event listeners
   useEffect(() => {
     const refresh = () => {
-      if (!document.hidden && driveAuth.isSignedIn() && !isEditorOpen.value && !deletingStudyId.value) void loadStudies(true);
+      if (!document.hidden && isSignedIn.value && driveAuth.isSignedIn() && !isEditorOpen.value && !deletingStudyId.value) void loadStudies(true);
     };
-    const online = () => { setOffline(false); if (driveAuth.isSignedIn()) { void prepareOutbox(); void loadStudies(true); void loadDirectories(); } };
+    const online = () => { setOffline(false); if (isSignedIn.value && driveAuth.isSignedIn()) { void prepareOutbox(); void loadStudies(true); void loadDirectories(); } };
     const disconnected = () => setOffline(true);
-    const outboxChanged = () => { if (driveAuth.isSignedIn()) void prepareOutbox(); };
+    const outboxChanged = () => { if (isSignedIn.value && driveAuth.isSignedIn()) void prepareOutbox(); };
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', online);
     window.addEventListener('offline', disconnected);
@@ -202,6 +230,7 @@ export function LibraryPage() {
     if (!navigator.locks) { syncMessage.value = 'Este navegador no puede sincronizar cambios pendientes de forma segura.'; return; }
     const token = await driveAuth.getAccessToken();
     const assertToken = async () => { if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError(); };
+    activeSyncs.current += 1;
     syncing.value = true; syncMessage.value = '';
     try {
       await outbox.sync(owner, {
@@ -219,11 +248,12 @@ export function LibraryPage() {
       const remaining = await outbox.list(owner);
       pendingChanges.value = remaining;
       if (remaining.some((entry) => entry.status === 'conflict')) syncMessage.value = 'Un estudio cambió en Drive. Revisá el cambio pendiente antes de continuar.';
+      else if (remaining.some((entry) => entry.status === 'failed')) syncMessage.value = 'Hay un cambio que no se puede sincronizar. Revisalo o descartalo para continuar.';
       else if (remaining.length) syncMessage.value = 'Hay cambios pendientes que no se pudieron sincronizar.';
       await loadStudies(true);
       await loadDirectories();
     } catch { syncMessage.value = 'No se pudieron sincronizar los cambios pendientes.'; }
-    finally { syncing.value = false; }
+    finally { activeSyncs.current -= 1; syncing.value = activeSyncs.current > 0; }
   }, []);
 
   const discardPending = useCallback(async (entry: OutboxEntry) => {
@@ -235,8 +265,66 @@ export function LibraryPage() {
       if (await driveAuth.getAccessToken() !== token || driveAuth.cachedAccountId() !== owner) throw new DriveSessionError();
       await outbox.discard(owner, entry.id!);
     });
-    if (await driveAuth.getAccessToken() === token) { pendingChanges.value = await outbox.list(owner); syncMessage.value = ''; }
+    if (await driveAuth.getAccessToken() === token) {
+      pendingChanges.value = await outbox.list(owner);
+      syncMessage.value = '';
+      if (entry.status === 'conflict' && navigator.onLine) {
+        await loadStudies(true);
+        await loadDirectories();
+      }
+    }
   }, []);
+
+  const resolveConflict = useCallback(async (entry: OutboxEntry, reviewedRevision: string) => {
+    const owner = driveAuth.cachedAccountId();
+    if (!owner || entry.id === undefined || !navigator.locks || !navigator.onLine) {
+      syncMessage.value = 'Conectate para revisar la versión actual de Drive.';
+      return;
+    }
+    if (!window.confirm('¿Conservar tu cambio y aplicarlo sobre la versión de Drive que revisaste?')) return;
+    try {
+      const token = await driveAuth.getAccessToken();
+      await navigator.locks.request(`mis-estudios-outbox:${owner}`, async () => {
+        if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) throw new DriveSessionError();
+        let currentRevision: string | undefined;
+        if (entry.studyId) {
+          const current = await driveStudyRepo.list({ force: true });
+          if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+          setStudies(current);
+          currentRevision = current.find((item) => item.id === entry.studyId)?.revision;
+        } else if (entry.operationId) {
+          const current = await driveOperationRepo.list();
+          if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+          operations.value = current;
+          currentRevision = current.find((item) => item.id === entry.operationId)?.revision;
+        } else if (entry.portalId) {
+          const current = await drivePortalRepo.list();
+          if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+          portals.value = current;
+          currentRevision = current.find((item) => item.id === entry.portalId)?.revision;
+        }
+        if (!currentRevision || currentRevision !== reviewedRevision) throw new Error('La versión de Drive cambió o ya no está disponible. Revisala nuevamente.');
+        await outbox.retryConflict(owner, entry.id!, currentRevision);
+      });
+      if (await driveAuth.getAccessToken() !== token) return;
+      pendingChanges.value = await outbox.list(owner);
+      syncMessage.value = '';
+      await syncOutbox(owner);
+    } catch (err) {
+      syncMessage.value = err instanceof Error ? err.message : 'No se pudo resolver el conflicto.';
+    }
+  }, []);
+
+  async function connectDrive(): Promise<void> {
+    setError(null);
+    try {
+      await driveAuth.signIn();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo conectar Google Drive.';
+      setError(message);
+      if (isEditorOpen.value) setEditorError(message);
+    }
+  }
 
   // --- Editor ---
   function openEditor(study: Study | null) {
@@ -355,16 +443,17 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
         </section>
         <section id="access" className="library access" aria-labelledby="access-title" hidden={isSignedIn.value}>
           <AccessSection
-            onConnect={() => void driveAuth.signIn()}
+            onConnect={() => void connectDrive()}
             error={error.value}
             bootFailed={bootFailed}
             configured={driveAuth.configured}
           />
         </section>
-        <PendingChangesSection
+        {isSignedIn.value && <PendingChangesSection
           onDiscard={discardPending}
           onRetrySync={prepareOutbox}
-        />
+          onResolveConflict={(entry, revision) => void resolveConflict(entry, revision)}
+        />}
       </main>
       <EditorDialog
         onClose={() => setEditorOpen(false)}
@@ -374,13 +463,13 @@ async function deleteStudyById(studyOrId: Study | string): Promise<void> {
         onSave={saveStudy}
         verifyOwner={verifyEditorOwner}
         sessionLost={sessionLost}
-        onReconnect={() => void driveAuth.signIn()}
+        onReconnect={() => void connectDrive()}
       />
       <ConfirmDialog
         studies={studies.value}
         onConfirm={deleteStudyById}
         onCancel={() => setDeletingStudyId(null)}
-        onReconnect={() => void driveAuth.signIn()}
+        onReconnect={() => void connectDrive()}
         error={error.value}
         busy={deleting}
         sessionLost={sessionLost}

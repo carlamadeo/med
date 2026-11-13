@@ -31,6 +31,7 @@ export async function mountPage({
   await act(() => { render(h(LibraryPage, {}), document.getElementById('app')!); });
   if (signIn) {
     await act(async () => { await driveAuth.signIn(); });
+    await vi.waitFor(() => expect($('#library').hidden).toBe(false));
     if (!types) await vi.waitFor(() => expect(document.querySelectorAll('#study-types input')).toHaveLength(TYPES.length));
   }
 }
@@ -38,6 +39,7 @@ export async function mountPage({
 /** Signs out and in again: the App reacts to the auth change by reloading the list from Drive. */
 export async function reloadLibrary(): Promise<void> {
   await act(async () => { await driveAuth.signOut(); await driveAuth.signIn(); });
+  await vi.waitFor(() => expect($('#library').hidden).toBe(false));
   // Done when the list has rendered (the status text leaves "Cargando…") or loading has failed.
   await vi.waitFor(() =>
     expect(text('#list-status') !== 'Cargando tus estudios…').toBe(true)

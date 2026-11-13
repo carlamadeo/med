@@ -74,7 +74,15 @@ export function EditorDialog({
   const touched = useRef<Set<'date' | 'types' | 'doctor' | 'title'>>(new Set());
   const suggested = useRef<Map<'date' | 'types' | 'doctor' | 'title', string>>(new Map());
 
-  useEffect(() => { if (sessionLost) editorGeneration.current += 1; }, [sessionLost]);
+  useEffect(() => {
+    if (sessionLost) {
+      editorGeneration.current += 1;
+      analysisCtrl.current?.abort();
+      if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+      setReading(false);
+      setProgress(null);
+    }
+  }, [sessionLost]);
 
   // Open/close dialog imperatively - subscribe to signal directly
   useEffect(() => {
@@ -303,7 +311,7 @@ export function EditorDialog({
       id="editor"
       ref={dialogRef}
       className="dialog editor"
-      aria-labelledby="editor-title"
+      aria-labelledby={sessionLost ? 'editor-session-title' : 'editor-title'}
       data-busy={busy ? 'true' : 'false'}
       onCancel={(event) => { if (busy || operationBusy) event.preventDefault(); }}
     >
@@ -334,7 +342,7 @@ export function EditorDialog({
           operationId: String(data.get('operationId') ?? ''),
         });
       }}>
-      <fieldset disabled={busy || operationBusy} style={{ border: 0, padding: 0, margin: 0 }}>
+      <fieldset hidden={sessionLost} disabled={busy || operationBusy || sessionLost} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="dialog-heading">
         <div>
           <h2 id="editor-title">{isEdit ? 'Editar estudio' : 'Agregar estudio'}</h2>
@@ -501,17 +509,18 @@ export function EditorDialog({
         </label>
         <p className="hint">El visor se abre en el portal original. Puede pedirte que inicies sesión.</p>
       </div>
+      </fieldset>
+      {sessionLost && <h2 id="editor-session-title">Sesión desconectada</h2>}
       <p className="form-error" id="form-error" role="alert" hidden={!error}>{error}</p>
       <button type="button" className="button secondary reconnect" hidden={!sessionLost} onClick={onReconnect}>Reconectar Google Drive</button>
       <div className="dialog-actions">
         <button type="button" className="button quiet" data-close onClick={handleClose}>
           Cancelar
         </button>
-        <button type="submit" className="button primary" id="save" disabled={busy}>
+        <button type="submit" className="button primary" id="save" disabled={busy || sessionLost}>
           {busy ? 'Guardando…' : (isEdit ? 'Guardar cambios' : 'Guardar estudio')}
         </button>
       </div>
-      </fieldset>
       </form>
     </dialog>
   );

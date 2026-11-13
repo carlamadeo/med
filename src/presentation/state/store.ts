@@ -49,8 +49,30 @@ export const directoryWarning = signal(false);
 // Derivados
 // ------------------------------------------------------------------
 
+export const visibleStudies = computed<Study[]>(() => {
+  const result = [...studies.value];
+  for (const entry of pendingChanges.value) {
+    if (entry.kind !== 'save' || !entry.draft || entry.id === undefined) continue;
+    const draft = entry.draft;
+    const index = result.findIndex((study) => study.id === draft.driveFileId);
+    const previous = index >= 0 ? result[index] : undefined;
+    const local: Study = {
+      id: previous?.id ?? `pending-${entry.id}`,
+      title: draft.title, date: draft.date, types: draft.types, doctor: draft.doctor,
+      portal: draft.portal, viewer: draft.viewer, reportName: draft.reportName,
+      hasPdf: Boolean(previous?.hasPdf && !draft.removeReport && !entry.attachment),
+      driveFileId: previous?.driveFileId ?? '',
+      driveModifiedTime: previous?.driveModifiedTime ?? '', revision: draft.revision ?? '',
+      operationId: draft.operationId, syncStatus: entry.status, pendingAttachment: Boolean(entry.attachment),
+    };
+    if (index >= 0) result[index] = local;
+    else result.push(local);
+  }
+  return result;
+});
+
 const listResult = computed(() =>
-  filterStudies(studies.value, filters.value, categoryTypes.value, sortOrder.value),
+  filterStudies(visibleStudies.value, filters.value, categoryTypes.value, sortOrder.value),
 );
 export const filteredStudies = computed(() => listResult.value.matches);
 export const hasFilters = computed(() => listResult.value.filtered);
