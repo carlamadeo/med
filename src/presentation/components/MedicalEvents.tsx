@@ -25,25 +25,23 @@ export function MedicalEvents() {
     };
     if (!isValidDate(draft.date)) { setMessage('Ingresá una fecha válida para el evento.'); return; }
     setBusy(true); setMessage('');
-    try {
-      const token = await driveAuth.getAccessToken();
-      const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-      if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-      if (draft.id && (await outbox.list(owner)).some((entry) => entry.eventId === draft.id)) throw new Error('Este evento ya tiene un cambio pendiente.');
-      if (!navigator.onLine) {
-        if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
-        await outbox.enqueueEventSave(owner, draft);
-        window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
-        setMessage('Evento guardado en este dispositivo; queda pendiente de sincronización.');
-      } else {
-        const saved = await driveMedicalEventRepo.save(draft);
-        if (await driveAuth.getAccessToken() !== token) return;
-        medicalEvents.value = [...medicalEvents.value.filter((event) => event.id !== saved.id), saved];
-      }
-      if (await driveAuth.getAccessToken() !== token) return;
-      setEditing(null); form.reset();
-    } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar el evento.'); }
-    finally { setBusy(false); }
+    const token = await driveAuth.getAccessToken();
+    const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
+    if (!owner) { setMessage('Conectate primero para verificar tu cuenta.'); setBusy(false); return; }
+    if (draft.id && (await outbox.list(owner)).some((entry) => entry.eventId === draft.id)) { setMessage('Este evento ya tiene un cambio pendiente.'); setBusy(false); return; }
+    if (!navigator.onLine) {
+      if (!navigator.locks) { setMessage('Este navegador no admite la sincronización segura sin conexión.'); setBusy(false); return; }
+      await outbox.enqueueEventSave(owner, draft);
+      window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
+      setMessage('Evento guardado en este dispositivo; queda pendiente de sincronización.');
+    } else {
+      const saved = await driveMedicalEventRepo.save(draft);
+      if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+      medicalEvents.value = [...medicalEvents.value.filter((event) => event.id !== saved.id), saved];
+    }
+    if (await driveAuth.getAccessToken() !== token) { setBusy(false); return; }
+    setEditing(null); form.reset();
+    setBusy(false);
   }
 
   return <section className="directory" aria-labelledby="events-title">

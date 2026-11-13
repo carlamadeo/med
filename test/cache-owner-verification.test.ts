@@ -47,7 +47,7 @@ it('does not reuse a cache bound to a different verified account with the same t
 it('removes legacy unscoped directories when the cache is rebound', async () => {
   const { openDB } = await import('idb');
   const { storage } = await import('@core/storage');
-  const db = await openDB('mis-estudios', 1);
+  const db = await openDB('mis-estudios', 2);
   await db.put('operations', { id: 'old-op', name: 'Privado' });
   await db.put('portals', { name: 'old-portal', displayName: 'Privado' });
   await storage.bindStudySession('new-session-owner');
@@ -59,7 +59,7 @@ it('removes legacy unscoped directories when the cache is rebound', async () => 
 it('removes legacy unscoped directories when clearing the cache', async () => {
   const { openDB } = await import('idb');
   const { storage } = await import('@core/storage');
-  const db = await openDB('mis-estudios', 1);
+  const db = await openDB('mis-estudios', 2);
   await db.put('operations', { id: 'old-op', name: 'Privado' });
   await db.put('portals', { name: 'old-portal', displayName: 'Privado' });
   await storage.clearStudyCache();

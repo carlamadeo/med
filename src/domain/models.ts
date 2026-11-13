@@ -103,7 +103,7 @@ export interface PortalDraft {
   revision?: string;
 }
 
-export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'intake';
+export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'episodios' | 'intake';
 
 export interface Filters {
   query: string;
@@ -114,6 +114,43 @@ export interface Filters {
   portal: string;
   onlyPdf: boolean;
   onlyViewer: boolean;
+}
+
+export interface SymptomObservation {
+  date: string;
+  text: string;
+  temperature?: number;
+  symptoms: SymptomEntry[];
+}
+
+export interface SymptomEntry {
+  name: string;
+  intensity?: number;
+  description?: string;
+}
+
+export interface Medication {
+  name: string;
+  frequency?: string;
+  instructions?: string;
+}
+
+export interface Episode {
+  id: string;
+  illness: string;
+  observations: SymptomObservation[];
+  medications: Medication[];
+  revision: string;
+  syncStatus?: 'pending' | 'conflict' | 'failed';
+}
+
+export interface EpisodeDraft {
+  illness: string;
+  observations?: SymptomObservation[];
+  medications?: Medication[];
+  id?: string;
+  createId?: string;
+  revision?: string;
 }
 
 export interface DriveFile {

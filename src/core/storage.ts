@@ -4,6 +4,7 @@ interface MisEstudiosDB extends DBSchema {
   studies: { key: string; value: StudyRecord; indexes: { 'by-date': string; 'by-type': string } };
   operations: { key: string; value: OperationRecord; indexes: { 'by-name': string } };
   portals: { key: string; value: PortalRecord; indexes: { 'by-name': string } };
+  episodes: { key: string; value: EpisodeRecord; indexes: { 'by-illness': string } };
   'pdf-blobs': { key: string; value: { studyId: string; blob: Blob; timestamp: number } };
   meta: { key: string; value: { key: string; value: unknown } };
 }
@@ -44,12 +45,22 @@ interface PortalRecord {
   updatedAt: number;
 }
 
+interface EpisodeRecord {
+  id: string;
+  illness: string;
+  observations: unknown[];
+  medications: unknown[];
+  revision: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 let dbPromise: Promise<IDBPDatabase<MisEstudiosDB>> | null = null;
 
 function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<MisEstudiosDB>('mis-estudios', 1, {
-      upgrade(db: IDBPDatabase<MisEstudiosDB>) {
+    dbPromise = openDB<MisEstudiosDB>('mis-estudios', 2, {
+      upgrade(db: IDBPDatabase<MisEstudiosDB>, oldVersion) {
         const studies = db.createObjectStore('studies', { keyPath: 'id' });
         studies.createIndex('by-date', 'date');
         studies.createIndex('by-type', 'types');
@@ -60,6 +71,11 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
         const portals = db.createObjectStore('portals', { keyPath: 'name' });
         portals.createIndex('by-name', 'displayName');
 
+        if (oldVersion < 2) {
+          const episodes = db.createObjectStore('episodes', { keyPath: 'id' });
+          episodes.createIndex('by-illness', 'illness');
+        }
+
         db.createObjectStore('pdf-blobs', { keyPath: 'studyId' });
         db.createObjectStore('meta', { keyPath: 'key' });
       },
@@ -69,7 +85,7 @@ function getDB(): Promise<IDBPDatabase<MisEstudiosDB>> {
 }
 
 export const storage = {
-  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'intakeCandidatesStatus'): Promise<T[] | null> {
+  async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'intakeCandidatesStatus'): Promise<T[] | null> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readonly');
     const matches = (await tx.store.get('cacheOwner'))?.value === owner;
@@ -78,7 +94,7 @@ export const storage = {
     return Array.isArray(value) ? value as T[] : null;
   },
 
-  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'intakeCandidatesStatus', value: T[]): Promise<void> {
+  async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'intakeCandidatesStatus', value: T[]): Promise<void> {
     const db = await getDB();
     const tx = db.transaction('meta', 'readwrite');
     if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({ key, value });
@@ -87,11 +103,11 @@ export const storage = {
   /** Cache ownership and data are checked in the same transaction across tabs. */
   async bindStudySession(owner: string): Promise<void> {
     const db = await getDB();
-    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'meta'], 'readwrite');
+    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'episodes', 'meta'], 'readwrite');
     const meta = tx.objectStore('meta');
-    await Promise.all([tx.objectStore('operations').clear(), tx.objectStore('portals').clear()]);
+    await Promise.all([tx.objectStore('operations').clear(), tx.objectStore('portals').clear(), tx.objectStore('episodes').clear()]);
     if ((await meta.get('cacheOwner'))?.value !== owner) {
-      await Promise.all([tx.objectStore('studies').clear(), tx.objectStore('pdf-blobs').clear(), meta.clear()]);
+      await Promise.all([tx.objectStore('studies').clear(), tx.objectStore('pdf-blobs').clear(), tx.objectStore('episodes').clear(), meta.clear()]);
       await meta.put({ key: 'cacheOwner', value: owner });
     }
     await tx.done;
@@ -135,6 +151,16 @@ export const storage = {
     if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) await tx.objectStore('studies').delete(id);
     await tx.done;
   },
+
+  async readSessionEpisodes(owner: string): Promise<EpisodeRecord[] | null> {
+    const db = await getDB();
+    const tx = db.transaction(['episodes', 'meta'], 'readonly');
+    const matches = (await tx.objectStore('meta').get('cacheOwner'))?.value === owner;
+    const records = matches ? await tx.objectStore('episodes').getAll() : null;
+    await tx.done;
+    return records;
+  },
+
   async getStudies(): Promise<StudyRecord[]> {
     const db = await getDB();
     return db.getAll('studies');
@@ -155,12 +181,13 @@ export const storage = {
   /** Removes everything derived from the user's Drive (used on sign-out). */
   async clearStudyCache(): Promise<void> {
     const db = await getDB();
-    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'meta'], 'readwrite');
+    const tx = db.transaction(['studies', 'pdf-blobs', 'operations', 'portals', 'episodes', 'meta'], 'readwrite');
     await Promise.all([
       tx.objectStore('studies').clear(),
       tx.objectStore('pdf-blobs').clear(),
       tx.objectStore('operations').clear(),
       tx.objectStore('portals').clear(),
+      tx.objectStore('episodes').clear(),
       tx.objectStore('meta').clear(),
       tx.done,
     ]);
@@ -184,4 +211,4 @@ export const storage = {
   },
 };
 
-export type { StudyRecord };
+export type { StudyRecord, EpisodeRecord };

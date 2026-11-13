@@ -12,6 +12,7 @@ import {
   driveOperationRepo,
   drivePortalRepo,
   driveMedicalEventRepo,
+  driveEpisodeRepo,
   DriveSessionError,
 } from '@data';
 import {
@@ -35,6 +36,7 @@ import {
   operations,
   portals,
   medicalEvents,
+  episodes,
   pendingChanges,
   syncMessage,
   syncing,
@@ -97,6 +99,7 @@ export function LibraryPage() {
         operations.value = [];
         portals.value = [];
         medicalEvents.value = [];
+        episodes.value = [];
         setSessionLost(true);
         return;
       }
@@ -107,9 +110,9 @@ export function LibraryPage() {
             let owner = driveAuth.cachedAccountId();
             if (navigator.onLine) {
               try { owner = await driveAuth.getAccountId(); }
-              catch (err) { if (!owner) throw err; }
+              catch { if (!owner) { setError('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.'); await driveAuth.signOut(); return; } }
             }
-            if (!owner) throw new Error('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.');
+            if (!owner) { setError('No se pudo verificar la cuenta de Google Drive. Conectate y volvé a intentar.'); await driveAuth.signOut(); return; }
             const originalEditorOwner = isEditorOpen.value ? await editorOwner.current : null;
             if (sequence !== authSequence || await driveAuth.getAccessToken() !== token) return;
             if (isEditorOpen.value && originalEditorOwner !== owner) setEditorOpen(false);
@@ -130,6 +133,7 @@ export function LibraryPage() {
         operations.value = [];
         portals.value = [];
         medicalEvents.value = [];
+        episodes.value = [];
         setError(null);
         setLoading(false);
       }
@@ -209,16 +213,18 @@ export function LibraryPage() {
   const loadDirectories = useCallback(async () => {
     if (!isSignedIn.value) return;
     const seq = ++directorySequence.current;
-    const [operationResult, portalResult, eventResult] = await Promise.allSettled([
+    const [operationResult, portalResult, eventResult, episodeResult] = await Promise.allSettled([
       driveOperationRepo.list(),
       drivePortalRepo.list(),
       driveMedicalEventRepo.list(),
+      driveEpisodeRepo.list(),
     ]);
     if (seq !== directorySequence.current || !isSignedIn.value) return;
     if (operationResult.status === 'fulfilled') operations.value = operationResult.value;
     if (portalResult.status === 'fulfilled') portals.value = portalResult.value;
     if (eventResult.status === 'fulfilled') medicalEvents.value = eventResult.value;
-    directoryWarning.value = operationResult.status === 'rejected' || portalResult.status === 'rejected' || eventResult.status === 'rejected';
+    if (episodeResult.status === 'fulfilled') episodes.value = episodeResult.value;
+    directoryWarning.value = operationResult.status === 'rejected' || portalResult.status === 'rejected' || eventResult.status === 'rejected' || episodeResult.status === 'rejected';
   }, []);
 
   // --- Outbox ---
@@ -228,7 +234,7 @@ export function LibraryPage() {
       let owner = driveAuth.cachedAccountId();
       if (navigator.onLine) {
         try { owner = await driveAuth.getAccountId(); }
-        catch (err) { if (!owner) throw err; }
+        catch { if (!owner) return; }
       }
       if (!owner) return;
       const pending = await outbox.list(owner);
@@ -254,7 +260,9 @@ export function LibraryPage() {
         deleteOperation: async (id, revision) => { await assertToken(); await driveOperationRepo.delete(id, revision); await assertToken(); },
         savePortal: async (draft) => { await assertToken(); await drivePortalRepo.save(draft); await assertToken(); },
         saveEvent: async (draft) => { await assertToken(); await driveMedicalEventRepo.save(draft); await assertToken(); },
+        saveEpisode: async (draft) => { await assertToken(); await driveEpisodeRepo.save(draft); await assertToken(); },
         deletePortal: async (portal) => { await assertToken(); await drivePortalRepo.delete(portal); await assertToken(); },
+        deleteEpisode: async (id, revision) => { await assertToken(); await driveEpisodeRepo.delete(id, revision); await assertToken(); },
         lock: async (name, callback) => { await navigator.locks.request(name, callback); },
       });
       await assertToken();
@@ -320,6 +328,11 @@ export function LibraryPage() {
           if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
           medicalEvents.value = current;
           currentRevision = current.find((item) => item.id === entry.eventId)?.revision;
+        } else if (entry.episodeId) {
+          const current = await driveEpisodeRepo.list();
+          if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+          episodes.value = current;
+          currentRevision = current.find((item) => item.id === entry.episodeId)?.revision;
         }
         if (!currentRevision || currentRevision !== reviewedRevision) throw new Error('La versión de Drive cambió o ya no está disponible. Revisala nuevamente.');
         await outbox.retryConflict(owner, entry.id!, currentRevision);

@@ -1,6 +1,6 @@
-import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, MedicalEvent, MedicalEventDraft } from './models';
+import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, Episode, EpisodeDraft } from './models';
 
-export type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile };
+export type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, Episode, EpisodeDraft };
 
 export interface IntakeCandidate {
   id: string;
@@ -9,11 +9,6 @@ export interface IntakeCandidate {
   modifiedTime: string;
   size: number;
   status: 'new' | 'imported' | 'discarded' | 'pending';
-}
-
-export interface MedicalEventRepository {
-  list(): Promise<MedicalEvent[]>;
-  save(draft: MedicalEventDraft): Promise<MedicalEvent>;
 }
 
 export interface StudyRepository {
@@ -28,25 +23,6 @@ export interface StudyRepository {
   delete(id: string, revision: string): Promise<void>;
   getPdfFile(fileId: string): Promise<File>;
   watchChanges?(): AsyncIterable<StudyChange>;
-}
-
-export interface OperationRepository {
-  list(): Promise<Operation[]>;
-  get(id: string): Promise<Operation>;
-  save(draft: OperationDraft): Promise<Operation>;
-  delete(id: string): Promise<void>;
-}
-
-export interface PortalRepository {
-  list(): Promise<Portal[]>;
-  get(name: string): Promise<Portal | undefined>;
-  save(draft: PortalDraft): Promise<Portal>;
-  delete(name: string): Promise<void>;
-}
-
-export interface IntakeRepository {
-  /** Lists PDF files in the approved intake folder. */
-  listCandidates(folderId: string): Promise<IntakeCandidate[]>;
 }
 
 export interface AuthRepository {

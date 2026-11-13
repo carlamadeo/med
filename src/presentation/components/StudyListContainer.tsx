@@ -6,6 +6,7 @@ import { Operations } from './Operations';
 import { MedicalEvents } from './MedicalEvents';
 import { Portals } from './Portals';
 import { IntakeCandidates } from './IntakeCandidates';
+import { Episodes } from './Episodes';
 import { LibraryTabs } from './LibraryTabs';
 import type { Study } from '@domain/models';
 
@@ -56,11 +57,12 @@ export function StudyListContainer({
       <LibraryTabs availableTypes={availableTypes} />
       {view.value === 'operaciones' && <Operations />}
       {view.value === 'eventos' && <MedicalEvents />}
+      {view.value === 'episodios' && <Episodes />}
       {view.value === 'portales' && <Portals />}
       {view.value === 'intake' && (
         <IntakeCandidates onOpenEditor={onAddStudy} />
       )}
-      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'intake' && (
+      {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'intake' && (
         <>
           <div className="section-head">
             <div className="section-title">

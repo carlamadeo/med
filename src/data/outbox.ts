@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb';
-import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft } from '@domain/models';
+import type { StudyDraft, OperationDraft, Portal, PortalDraft, MedicalEventDraft, EpisodeDraft } from '@domain/models';
 import { DriveConflictError } from './drive-repository';
 
 export interface OutboxAdapter {
@@ -11,14 +11,16 @@ export interface OutboxAdapter {
   deleteOperation(id: string, revision: string): Promise<void>;
   savePortal(draft: PortalDraft): Promise<void>;
   saveEvent(draft: MedicalEventDraft): Promise<void>;
+  saveEpisode(draft: EpisodeDraft): Promise<void>;
   deletePortal(portal: Portal): Promise<void>;
+  deleteEpisode(id: string, revision: string): Promise<void>;
   lock(name: string, callback: () => Promise<void>): Promise<void>;
 }
 
 export interface OutboxEntry {
   id?: number;
   owner: string;
-  kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save';
+  kind: 'save' | 'delete' | 'operation-save' | 'operation-delete' | 'portal-save' | 'portal-delete' | 'event-save' | 'episode-save' | 'episode-delete';
   status: 'pending' | 'conflict' | 'failed';
   studyId?: string;
   revision?: string;
@@ -26,10 +28,12 @@ export interface OutboxEntry {
   operationDraft?: OperationDraft;
   portalDraft?: PortalDraft;
   eventDraft?: MedicalEventDraft;
+  episodeDraft?: EpisodeDraft;
   eventId?: string;
   operationId?: string;
   portalId?: string;
   portal?: Portal;
+  episodeId?: string;
   attachment?: Blob;
   attachmentName?: string;
   lastError?: string;
@@ -106,6 +110,15 @@ export class Outbox {
     await this.enqueue({ owner, kind: 'event-save', status: 'pending', eventId: draft.id, eventDraft: draft });
   }
 
+  async enqueueEpisodeSave(owner: string, draft: EpisodeDraft): Promise<void> {
+    await this.enqueue({ owner, kind: 'episode-save', status: 'pending', episodeId: draft.id, episodeDraft: draft });
+  }
+
+  async enqueueEpisodeDelete(owner: string, id: string, revision: string): Promise<void> {
+    if (!id || !revision) throw new Error('El episodio no tiene una revisión válida.');
+    await this.enqueue({ owner, kind: 'episode-delete', status: 'pending', episodeId: id, revision });
+  }
+
   async enqueuePortalDelete(owner: string, portal: Portal): Promise<void> {
     if (!portal.id || !portal.revision) throw new Error('El portal no tiene una revisión válida.');
     await this.enqueue({ owner, kind: 'portal-delete', status: 'pending', portalId: portal.id, portal });
@@ -140,6 +153,8 @@ export class Outbox {
     else if (entry.kind === 'portal-save' && replacement.portalDraft?.id) replacement.portalDraft.revision = revision;
     else if (entry.kind === 'portal-delete' && replacement.portal?.id) replacement.portal.revision = revision;
     else if (entry.kind === 'event-save' && replacement.eventDraft?.id) replacement.eventDraft.revision = revision;
+    else if (entry.kind === 'episode-save' && replacement.episodeDraft?.id) replacement.episodeDraft.revision = revision;
+    else if (entry.kind === 'episode-delete' && entry.episodeId) replacement.revision = revision;
     else { await tx.done; throw new Error('Este conflicto requiere revisión manual.'); }
     await tx.store.add(replacement);
     await tx.store.delete(id);
@@ -176,6 +191,11 @@ export class Outbox {
           } else if (entry.kind === 'event-save' && entry.eventDraft) {
             if (!entry.eventDraft.id && !entry.eventDraft.createId) { entry.eventDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
             await remote.saveEvent(entry.eventDraft);
+          } else if (entry.kind === 'episode-save' && entry.episodeDraft) {
+            if (!entry.episodeDraft.id && !entry.episodeDraft.createId) { entry.episodeDraft.createId = await remote.reserveId(); await db.put('entries', entry); }
+            await remote.saveEpisode(entry.episodeDraft);
+          } else if (entry.kind === 'episode-delete' && entry.episodeId && entry.revision) {
+            await remote.deleteEpisode(entry.episodeId, entry.revision);
           } else {
             entry.lastError = 'Cambio pendiente inválido.';
             entry.status = 'failed';

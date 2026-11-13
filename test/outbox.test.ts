@@ -14,7 +14,9 @@ const adapter = (account = owner): OutboxAdapter => ({
   deleteOperation: vi.fn(async () => {}),
   savePortal: vi.fn(async () => {}),
   saveEvent: vi.fn(async () => {}),
+  saveEpisode: vi.fn(async () => {}),
   deletePortal: vi.fn(async () => {}),
+  deleteEpisode: vi.fn(async () => {}),
   lock: async (_name, callback) => callback(),
 });
 const queue = new Outbox();
