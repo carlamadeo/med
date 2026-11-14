@@ -1,9 +1,9 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useState} from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
-import {isValidDate} from '@domain/utils';
-import {reportUrl} from '@domain/library';
+import {isValidDate, normalize} from '@domain/utils';
+import {formatStudyDate, reportUrl} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {medicalEvents, visibleMedicalEvents, studies} from '../state/store';
 
@@ -13,6 +13,31 @@ export function MedicalEvents() {
     const [editing, setEditing] = useState<MedicalEvent | null>(null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
+    const [formOpen, setFormOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const dialogRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        if (formOpen && !dialog.open) dialog.showModal();
+        if (!formOpen && dialog.open) dialog.close();
+    }, [formOpen]);
+
+    const openNew = () => {
+        setEditing(null);
+        setFormOpen(true);
+    };
+
+    const openEdit = (event: MedicalEvent) => {
+        setEditing(event);
+        setFormOpen(true);
+    };
+
+    const closeForm = () => {
+        setFormOpen(false);
+        setEditing(null);
+    };
 
     async function save(form: HTMLFormElement) {
         const data = new FormData(form);
@@ -71,6 +96,7 @@ export function MedicalEvents() {
             }
             setEditing(null);
             form.reset();
+            setFormOpen(false);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'No se pudo guardar el evento.');
         } finally {
@@ -123,66 +149,159 @@ export function MedicalEvents() {
         }
     }
 
-    return <section className="directory" aria-labelledby="events-title">
-        <h2 id="events-title">Consultas y recetas</h2>
-        <form id="event-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
-            event.preventDefault();
-            void save(event.currentTarget);
-        }}>
-            <fieldset disabled={busy}>
-                <legend>{editing ? 'Editar evento' : 'Agregar evento'}</legend>
-                <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
-                    <option value="consultation">Consulta</option>
-                    <option value="prescription">Receta</option>
-                </select></label>
-                <label>Fecha <input id="event-date" name="date" type="date" required
-                                    defaultValue={editing?.date ?? ''}/></label>
-                <label>Médico o profesional <input name="doctor" maxLength={120} defaultValue={editing?.doctor ?? ''}/></label>
-                <label>Notas <textarea id="event-notes" name="notes" defaultValue={editing?.notes ?? ''}/></label>
-                <fieldset>
-                    <legend>Estudios relacionados</legend>
-                    {studies.value.map((study) => <label key={study.id}>
-                        <input type="checkbox" name="studyId" data-event-study={study.id} value={study.id}
-                               defaultChecked={editing?.studyIds.includes(study.id)}/>{study.title} · {study.date}
-                    </label>)}{editing?.studyIds.filter((id) => !studies.value.some((study) => study.id === id)).map((id) =>
-                    <label key={id}>
-                        <input type="checkbox" name="studyId" value={id} defaultChecked/> Estudio no disponible
-                    </label>)}</fieldset>
-                <fieldset>
-                    <legend>Documentos relacionados</legend>
-                    {studies.value.filter((study) => study.hasPdf).map((study) => <label key={study.id}>
-                        <input type="checkbox" name="documentId" value={study.id}
-                               defaultChecked={editing?.documentIds.includes(study.id)}/>{study.reportName || study.title}
-                    </label>)}{editing?.documentIds.filter((id) => !studies.value.some((study) => study.id === id && study.hasPdf)).map((id) =>
-                    <label key={id}>
-                        <input type="checkbox" name="documentId" value={id} defaultChecked/> Documento no disponible
-                    </label>)}</fieldset>
-                <button className="button primary" type="submit">Guardar evento</button>
-                {editing && <button type="button" onClick={() => setEditing(null)}>Cancelar edición</button>}
-            </fieldset>
-        </form>
-        {message && <p role="status">{message}</p>}
-        <ul id="events-list">{[...visibleMedicalEvents.value].sort((a, b) => b.date.localeCompare(a.date)).map((event) =>
-            <li key={event.id}>
-                <h3>{event.kind === 'consultation' ? 'Consulta' : 'Receta'} · {event.date}</h3>
-                {event.doctor && <p>{event.doctor}</p>}{event.notes && <p>{event.notes}</p>}
-                <p>{event.studyIds.length} estudios · {event.documentIds.length} documentos</p>
-                {event.studyIds.length > 0 && <ul aria-label="Estudios relacionados">{event.studyIds.map((id) => {
-                    const study = studies.value.find((item) => item.id === id);
-                    return <li key={id}>{study ? `${study.title} · ${study.date}` : 'Estudio no disponible'}</li>;
-                })}</ul>}
-                {event.documentIds.length > 0 &&
-                    <ul aria-label="Documentos relacionados">{event.documentIds.map((id) => {
-                        const source = studies.value.find((item) => item.id === id && item.hasPdf);
-                        return <li key={id}>{source ? <a href={reportUrl(id)} target="_blank"
-                                                         rel="noopener noreferrer">{source.reportName || source.title}</a> : 'Documento no disponible'}</li>;
-                    })}</ul>}
-                {event.syncStatus &&
-                    <p>{event.syncStatus === 'conflict' ? 'Requiere revisión' : event.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
-                <button type="button" disabled={Boolean(event.syncStatus)} onClick={() => setEditing(event)}>Editar
+    const normalizedQuery = normalize(query);
+    const visible = [...visibleMedicalEvents.value]
+        .filter((event) => {
+            if (!normalizedQuery) return true;
+            const relatedTitles = (event.studyIds ?? []).map((id) => studies.value.find((study) => study.id === id)?.title ?? '');
+            return [event.kind === 'consultation' ? 'consulta' : 'receta', event.date, event.doctor, event.notes, ...relatedTitles]
+                .some((value) => normalize(value ?? '').includes(normalizedQuery));
+        })
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+    return <section className="events" aria-labelledby="events-title">
+        <div className="events-head">
+            <div>
+                <p className="eyebrow">Seguimiento</p>
+                <h2 id="events-title">Consultas y recetas</h2>
+                <p className="events-desc">Consultas médicas, indicaciones y recetas con sus estudios y documentos.</p>
+            </div>
+            <div className="events-head-actions">
+                <span className="count-badge">{visibleMedicalEvents.value.length}</span>
+                <button className="button primary" type="button" onClick={openNew}>
+                    <svg className="icon"><use href="#i-plus" /></svg> Agregar consulta
                 </button>
-                <button type="button" disabled={Boolean(event.syncStatus)} onClick={() => deleteEvent(event)}>Eliminar
-                </button>
-            </li>)}</ul>
+            </div>
+        </div>
+
+        <div className="events-toolbar">
+            <label className="events-search">
+                <svg className="icon"><use href="#i-search" /></svg>
+                <span className="sr-only">Buscar consultas y recetas</span>
+                <input id="event-search" type="search" placeholder="Buscar por profesional, nota o estudio…" value={query}
+                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+            </label>
+        </div>
+
+        {message && <p className="events-message" role="status">{message}</p>}
+
+        {visible.length ? (
+            <ul id="events-list" className="event-list">
+                {visible.map((event) => {
+                    const studyIds = event.studyIds ?? [];
+                    const documentIds = event.documentIds ?? [];
+                    const syncLabel = event.syncStatus === 'conflict' ? 'Requiere revisión'
+                        : event.syncStatus === 'failed' ? 'No se puede sincronizar'
+                            : event.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
+                    const syncTone = event.syncStatus === 'conflict' || event.syncStatus === 'failed' ? 'danger' : 'warning';
+                    const label = event.kind === 'consultation' ? 'Consulta' : 'Receta';
+                    return <li className="event-card" key={event.id}>
+                        <div className="event-top">
+                            <span className="event-kind" data-tone={event.kind === 'consultation' ? 'primary' : 'neutral'}>
+                                <svg className="icon"><use href={event.kind === 'consultation' ? '#i-stethoscope' : '#i-message'} /></svg>
+                                {label}
+                            </span>
+                            <time className="event-date" dateTime={event.date}>{formatStudyDate(event.date)}</time>
+                            {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
+                        </div>
+
+                        <h3 className="event-title">{event.doctor || 'Profesional sin nombre'}</h3>
+                        {event.notes && <p className="event-notes">{event.notes}</p>}
+
+                        {(studyIds.length > 0 || documentIds.length > 0) && (
+                            <div className="event-links">
+                                {studyIds.slice(0, 3).map((id) => {
+                                    const study = studies.value.find((item) => item.id === id);
+                                    return <span className="event-chip" key={`study-${id}`}>
+                                        <svg className="icon"><use href="#i-file" /></svg>
+                                        {study ? study.title : 'Estudio no disponible'}
+                                    </span>;
+                                })}
+                                {documentIds.map((id) => {
+                                    const source = studies.value.find((item) => item.id === id && item.hasPdf);
+                                    return source
+                                        ? <a className="event-doc" href={reportUrl(id)} target="_blank" rel="noopener noreferrer" key={`doc-${id}`}>
+                                            <svg className="icon"><use href="#i-external" /></svg>{source.reportName || source.title}
+                                        </a>
+                                        : <span className="event-chip" key={`doc-${id}`}>Documento no disponible</span>;
+                                })}
+                            </div>
+                        )}
+
+                        <div className="event-foot">
+                            <span className="count-badge">{studyIds.length} estudios · {documentIds.length} documentos</span>
+                            <div className="event-actions">
+                                <button className="button ghost button-sm" type="button" disabled={Boolean(event.syncStatus)} onClick={() => openEdit(event)}>Editar</button>
+                                <button className="button ghost button-sm event-delete" type="button" disabled={Boolean(event.syncStatus)} onClick={() => void deleteEvent(event)}>Eliminar</button>
+                            </div>
+                        </div>
+                    </li>;
+                })}
+            </ul>
+        ) : (
+            <div className="event-empty">
+                <span className="event-empty-icon"><svg className="icon"><use href="#i-stethoscope" /></svg></span>
+                <p>{normalizedQuery ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas.'}</p>
+                {normalizedQuery ? (
+                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar búsqueda</button>
+                ) : (
+                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar consulta</button>
+                )}
+            </div>
+        )}
+
+        <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title" onClose={closeForm}>
+            <form id="event-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
+                event.preventDefault();
+                void save(event.currentTarget);
+            }}>
+                <div className="dialog-heading">
+                    <div>
+                        <p className="eyebrow">Seguimiento</p>
+                        <h2 id="event-dialog-title">{editing ? 'Editar consulta o receta' : 'Agregar consulta o receta'}</h2>
+                    </div>
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm} disabled={busy}>
+                        <svg className="icon"><use href="#i-close" /></svg>
+                    </button>
+                </div>
+
+                <fieldset disabled={busy}>
+                    <div className="event-form-grid">
+                        <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
+                            <option value="consultation">Consulta</option>
+                            <option value="prescription">Receta</option>
+                        </select></label>
+                        <label>Fecha <input id="event-date" name="date" type="date" required defaultValue={editing?.date ?? ''} /></label>
+                        <label className="wide">Médico o profesional <input name="doctor" maxLength={120} defaultValue={editing?.doctor ?? ''} /></label>
+                        <label className="wide">Notas <textarea id="event-notes" name="notes" defaultValue={editing?.notes ?? ''} /></label>
+                    </div>
+
+                    <fieldset className="event-related">
+                        <legend>Estudios relacionados</legend>
+                        {studies.value.length ? studies.value.map((study) => <label key={study.id}>
+                            <input type="checkbox" name="studyId" data-event-study={study.id} value={study.id}
+                                   defaultChecked={editing?.studyIds.includes(study.id)} />{study.title} · {study.date}
+                        </label>) : <p className="event-related-empty">No hay estudios para vincular.</p>}
+                        {editing?.studyIds.filter((id) => !studies.value.some((study) => study.id === id)).map((id) =>
+                            <label key={id}><input type="checkbox" name="studyId" value={id} defaultChecked /> Estudio no disponible</label>)}
+                    </fieldset>
+
+                    <fieldset className="event-related">
+                        <legend>Documentos relacionados</legend>
+                        {studies.value.filter((study) => study.hasPdf).length ? studies.value.filter((study) => study.hasPdf).map((study) => <label key={study.id}>
+                            <input type="checkbox" name="documentId" value={study.id}
+                                   defaultChecked={editing?.documentIds.includes(study.id)} />{study.reportName || study.title}
+                        </label>) : <p className="event-related-empty">No hay PDFs para vincular.</p>}
+                        {editing?.documentIds.filter((id) => !studies.value.some((study) => study.id === id && study.hasPdf)).map((id) =>
+                            <label key={id}><input type="checkbox" name="documentId" value={id} defaultChecked /> Documento no disponible</label>)}
+                    </fieldset>
+
+                    <div className="dialog-actions">
+                        <button className="button secondary" type="button" onClick={closeForm} disabled={busy}>Cancelar</button>
+                        <button className="button primary" type="submit" disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar evento'}</button>
+                    </div>
+                </fieldset>
+            </form>
+        </dialog>
     </section>;
 }
