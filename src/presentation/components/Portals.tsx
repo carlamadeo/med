@@ -1,3 +1,32 @@
+/**
+ * Componente **Portals** – Vista de directorio de portales e instituciones médicas.
+ *
+ * Permite listar, buscar, crear, editar y eliminar portales. Cada portal agrupa
+ * estudios por nombre de institución y expone un enlace externo opcional.
+ *
+ * Estado:
+ * - Lee `portals`, `studies`, `filters`, `view` desde signals globales (`../state/store`).
+ * - Estado local: formulario (edición/creación), búsqueda, mensajes de feedback, loading.
+ *
+ * Persistencia:
+ * - Online: usa `drivePortalRepo.save/delete` + actualización optimista de `portals` signal.
+ * - Offline: encola en `Outbox` vía `enqueueOffline` (requiere Web Locks).
+ * - Verifica `driveAuth.getAccessToken()` antes y después de cada mutación para detectar
+ *   cambio de cuenta; aborta si la sesión cambió.
+ *
+ * Accesibilidad:
+ * - `<dialog>` nativo para formulario (focus trap nativo).
+ * - `role="alert"` para mensajes de error/éxito.
+ * - `aria-labelledby` en secciones y diálogo.
+ * - Navegación por teclado completa.
+ *
+ * @example
+ * ```tsx
+ * import {Portals} from './Portals';
+ * // En LibraryPage, renderizado condicional cuando view === 'portales'
+ * <Portals />
+ * ```
+ */
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
@@ -38,6 +67,13 @@ export function Portals() {
         setEditing(null);
     };
 
+    /**
+     * Guarda (crea o actualiza) un portal.
+     * Valida nombre, verifica cuenta, comprueba cola pendiente, y decide online/offline.
+     * Online: `drivePortalRepo.save` + actualización optimista del signal `portals`.
+     * Offline: `enqueueOffline` → `outbox.enqueuePortalSave` + evento `mis-estudios-outbox-changed`.
+     * Verifica token antes y después de la operación para detectar cambio de cuenta.
+     */
     async function save(form: HTMLFormElement) {
         const data = new FormData(form);
         const displayName = String(data.get('name') ?? '').trim();
@@ -98,6 +134,13 @@ export function Portals() {
         }
     }
 
+    /**
+     * Elimina un portal tras confirmación.
+     * Verifica cuenta, comprueba cola pendiente, decide online/offline.
+     * Online: `drivePortalRepo.delete` + filtro optimista en `portals` signal.
+     * Offline: `enqueueOffline` → `outbox.enqueuePortalDelete` + evento.
+     * Verifica token antes y después.
+     */
     async function remove(portal: Portal) {
         if (!window.confirm(`¿Eliminar el portal ${portal.displayName}?`)) return;
         setBusy(true);

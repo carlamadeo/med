@@ -1,3 +1,29 @@
+/**
+ * **useEditor** – Hook que encapsula toda la lógica del editor de estudios.
+ *
+ * Responsabilidades:
+ * - Estado del formulario (signal reactivo `draft` + setters individuales).
+ * - Lectura/extracción de PDF: `handleReportChange` orquesta `validatePdf` + `analyzePdf`
+ *   (pdf.js + OCR) con `AbortController` + timeout 45s + progreso.
+ * - Sugerencias: propone fecha, tipos, médico, título; usuario acepta/descarta (`applySuggestion`/`discardSuggestion`).
+ * - Operación nueva: `createOperation` valida, guarda en Drive, actualiza signal `operations`.
+ * - Limpieza: `resetForm` cancela análisis, limpia archivo y sugerencias.
+ * - Ciclo de vida: sincroniza con `isEditorOpen` + `editingStudy` signals; aborta workers al cerrar/cambiar estudio.
+ * - Guardado: `handleSubmit` arma `StudyDraft` y delega a `onSave` (Drive/Outbox).
+ *
+ * Invariantes:
+ * - `editorGeneration` evita aplicar resultados de análisis/stale a borrador incorrecto.
+ * - Verifica token antes y después de mutaciones Drive (`verifyOwner` + `driveAuth.getAccessToken()`).
+ * - `suggested` Map rastrea qué campos vinieron de sugerencias para no sobrescribir edición manual.
+ *
+ * @param study - `Study | null` desde signal `editingStudy` (null = creación).
+ * @param onSave - Callback que persiste `StudyDraft` (online → Drive, offline → Outbox).
+ * @param verifyOwner - Confirma que la cuenta actual coincide con la del borrador.
+ * @param sessionLost - Si true, bloquea UI y muestra reconexión.
+ * @param onClose - Limpia estado y cierra diálogo.
+ *
+ * @returns Objeto con refs, estado, setters y handlers para conectar en JSX.
+ */
 import {useEffect, useRef, useState, useCallback} from 'preact/hooks';
 import {useSignal} from '@preact/signals';
 import {analyzePdf, validatePdf} from '@data/pdf-analysis';
@@ -8,6 +34,14 @@ import {operations, isEditorOpen, setEditorOpen, editingStudy} from '../state/st
 
 const ANALYSIS_TIMEOUT_MS = 45_000;
 
+/**
+ * Opciones de configuración para useEditor.
+ * @property study - Estudio en edición (null = nuevo).
+ * @property onSave - Persiste el borrador (Drive o Outbox).
+ * @property verifyOwner - Verifica que la cuenta actual es la dueña.
+ * @property sessionLost - True si expiró sesión/cambio de cuenta.
+ * @property onClose - Limpieza al cerrar diálogo.
+ */
 interface UseEditorOptions {
     study: Study | null;
     onSave: (draft: StudyDraft) => Promise<void>;
@@ -199,6 +233,15 @@ export function useEditor({
         }
     }, []);
 
+    /**
+     * Maneja cambio de archivo PDF adjunto.
+     * 1. Aborta análisis previo + limpia sugerencias ya aplicadas.
+     * 2. Valida PDF (`validatePdf`).
+     * 3. Lanza `analyzePdf` con AbortSignal + timeout 45s + callbacks de progreso.
+     * 4. Extrae candidatos (fecha, tipos, doctor, título) y expone en `candidates`.
+     * 5. Usuario acepta/descarta vía `applySuggestion`/`discardSuggestion`.
+     * Cancela automáticamente si `sessionLost` o diálogo se cierra.
+     */
     const handleReportChange = useCallback(async (_e: Event) => {
         analysisCtrl.current?.abort();
         setReading(false);
@@ -306,6 +349,11 @@ export function useEditor({
         suggested.current.delete('types');
     }, []);
 
+    /**
+     * Crea operación nueva sin perder datos del estudio actual.
+     * Solo online; valida fecha, tipo; guarda en Drive; actualiza signal `operations`
+     * y setea `operationId` en el borrador. Verifica token antes/después.
+     */
     const createOperation = useCallback(async () => {
         const form = formRef.current;
         if (!form || operationBusy) return;
@@ -360,6 +408,10 @@ export function useEditor({
         onClose();
     }, [onClose]);
 
+    /**
+     * Cancela análisis de PDF en curso (aborta worker + limpia timeout).
+     * Mantiene archivo seleccionado y campos editados manualmente.
+     */
     const cancelAnalysis = useCallback(() => {
         analysisCtrl.current?.abort();
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
@@ -367,6 +419,11 @@ export function useEditor({
         setStatus('Lectura cancelada. Podés completar los campos y guardar el PDF.');
     }, []);
 
+    /**
+     * Aplica sugerencia de extracción al campo correspondiente.
+     * Registra en `suggested` Map para no sobrescribir si usuario edita manualmente luego.
+     * Remueve la sugerencia de la UI (`candidates`).
+     */
     const applySuggestion = useCallback((name: 'date' | 'types' | 'doctor' | 'title', value: string | string[]) => {
         setFieldValue(name, value);
         suggested.current.set(name, JSON.stringify(value));
@@ -377,6 +434,10 @@ export function useEditor({
         });
     }, [setFieldValue]);
 
+    /**
+     * Descarta sugerencia sin aplicarla; solo la quita de la UI (`candidates`).
+     * No modifica el valor del campo en el borrador.
+     */
     const discardSuggestion = useCallback((name: 'date' | 'types' | 'doctor' | 'title') => {
         setCandidates((current) => {
             const next = {...current};
@@ -385,6 +446,11 @@ export function useEditor({
         });
     }, []);
 
+    /**
+     * Resetea formulario a estado inicial (sin archivo, sin sugerencias).
+     * Aborta análisis, limpia refs, setea `removeReport=true` para signalizar borrado de PDF actual.
+     * Se usa al quitar archivo seleccionado o cerrar diálogo sin guardar.
+     */
     const resetForm = useCallback(() => {
         analysisCtrl.current?.abort();
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
@@ -406,6 +472,11 @@ export function useEditor({
         setStatus('Archivo retirado. Podés elegir otro PDF.');
     }, [fieldValue, setFieldValue]);
 
+    /**
+     * Envía formulario: arma StudyDraft y delega a onSave.
+     * Incluye: file (nuevo PDF), removeReport, driveFileId/revision (si edición),
+     * operationId, documentIds. Bloquea si `checkingReport` (validando PDF).
+     */
     const handleSubmit = useCallback(async (event: Event) => {
         event.preventDefault();
         if (checkingReport) return;

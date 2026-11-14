@@ -1,6 +1,48 @@
 /**
- * Diálogo de editor: crear o editar un estudio.
- * Incluye la lectura automática de PDF (pdf.js + OCR) con aborte y timeout.
+ * **EditorDialog** – Diálogo modal para crear o editar un estudio médico.
+ *
+ * Funcionalidades clave:
+ * - **Adjunto PDF**: input file + validación tamaño/tipo + lectura automática (pdf.js + OCR vía worker).
+ * - **Extracción asistida**: sugiere fecha, tipos, médico y título del PDF; usuario acepta/descarta cada campo.
+ * - **Cancelación**: `AbortSignal` cancela worker y evita resultados tardíos.
+ * - **Operaciones**: permite crear operación nueva sin perder datos del formulario actual.
+ * - **Documentos vinculados**: reusa PDFs de otros estudios sin duplicar.
+ * - **Sesión perdida**: detecta `sessionLost`, muestra botón de reconexión y bloquea guardado.
+ *
+ * Estado:
+ * - Recibe `editingStudy` (signal) para saber si es edición o creación.
+ * - Delega lógica de formulario/lectura a hook `useEditor`.
+ * - `portalNames` (domain) sugiere instituciones ya usadas.
+ *
+ * Props:
+ * - `onClose`: cierra diálogo y limpia estado (`resetForm` en hook).
+ * - `error`: mensaje de error global (p.ej. conflicto de revisión).
+ * - `busy`: loading global (guarda estudio).
+ * - `availableTypes`: catálogo de tipos desde `study-types.ts`.
+ * - `onSave(draft)`: persistencia (Drive online / Outbox offline).
+ * - `verifyOwner()`: confirma que la cuenta actual coincide con la del borrador.
+ * - `sessionLost`: true si expiró token o cambió cuenta.
+ * - `onReconnect`: inicia flujo OAuth.
+ *
+ * Accesibilidad:
+ * - `<dialog>` nativo con `aria-labelledby` dinámico.
+ * - `role="alert"` en errores y progreso.
+ * - Focus trap via `useFocusTrap` (hook).
+ * - Navegación por teclado completa.
+ *
+ * @example
+ * ```tsx
+ * <EditorDialog
+ *   onClose={closeEditor}
+ *   error={saveError}
+ *   busy={saving}
+ *   availableTypes={types}
+ *   onSave={handleSave}
+ *   verifyOwner={checkOwner}
+ *   sessionLost={!!sessionLost}
+ *   onReconnect={reconnect}
+ * />
+ * ```
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
@@ -15,6 +57,17 @@ import {
 
 import type {StudyDraft} from '@domain/models';
 
+/**
+ * Props del EditorDialog.
+ * @property onClose - Cierra el diálogo y resetea formulario.
+ * @property error - Error global a mostrar (p.ej. conflicto de revisión).
+ * @property busy - Indica guardado en curso (deshabilita submit).
+ * @property availableTypes - Lista de tipos de estudio permitidos (catálogo).
+ * @property onSave - Callback de persistencia (recibe StudyDraft listo).
+ * @property verifyOwner - Verifica que la cuenta actual es dueña del borrador.
+ * @property sessionLost - True si la sesión expiró/cambió de cuenta.
+ * @property onReconnect - Inicia flujo OAuth de reconexión.
+ */
 interface EditorDialogProps {
     onClose: () => void;
     error: string | null;
