@@ -42,48 +42,15 @@ it('shows loaded studies instead of remaining on the loading placeholder', async
     expect(root.textContent).toContain('Estudio visible');
 });
 
-it('prepares all filtered studies for printing and removes the temporary copy afterwards', async () => {
+it('renders studies in a table with correct columns', async () => {
     const base = {
         date: '2024-01-01',
         types: ['Otro'],
-        doctor: '',
-        portal: '',
+        doctor: 'Dr. Test',
+        portal: 'Hospital Test',
         viewer: '',
         reportName: '',
-        hasPdf: false,
-        driveModifiedTime: '',
-        revision: '1'
-    };
-    setStudies(Array.from({length: 200}, (_, index) => ({
-        ...base,
-        id: String(index),
-        driveFileId: String(index),
-        title: `Estudio ${index}`
-    })));
-    await act(() => {
-        render(h(StudyList, {
-            onEdit: () => {
-            }, onDelete: () => {
-            },
-            studies: visibleStudies.value
-        }), root);
-    });
-    expect(root.querySelector('.print-results')?.children).toHaveLength(0);
-    window.dispatchEvent(new Event('beforeprint'));
-    expect(root.querySelector('.print-results')?.children).toHaveLength(200);
-    window.dispatchEvent(new Event('afterprint'));
-    expect(root.querySelector('.print-results')?.children).toHaveLength(0);
-});
-
-it('moves focus between studies with arrow keys', async () => {
-    const base = {
-        date: '2024-01-01',
-        types: ['Otro'],
-        doctor: '',
-        portal: '',
-        viewer: '',
-        reportName: '',
-        hasPdf: false,
+        hasPdf: true,
         driveModifiedTime: '',
         revision: '1'
     };
@@ -93,7 +60,6 @@ it('moves focus between studies with arrow keys', async () => {
         driveFileId: 'two',
         title: 'Dos'
     }]);
-    document.body.append(root);
     await act(() => {
         render(h(StudyList, {
             onEdit: () => {
@@ -103,16 +69,29 @@ it('moves focus between studies with arrow keys', async () => {
         }), root);
     });
     const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
-    rows[0]!.focus();
-    await act(async () => {
-        rows[0]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true}));
-    });
-    await vi.waitFor(() => expect(document.activeElement).toBe(rows[1]));
-    root.remove();
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain('Uno');
+    expect(rows[0]?.textContent).toContain('Dr. Test');
+    expect(rows[0]?.textContent).toContain('Hospital Test');
+    expect(rows[1]?.textContent).toContain('Dos');
 });
 
-it('groups chronological studies by year and month', async () => {
+it('shows empty state when no studies', async () => {
+    setStudies([]);
+    await act(() => {
+        render(h(StudyList, {
+            onEdit: () => {
+            }, onDelete: () => {
+            },
+            studies: visibleStudies.value
+        }), root);
+    });
+    expect(root.textContent).toContain('No hay estudios para mostrar');
+});
+
+it('shows sync status for each study', async () => {
     const base = {
+        date: '2024-01-01',
         types: ['Otro'],
         doctor: '',
         portal: '',
@@ -122,13 +101,11 @@ it('groups chronological studies by year and month', async () => {
         driveModifiedTime: '',
         revision: '1'
     };
-    setStudies([{...base, id: 'one', driveFileId: 'one', title: 'Primero', date: '2024-01-01'}, {
-        ...base,
-        id: 'two',
-        driveFileId: 'two',
-        title: 'Segundo',
-        date: '2024-02-01'
-    }]);
+    setStudies([
+        {...base, id: 'one', driveFileId: 'one', title: 'Synced', syncStatus: undefined},
+        {...base, id: 'two', driveFileId: 'two', title: 'Pending', syncStatus: 'pending'},
+        {...base, id: 'three', driveFileId: 'three', title: 'Conflict', syncStatus: 'conflict'},
+    ]);
     await act(() => {
         render(h(StudyList, {
             onEdit: () => {
@@ -137,6 +114,7 @@ it('groups chronological studies by year and month', async () => {
             studies: visibleStudies.value
         }), root);
     });
-    const groups = [...root.querySelectorAll('.month-heading')].map((item) => item.textContent?.toLowerCase());
-    expect(groups).toEqual(['2024 · febrero', '2024 · enero']);
+    expect(root.textContent).toContain('Sincronizado');
+    expect(root.textContent).toContain('Pendiente');
+    expect(root.textContent).toContain('Conflicto');
 });

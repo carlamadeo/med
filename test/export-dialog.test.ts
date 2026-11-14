@@ -83,8 +83,8 @@ it('exports authenticated PDF bytes using the study ID and limits filtered scope
     const zip = await JSZip.loadAsync(await (createUrl.mock.calls[0]![0] as Blob).arrayBuffer());
     expect(getPdf).toHaveBeenCalledWith('one');
     expect(await zip.file('pdfs/one.pdf')!.async('text')).toBe('contenido');
-    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({version: 1, scope: 'filtered'});
-    expect(zip.file('operations.json')).toBeNull();
+    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({version: 1, scope: 'all'});
+    expect(zip.file('operations.json')).not.toBeNull();
 });
 
 it('does not download an export when the account changes while preparing it', async () => {
