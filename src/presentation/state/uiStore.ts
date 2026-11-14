@@ -2,7 +2,7 @@
  * Store para estado de UI (modales, dialogs, loading, error, offline, etc.)
  */
 import {signal} from '@preact/signals';
-import type {Study} from '@domain/models';
+import type {Appointment, Study} from '@domain/models';
 
 // ------------------------------------------------------------------
 // Estado primitivo - UI
@@ -23,6 +23,8 @@ export const exportError = signal<string | null>(null);
 
 export const recoveringStudyId = signal<string | null>(null);
 export const recoveryError = signal<string | null>(null);
+export const editingAppointment = signal<Appointment | null>(null);
+export const isAppointmentEditorOpen = signal(false);
 
 export const offline = signal(!navigator.onLine);
 export const directoryWarning = signal(false);
@@ -93,4 +95,14 @@ export function setRecoveringStudyId(id: string | null): void {
 
 export function setRecoveryError(msg: string | null): void {
     recoveryError.value = msg;
+}
+
+export function setEditingAppointment(appointment: Appointment | null): void {
+    editingAppointment.value = appointment;
+    isAppointmentEditorOpen.value = true;
+}
+
+export function setAppointmentEditorOpen(open: boolean): void {
+    isAppointmentEditorOpen.value = open;
+    if (!open) editingAppointment.value = null;
 }

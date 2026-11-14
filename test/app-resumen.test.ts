@@ -40,7 +40,7 @@ describe('resumen', () => {
         await vi.waitFor(() => expect($('#resumen')).not.toBeNull());
 
         const button = [...document.querySelectorAll<HTMLButtonElement>('#resumen button')]
-            .find((item) => item.textContent?.includes('Agendar turno'));
+            .find((item) => item.textContent?.includes('Ver turnos'));
 
         act(() => {
             button?.click();

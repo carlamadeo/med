@@ -1,12 +1,8 @@
-import {enqueueOffline} from '../utils/enqueueOffline';
 import {useState} from 'preact/hooks';
-import {driveAuth, driveAppointmentRepo} from '@data';
-import {Outbox} from '@data/outbox';
-import {appointmentInstant, appointmentStatus, validateAppointment} from '@domain/appointments';
+import {appointmentStatus} from '@domain/appointments';
 import type {Appointment, AppointmentDraft} from '@domain/models';
-import {appointments, visibleAppointments} from '../state/store';
-
-const outbox = new Outbox();
+import {visibleAppointments} from '../state/store';
+import {deleteAppointment as removeAppointment, saveAppointment} from '../utils/appointmentEditor';
 const labels = {
     upcoming: 'Próximo',
     overdue: 'Vencido',
@@ -37,37 +33,20 @@ export function Appointments() {
             coverage: (String(data.get('coverage') ?? '') || null) as AppointmentDraft['coverage'],
             reminderMinutes: (Number(data.get('reminderMinutes')) || null) as AppointmentDraft['reminderMinutes'],
         };
-        const errors = validateAppointment(draft);
-        if (errors.length) {
-            setMessage(errors.join(' '));
-            return;
-        }
-        if (!appointmentInstant(draft)) {
-            setMessage('La hora elegida no existe en esa zona horaria.');
-            return;
-        }
         setBusy(true);
         setMessage('');
         try {
-            const token = await driveAuth.getAccessToken();
-            const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-            if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-            if (!navigator.onLine) {
-                if (!navigator.locks) throw new Error('Este navegador no admite la sincronización segura sin conexión.');
-                await enqueueOffline(owner, () => outbox.enqueueAppointmentSave(owner, draft), token);
-                if (await driveAuth.getAccessToken() !== token) return;
-                window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
-                setMessage('Turno guardado en este dispositivo, pendiente de sincronización.');
-            } else {
-                if (draft.id && (await outbox.list(owner)).some(entry => entry.appointmentId === draft.id)) throw new Error('Este turno ya tiene un cambio pendiente.');
-                if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
-                const saved = await driveAppointmentRepo.save(draft);
-                if (await driveAuth.getAccessToken() !== token) return;
-                appointments.value = [...appointments.value.filter(item => item.id !== saved.id), saved];
+            const result = await saveAppointment(draft, editing);
+            if (result.error) {
+                setMessage(result.error);
+                return;
             }
-            if (await driveAuth.getAccessToken() !== token) return;
+            if (result.message) {
+                setMessage(result.message);
+            } else {
+                form.reset();
+            }
             setEditing(null);
-            form.reset();
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'No se pudo guardar el turno.');
         } finally {
@@ -75,44 +54,21 @@ export function Appointments() {
         }
     }
 
-    async function deleteAppointment(appointment: Appointment) {
+    async function remove(appointment: Appointment) {
         if (!confirm(`Eliminar el turno del ${appointment.date} a las ${appointment.time}?`)) return;
+        setBusy(true);
+        setMessage('');
         try {
-            const token = await driveAuth.getAccessToken();
-            const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
-            if (!owner) {
-                setMessage('Conectate primero para verificar tu cuenta.');
+            const result = await removeAppointment(appointment);
+            if (result.error) {
+                setMessage(result.error);
                 return;
             }
-            if (!appointment.revision) {
-                setMessage('El turno no tiene revisión válida.');
+            if (result.message) {
+                setMessage(result.message);
                 return;
             }
-            setBusy(true);
-            if (!navigator.onLine) {
-                if (!navigator.locks) {
-                    setMessage('Este navegador no admite la sincronización segura sin conexión.');
-                    setBusy(false);
-                    return;
-                }
-                await enqueueOffline(owner, () => outbox.enqueueAppointmentDelete(owner, appointment.id, appointment.revision), token);
-                if (await driveAuth.getAccessToken() !== token) return;
-                window.dispatchEvent(new Event('mis-estudios-outbox-changed'));
-                setMessage('Eliminación guardada en este dispositivo; queda pendiente de sincronización.');
-            } else {
-                if (await driveAuth.getAccessToken() !== token) throw new Error('La cuenta cambió. Volvé a intentar.');
-                await driveAppointmentRepo.delete(appointment.id, appointment.revision);
-                if (await driveAuth.getAccessToken() !== token) {
-                    setBusy(false);
-                    return;
-                }
-                appointments.value = appointments.value.filter((appt) => appt.id !== appointment.id);
-            }
-            if (await driveAuth.getAccessToken() !== token) {
-                setBusy(false);
-                return;
-            }
-            if (navigator.onLine) setMessage('Turno eliminado.');
+            setMessage('Turno eliminado.');
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el turno.');
         } finally {
@@ -180,7 +136,7 @@ export function Appointments() {
                 <button type="button" disabled={Boolean(item.syncStatus)} onClick={() => setEditing(item)}>Editar
                 </button>
                 <button type="button" disabled={Boolean(item.syncStatus)}
-                        onClick={() => deleteAppointment(item)}>Eliminar
+                        onClick={() => remove(item)}>Eliminar
                 </button>
             </li>)}</ul>
     </section>;

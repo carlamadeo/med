@@ -14,6 +14,7 @@ import {
     offline,
     pendingChanges,
     portals,
+    setEditingAppointment,
     studies,
     visibleAppointments,
     visibleStudies,
@@ -219,8 +220,11 @@ export function Resumen({
                                         <p className="appointment-meta">{appointment.time} · {appointment.notes || appointment.timeZone}</p>
                                     </div>
                                 </div>
-                                <div className="side-foot">
+                                <div className="side-foot appointment-actions">
                                     <button className="button secondary button-sm" type="button"
+                                            onClick={() => setEditingAppointment(appointment)}>Editar turno
+                                    </button>
+                                    <button className="button ghost button-sm" type="button"
                                             onClick={() => onNavigate('turnos')}>Ver turnos
                                     </button>
                                 </div>
@@ -228,9 +232,14 @@ export function Resumen({
                         ) : (
                             <div className="side-empty">
                                 <p>No hay turnos próximos.</p>
-                                <button className="button secondary button-sm" type="button"
-                                        onClick={() => onNavigate('turnos')}>Agendar turno
-                                </button>
+                                <div className="appointment-actions">
+                                    <button className="button secondary button-sm" type="button"
+                                            onClick={() => setEditingAppointment(null)}>Agendar turno
+                                    </button>
+                                    <button className="button ghost button-sm" type="button"
+                                            onClick={() => onNavigate('turnos')}>Ver turnos
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </section>

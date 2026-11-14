@@ -46,6 +46,7 @@ import {
     Resumen,
     StudyListContainer,
     AccessSection,
+    AppointmentDialog,
     LibraryIntro,
     ShareDialog,
     ExportDialog,
@@ -364,7 +365,8 @@ export function LibraryPage() {
                     />}
                 </main>
             </AppShell>
-            <EditorDialog
+            <AppointmentDialog />
+      <EditorDialog
                 onClose={() => setEditorOpen(false)}
                 error={editorError}
                 busy={saving}
