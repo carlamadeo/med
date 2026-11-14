@@ -125,102 +125,87 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     const hasRecords = getStudiesToExport().length > 0 || (scope === 'all' && hasOtherRecords);
 
     return (
-        <dialog id="export" ref={dialogRef} className="dialog" aria-labelledby="export-title" data-busy={String(busy)}
-                onCancel={(event) => {
-                    if (busy) event.preventDefault(); else handleCancel();
-                }}>
+        <dialog
+            id="export"
+            ref={dialogRef}
+            className="dialog export-dialog"
+            aria-labelledby="export-title"
+            aria-describedby="export-copy export-summary"
+            data-busy={String(busy)}
+            onCancel={(event) => {
+                if (busy) event.preventDefault(); else handleCancel();
+            }}
+        >
             <form id="export-form" onSubmit={(event) => {
                 event.preventDefault();
                 if (!busy) void handleConfirm();
             }}>
                 <div className="dialog-heading">
-                    <div><h2 id="export-title">Exportar historia</h2>
-                        <p id="export-copy">Descargá una copia portable de tus registros</p>
+                    <div>
+                        <p className="eyebrow">Archivo</p>
+                        <h2 id="export-title">Exportar historia</h2>
+                        <p id="export-copy" className="export-desc">Descargá una copia portable de tus registros.</p>
                     </div>
-                    <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}
-                            onClick={handleCancel}>
-                        <svg className="icon">
-                            <use href="#i-close"/>
-                        </svg>
+                    <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy} onClick={handleCancel}>
+                        <svg className="icon"><use href="#i-close" /></svg>
                     </button>
                 </div>
-                <p className="form-error" id="export-error" role="alert"
-                   hidden={!error && !expError}>{error || expError}</p>
-                <button type="button" className="button secondary reconnect" hidden={!sessionLost}
-                        onClick={onReconnect}>Reconectar Google Drive
+
+                <p className="form-error export-error" id="export-error" role="alert" hidden={!error && !expError}>{error || expError}</p>
+
+                <button type="button" className="button secondary export-reconnect" hidden={!sessionLost} onClick={onReconnect}>
+                    Reconectar Google Drive
                 </button>
-                <fieldset disabled={busy || sessionLost}>
+
+                <div className="export-summary" id="export-summary">
+                    <span className="export-summary-icon"><svg className="icon"><use href="#i-download" /></svg></span>
+                    <div>
+                        <strong>{getStudiesToExport().length} {getStudiesToExport().length === 1 ? 'estudio' : 'estudios'}</strong>
+                        <span>{hasOtherRecords ? 'Incluye operaciones, portales, consultas, recetas, episodios y turnos.' : 'Se descargará un archivo ZIP con el manifiesto y los documentos seleccionados.'}</span>
+                    </div>
+                </div>
+
+                <fieldset className="export-section" disabled={busy || sessionLost}>
                     <legend>Qué exportar</legend>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
-                            <input
-                                type="radio"
-                                name="export-scope"
-                                value="all"
-                                checked={scope === 'all'}
-                                onChange={() => handleScopeChange('all')}
-                            />
-                            <span>Todos los estudios ({visibleStudies.value.length})</span>
+                    <div className="export-options">
+                        <label className="export-option">
+                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'} onChange={() => handleScopeChange('all')} />
+                            <span>Todos los estudios <small>{visibleStudies.value.length}</small></span>
                         </label>
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
-                            <input
-                                type="radio"
-                                name="export-scope"
-                                value="filtered"
-                                checked={scope === 'filtered'}
-                                onChange={() => handleScopeChange('filtered')}
-                            />
-                            <span>Solo los filtrados ({filteredStudies.value.length})</span>
+                        <label className="export-option">
+                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'} onChange={() => handleScopeChange('filtered')} />
+                            <span>Solo los filtrados <small>{filteredStudies.value.length}</small></span>
                         </label>
                     </div>
                 </fieldset>
-                <p>La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La
-                    filtrada incluye los estudios seleccionados y sus entidades relacionadas (operaciones, portales,
-                    consultas/recetas vinculadas).</p>
-                <fieldset disabled={busy || sessionLost}>
+
+                <p className="export-note">La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La filtrada incluye los estudios seleccionados y sus entidades relacionadas.</p>
+
+                <fieldset className="export-section" disabled={busy || sessionLost}>
                     <legend>Contenido a incluir</legend>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
-                            <input
-                                type="checkbox"
-                                checked={includePdfs}
-                                onChange={(e) => setIncludePdfs(e.currentTarget.checked)}
-                            />
-                            <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
-                                <use href="#i-file"/>
-                            </svg>
+                    <div className="export-options">
+                        <label className="export-option">
+                            <input type="checkbox" checked={includePdfs} onChange={(e) => setIncludePdfs(e.currentTarget.checked)} />
+                            <svg className="icon"><use href="#i-file" /></svg>
                             <span>Archivos PDF</span>
                         </label>
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
-                            <input
-                                type="checkbox"
-                                checked={includeViewerLinks}
-                                onChange={(e) => setIncludeViewerLinks(e.currentTarget.checked)}
-                            />
-                            <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
-                                <use href="#i-external"/>
-                            </svg>
+                        <label className="export-option">
+                            <input type="checkbox" checked={includeViewerLinks} onChange={(e) => setIncludeViewerLinks(e.currentTarget.checked)} />
+                            <svg className="icon"><use href="#i-external" /></svg>
                             <span>Enlaces a visores</span>
                         </label>
                     </div>
                 </fieldset>
-                <label style={{display: 'block', marginTop: '16px'}}>
+
+                <label className="export-filename">
                     Nombre del archivo
-                    <input
-                        type="text"
-                        value={filename}
-                        onInput={(e) => setFilename(e.currentTarget.value)}
-                        placeholder="mis-estudios-2024-01-15.zip"
-                        maxLength={120}
-                        disabled={busy || sessionLost}
-                    />
-                    <p className="hint">La exportación se descargará como un archivo ZIP</p>
+                    <input type="text" value={filename} onInput={(e) => setFilename(e.currentTarget.value)} placeholder="mis-estudios-2024-01-15.zip" maxLength={120} disabled={busy || sessionLost} />
+                    <span className="hint">La exportación se descargará como un archivo ZIP.</span>
                 </label>
+
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar
-                    </button>
-                    <button type="submit" className="button primary" id="export-confirm"
-                            disabled={busy || sessionLost || !hasRecords}>
+                    <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar</button>
+                    <button type="submit" className="button primary" id="export-confirm" disabled={busy || sessionLost || !hasRecords}>
                         {busy ? 'Exportando…' : 'Exportar'}
                     </button>
                 </div>

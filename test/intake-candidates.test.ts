@@ -79,3 +79,27 @@ it('does not open a downloaded candidate after the Drive account changes', async
     });
     expect(onOpenEditor).not.toHaveBeenCalled();
 });
+
+
+it('filters candidates by file name', async () => {
+    const candidates = [
+        {id: 'a', name: 'informe-laboratorio.pdf', mimeType: 'application/pdf', modifiedTime: '2026-11-10', size: 8, status: 'new' as const},
+        {id: 'b', name: 'receta-completa.pdf', mimeType: 'application/pdf', modifiedTime: '2026-11-08', size: 8, status: 'new' as const},
+    ];
+    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue(candidates);
+    document.body.append(root);
+    approvedFolderId.value = 'folder';
+    await act(() => {
+        render(h(IntakeCandidates, {onOpenEditor: vi.fn()}), root);
+    });
+    await vi.waitFor(() => expect(root.textContent).toContain('receta-completa.pdf'));
+
+    const input = root.querySelector<HTMLInputElement>('#intake-search')!;
+    await act(async () => {
+        input.value = 'receta';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+    });
+
+    await vi.waitFor(() => expect(root.textContent).not.toContain('informe-laboratorio.pdf'));
+    expect(root.textContent).toContain('receta-completa.pdf');
+});

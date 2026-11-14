@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'preact/hooks';
+import {useEffect, useRef, useState} from 'preact/hooks';
 import type {ComponentChildren} from 'preact';
 import {appointmentStatus} from '@domain/appointments';
 import type {Study, ViewMode} from '@domain/models';
@@ -48,6 +48,9 @@ const labels: Record<ViewMode, string> = {
 export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
     const studiesCount = visibleStudies.value.length;
     const operationsCount = visibleOperations.value.length;
     const portalsCount = portals.value.length;
@@ -67,6 +70,15 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
+
+    useEffect(() => {
+        if (open) {
+            closeRef.current?.focus();
+        } else if (wasOpen.current && window.innerWidth <= 1024) {
+            menuRef.current?.focus();
+        }
+        wasOpen.current = open;
+    }, [open]);
 
     useEffect(() => {
         document.body.style.overflow = open ? 'hidden' : '';
@@ -158,7 +170,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
               <span className="brand-tag">Archivo privado</span>
             </span>
                     </a>
-                    <button className="icon-button sidebar-close" type="button" aria-label="Cerrar menú"
+                    <button ref={closeRef} className="icon-button sidebar-close" type="button" aria-label="Cerrar menú"
                             onClick={() => setOpen(false)}>
                         <svg className="icon">
                             <use href="#i-close"/>
@@ -215,7 +227,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
 
             <div className="app-main">
                 <header className="topbar">
-                    <button className="icon-button topbar-menu" type="button" aria-label="Abrir menú"
+                    <button ref={menuRef} className="icon-button topbar-menu" type="button" aria-label="Abrir menú"
                             aria-expanded={open} aria-controls="sidebar" hidden={!isSignedIn}
                             onClick={() => setOpen(true)}>
                         <svg className="icon">

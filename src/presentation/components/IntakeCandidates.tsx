@@ -1,4 +1,5 @@
-import {useEffect, useRef} from 'preact/hooks';
+import {useEffect, useRef, useState} from 'preact/hooks';
+import {normalize} from '@domain/utils';
 import {driveAuth, driveIntakeRepo} from '@data';
 import {
     intakeCandidates,
@@ -38,6 +39,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
     const loading = intakeLoading.value;
     const error = intakeError.value;
     const folderId = approvedFolderId.value;
+    const [query, setQuery] = useState('');
 
     useEffect(() => {
         const unsubscribe = driveAuth.onAuthChange(() => {
@@ -76,10 +78,13 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
         };
     }, [folderId]);
 
-    const newCandidates = candidates.filter(c => c.status === 'new');
-    const importedCandidates = candidates.filter(c => c.status === 'imported');
-    const discardedCandidates = candidates.filter(c => c.status === 'discarded');
-    const pendingCandidates = candidates.filter(c => c.status === 'pending');
+    const normalizedQuery = normalize(query);
+    const matches = (candidate: IntakeCandidate) => !normalizedQuery || normalize(candidate.name).includes(normalizedQuery);
+    const newCandidates = candidates.filter(c => c.status === 'new' && matches(c));
+    const importedCandidates = candidates.filter(c => c.status === 'imported' && matches(c));
+    const discardedCandidates = candidates.filter(c => c.status === 'discarded' && matches(c));
+    const pendingCandidates = candidates.filter(c => c.status === 'pending' && matches(c));
+    const hasVisibleCandidates = newCandidates.length > 0 || pendingCandidates.length > 0 || importedCandidates.length > 0 || discardedCandidates.length > 0;
 
     const handleImport = async (candidate: IntakeCandidate) => {
         const currentGeneration = generation.current;
@@ -114,132 +119,114 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
 
     if (!folderId) {
         return (
-            <div className="empty-state">
-                <svg className="icon"
-                     style={{width: '48px', height: '48px', margin: '0 auto 16px', color: 'var(--muted)'}}>
-                    <use href="#i-file"/>
-                </svg>
-                <h3>Intake asistido no configurado</h3>
-                <p style={{color: 'var(--muted)', marginTop: '8px', maxWidth: '38ch'}}>
-                    Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de incorporarlos.
-                </p>
-            </div>
+            <section className="intake" aria-labelledby="intake-title">
+                <div className="intake-head">
+                    <div>
+                        <p className="eyebrow">Archivo</p>
+                        <h2 id="intake-title">Intake asistido</h2>
+                        <p className="intake-desc">Revisá documentos candidatos antes de incorporarlos al archivo.</p>
+                    </div>
+                </div>
+                <div className="intake-empty">
+                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-scan" /></svg></span>
+                    <h3>Intake asistido no configurado</h3>
+                    <p>Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de incorporarlos.</p>
+                </div>
+            </section>
         );
     }
 
     return (
-        <section aria-label="Intake asistido">
-            <div className="section-head">
-                <div className="section-title">
-                    <h2>Intake asistido</h2>
-                    <span className="count">{candidates.length} candidatos</span>
+        <section className="intake" aria-labelledby="intake-title">
+            <div className="intake-head">
+                <div>
+                    <p className="eyebrow">Archivo</p>
+                    <h2 id="intake-title">Intake asistido</h2>
+                    <p className="intake-desc">Documentos candidatos de la carpeta aprobada, listos para revisar.</p>
                 </div>
-                <button
-                    type="button"
-                    className="button secondary"
-                    disabled={loading}
-                    onClick={() => {
+                <div className="intake-head-actions">
+                    <span className="count-badge">{candidates.length}</span>
+                    <button type="button" className="button secondary" disabled={loading} onClick={() => {
                         setIntakeLoading(true);
                         setIntakeError(null);
-                        setIntakeCandidates(intakeCandidates.value.map(c => c.status === 'imported' ? {
-                            ...c,
-                            status: 'new'
-                        } : c));
+                        setIntakeCandidates(intakeCandidates.value.map(c => c.status === 'imported' ? {...c, status: 'new'} : c));
                         setIntakeLoading(false);
-                    }}
-                >
-                    {loading ? 'Actualizando…' : 'Actualizar'}
-                </button>
+                    }}>
+                        <svg className="icon"><use href="#i-refresh" /></svg> {loading ? 'Actualizando…' : 'Actualizar'}
+                    </button>
+                </div>
             </div>
 
-            {error && <p className="form-error" role="alert">{error}</p>}
+            {error && <p className="intake-error" role="alert">{error}</p>}
 
-            {loading && <p className="list-status" role="status">Cargando candidatos…</p>}
+            {loading && <p className="intake-loading" role="status" aria-live="polite">Cargando candidatos…</p>}
+
+            {folderId && (
+                <label className="intake-search">
+                    <svg className="icon"><use href="#i-search" /></svg>
+                    <span className="sr-only">Buscar candidatos</span>
+                    <input id="intake-search" type="search" placeholder="Buscar por nombre de archivo…" value={query}
+                           onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+                </label>
+            )}
 
             {newCandidates.length > 0 && (
-                <fieldset>
-                    <legend>Nuevos ({newCandidates.length})</legend>
-                    <ul className="results">
+                <section className="intake-group" aria-labelledby="intake-new-title">
+                    <div className="intake-group-head">
+                        <h3 id="intake-new-title">Nuevos</h3>
+                        <span className="count-badge">{newCandidates.length}</span>
+                    </div>
+                    <ul className="intake-list" aria-busy={loading}>
                         {newCandidates.map(candidate => (
-                            <li key={candidate.id} className="record candidate-new">
-                                <div className="record-main">
-                                    <span className="file-icon"><svg className="icon"><use href="#i-file"/></svg></span>
-                                    <div className="record-text">
-                                        <h3 className="record-title">{candidate.name}</h3>
-                                        <p className="record-meta">
-                                            <span>{formatDate(candidate.modifiedTime)}</span>
-                                            <span>·</span>
-                                            <span>{formatFileSize(candidate.size)}</span>
-                                        </p>
-                                    </div>
+                            <li key={candidate.id} className="intake-card" data-status="new">
+                                <span className="intake-icon"><svg className="icon"><use href="#i-file" /></svg></span>
+                                <div className="intake-text">
+                                    <p className="intake-name">{candidate.name}</p>
+                                    <p className="intake-meta">{formatDate(candidate.modifiedTime)} · {formatFileSize(candidate.size)}</p>
                                 </div>
-                                <div className="record-controls">
-                                    <div className="record-actions">
-                                        <button
-                                            type="button"
-                                            className="button primary"
-                                            onClick={() => handleImport(candidate)}
-                                            disabled={isEditorOpen.value}
-                                        >
-                                            Importar
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="button quiet"
-                                            onClick={() => handleDiscard(candidate)}
-                                        >
-                                            Descartar
-                                        </button>
-                                    </div>
+                                <div className="intake-card-actions">
+                                    <button type="button" className="button primary button-sm" onClick={() => handleImport(candidate)} disabled={isEditorOpen.value}>Importar</button>
+                                    <button type="button" className="button quiet button-sm" onClick={() => handleDiscard(candidate)}>Descartar</button>
                                 </div>
                             </li>
                         ))}
                     </ul>
-                </fieldset>
+                </section>
             )}
 
             {pendingCandidates.length > 0 && (
-                <fieldset>
-                    <legend>Pendientes ({pendingCandidates.length})</legend>
-                    <ul className="results">
+                <section className="intake-group" aria-labelledby="intake-pending-title">
+                    <div className="intake-group-head">
+                        <h3 id="intake-pending-title">Pendientes</h3>
+                        <span className="count-badge">{pendingCandidates.length}</span>
+                    </div>
+                    <ul className="intake-list">
                         {pendingCandidates.map(candidate => (
-                            <li key={candidate.id} className="record candidate-pending">
-                                <div className="record-main">
-                                    <span className="file-icon"><svg className="icon"><use href="#i-file"/></svg></span>
-                                    <div className="record-text">
-                                        <h3 className="record-title">{candidate.name}</h3>
-                                        <p className="record-meta" style={{color: 'var(--warning)'}}>Importando…</p>
-                                    </div>
+                            <li key={candidate.id} className="intake-card" data-status="pending">
+                                <span className="intake-icon"><svg className="icon"><use href="#i-clock" /></svg></span>
+                                <div className="intake-text">
+                                    <p className="intake-name">{candidate.name}</p>
+                                    <p className="intake-meta" data-tone="warning">Importando…</p>
                                 </div>
                             </li>
                         ))}
                     </ul>
-                </fieldset>
+                </section>
             )}
 
             {importedCandidates.length > 0 && (
-                <details>
-                    <summary>Importados ({importedCandidates.length})</summary>
-                    <ul className="results">
+                <details className="intake-group">
+                    <summary className="intake-group-summary">Importados <span className="count-badge">{importedCandidates.length}</span></summary>
+                    <ul className="intake-list">
                         {importedCandidates.map(candidate => (
-                            <li key={candidate.id} className="record candidate-imported">
-                                <div className="record-main">
-                                    <span className="file-icon"><svg className="icon"><use href="#i-file"/></svg></span>
-                                    <div className="record-text">
-                                        <h3 className="record-title">{candidate.name}</h3>
-                                        <p className="record-meta" style={{color: 'var(--muted)'}}>Ya importado</p>
-                                    </div>
+                            <li key={candidate.id} className="intake-card" data-status="imported">
+                                <span className="intake-icon"><svg className="icon"><use href="#i-check" /></svg></span>
+                                <div className="intake-text">
+                                    <p className="intake-name">{candidate.name}</p>
+                                    <p className="intake-meta">Ya importado</p>
                                 </div>
-                                <div className="record-controls">
-                                    <div className="record-actions">
-                                        <button
-                                            type="button"
-                                            className="button quiet"
-                                            onClick={() => handleReview(candidate)}
-                                        >
-                                            Revisar de nuevo
-                                        </button>
-                                    </div>
+                                <div className="intake-card-actions">
+                                    <button type="button" className="button quiet button-sm" onClick={() => handleReview(candidate)}>Revisar de nuevo</button>
                                 </div>
                             </li>
                         ))}
@@ -248,28 +235,18 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
             )}
 
             {discardedCandidates.length > 0 && (
-                <details>
-                    <summary>Descartados ({discardedCandidates.length})</summary>
-                    <ul className="results">
+                <details className="intake-group">
+                    <summary className="intake-group-summary">Descartados <span className="count-badge">{discardedCandidates.length}</span></summary>
+                    <ul className="intake-list">
                         {discardedCandidates.map(candidate => (
-                            <li key={candidate.id} className="record candidate-discarded" style={{opacity: 0.6}}>
-                                <div className="record-main">
-                                    <span className="file-icon"><svg className="icon"><use href="#i-file"/></svg></span>
-                                    <div className="record-text">
-                                        <h3 className="record-title">{candidate.name}</h3>
-                                        <p className="record-meta" style={{color: 'var(--muted)'}}>Descartado</p>
-                                    </div>
+                            <li key={candidate.id} className="intake-card" data-status="discarded">
+                                <span className="intake-icon"><svg className="icon"><use href="#i-trash" /></svg></span>
+                                <div className="intake-text">
+                                    <p className="intake-name">{candidate.name}</p>
+                                    <p className="intake-meta">Descartado</p>
                                 </div>
-                                <div className="record-controls">
-                                    <div className="record-actions">
-                                        <button
-                                            type="button"
-                                            className="button quiet"
-                                            onClick={() => handleReview(candidate)}
-                                        >
-                                            Revisar
-                                        </button>
-                                    </div>
+                                <div className="intake-card-actions">
+                                    <button type="button" className="button quiet button-sm" onClick={() => handleReview(candidate)}>Revisar</button>
                                 </div>
                             </li>
                         ))}
@@ -277,15 +254,12 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                 </details>
             )}
 
-            {newCandidates.length === 0 && pendingCandidates.length === 0 && importedCandidates.length === 0 && discardedCandidates.length === 0 && !loading && !error && (
-                <div className="empty-state" style={{marginTop: '24px'}}>
-                    <svg className="icon"
-                         style={{width: '48px', height: '48px', margin: '0 auto 16px', color: 'var(--muted)'}}>
-                        <use href="#i-file"/>
-                    </svg>
-                    <h3>No hay candidatos nuevos</h3>
-                    <p style={{color: 'var(--muted)', marginTop: '8px'}}>La carpeta aprobada no tiene PDFs nuevos o
-                        todos fueron revisados</p>
+            {!loading && !error && !hasVisibleCandidates && (
+                <div className="intake-empty">
+                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-file" /></svg></span>
+                    <h3>{normalizedQuery ? 'Sin candidatos que coincidan' : 'No hay candidatos nuevos'}</h3>
+                    <p>{normalizedQuery ? 'Probá con otro nombre de archivo.' : 'La carpeta aprobada no tiene PDFs nuevos o todos fueron revisados.'}</p>
+                    {normalizedQuery && <button type="button" className="button secondary button-sm" onClick={() => setQuery('')}>Limpiar búsqueda</button>}
                 </div>
             )}
         </section>
