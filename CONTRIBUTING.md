@@ -49,7 +49,7 @@ src/
 
 ### Estilo (Prettier)
 - 2 espacios, comillas simples, punto y coma, ancho 100 caracteres
-- Ejecuta `npm run lint` antes de commit (incluye `prettier --check`)
+- Ejecuta `npm run lint` antes del commit para verificar ESLint y Stylelint
 
 ### Nomenclatura
 - **Componentes**: PascalCase (`StudyRow.tsx`)
@@ -67,7 +67,8 @@ src/
 
 ## Comportamiento offline y Drive
 
-Ver [ADR 0001](docs/adr/0001-offline-drive.md):
+El [ADR 0001](docs/adr/0001-offline-drive.md) describe las reglas de almacenamiento y sincronización.
+
 - Drive = fuente de verdad
 - Caché ligada a sesión verificada
 - Outbox serializado con Web Locks
@@ -76,14 +77,17 @@ Ver [ADR 0001](docs/adr/0001-offline-drive.md):
 
 ## Testing
 
+Consulta la [guía de verificación](docs/verificacion.md) para elegir las pruebas según el flujo afectado.
+
 ### Unitarias (Vitest + jsdom)
-- Ubicación: `test/` y `test/e2e/`
+- Ubicación: `test/`
 - Setup: `test/setup.ts` (fake IndexedDB, MSW)
 - Cobertura mínima: 80% líneas/funciones/statements, 70% branches
 
 ### E2E (Playwright)
 - Configs: `playwright.config.ts`, `playwright.offline.config.ts`, `playwright.outbox.config.ts`
-- Navegadores: Chromium, WebKit (mobile/desktop)
+- Perfiles: Chromium de escritorio, Chrome móvil emulado y WebKit con perfil de iPhone en las suites general y de cola.
+  La suite offline usa Chromium de escritorio.
 
 ## Commits y PRs
 
@@ -122,6 +126,6 @@ Add OCR fallback for scanned PDFs
 
 ## Recursos
 
-- [README.md](../README.md) — Descripción general, publicación, prueba local
-- [docs/adr/0001-offline-drive.md](../docs/adr/0001-offline-drive.md) — Decisiones de arquitectura offline
-- [AGENTS.md](../AGENTS.md) — Guías para agentes IA (este proyecto)
+- [README.md](README.md) — Descripción general, publicación, prueba local
+- [docs/adr/0001-offline-drive.md](docs/adr/0001-offline-drive.md) — Decisiones de arquitectura offline
+- [AGENTS.md](AGENTS.md) — Guías para agentes IA (este proyecto)

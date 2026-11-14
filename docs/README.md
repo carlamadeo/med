@@ -87,3 +87,9 @@ puede descartar el cambio pendiente después de revisarlo. Cerrar sesión no eli
 conectar la misma cuenta para verla y sincronizarla. Borrar los datos del sitio en el navegador también elimina los
 cambios pendientes. Para encolar o sincronizar cambios se necesita un navegador con Web Locks. Una operación nueva
 creada sin conexión debe sincronizarse antes de poder asociarle un estudio.
+
+## Documentación técnica
+
+- [Arquitectura y flujos principales](architecture.md)
+- [Decisión sobre Drive y modo sin conexión](adr/0001-offline-drive.md)
+- [Guía de verificación por tipo de cambio](verificacion.md)

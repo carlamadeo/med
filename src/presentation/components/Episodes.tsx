@@ -120,7 +120,6 @@ export function Episodes() {
     function updateObservation(index: number, field: 'date', value: string): void;
     function updateObservation(index: number, field: 'text', value: string): void;
     function updateObservation(index: number, field: 'temperature', value: number | undefined): void;
-    function updateObservation(index: number, field: 'symptoms', value: FormSymptomEntry[]): void;
     function updateObservation(index: number, field: keyof FormObservation, value: string | number | FormSymptomEntry[] | undefined) {
         /* eslint-enable no-redeclare */
         const updated = [...observations];

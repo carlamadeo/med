@@ -21,9 +21,8 @@ Use Node.js 24 or later and run `npm ci` to install dependencies.
 - `npm run test:e2e` runs Playwright. Use `npm run test:offline` and `npm run test:outbox` for their dedicated browser
   scenarios; `npm run test:lighthouse` checks Lighthouse metrics.
 
-Run `npx vitest run test/library.test.ts` for the library rules or
-`npx playwright test test/e2e/navigation.spec.ts --project=chromium` for a focused browser check. If Playwright browsers
-are missing, run `npx playwright install chromium webkit` (add `--with-deps` on Linux if system packages are needed).
+The [verification guide](docs/verificacion.md) includes focused commands. If Playwright browsers are missing,
+run `npx playwright install chromium webkit` (add `--with-deps` on Linux if system packages are needed).
 
 ## Coding Style & Naming Conventions
 
@@ -48,10 +47,11 @@ revisions, unavailable Web Locks, and sync conflicts each require distinct feedb
   reach that path.
 - **Keep state where it is used.** Use Preact Signals for shared state, `computed` for derived values, and
   component-local state for form drafts. Keep reusable business rules in `src/domain/` independent of Preact, the DOM,
-  and Google APIs. Keep Drive and IndexedDB access behind the repository interfaces in `src/domain/repository.ts`.
+  and Google APIs. Use the repositories and storage helpers for Drive and IndexedDB access. See the
+  [architecture guide](docs/architecture.md) for the active entry points.
 - **Preserve Drive and offline behavior.** Follow the [offline and Drive ADR](docs/adr/0001-offline-drive.md). Keep
   Drive as the source of truth, the cache tied to the current session, and pending changes tied to the verified Drive
-  account. Preserve the `appProperties` markers that distinguish the app folder, studies, operations, and portals. Route
+  account. Preserve the `appProperties` markers that distinguish the app folder and record types. Route
   offline mutations through the existing outbox and serialize synchronization across tabs with Web Locks. Reject stale
   `revision` values with `DriveConflictError`. Keep reserved IDs for retried creates and retain pending entries when the
   result is uncertain or a conflict needs review. When changing persisted formats, handle existing records in Drive and
