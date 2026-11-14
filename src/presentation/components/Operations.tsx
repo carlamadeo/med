@@ -1,8 +1,8 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useState} from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
-import {isValidDate} from '@domain/utils';
+import {isValidDate, normalize} from '@domain/utils';
 import type {Operation, OperationDraft, Study} from '@domain/models';
 import {operations, visibleOperations, studies, filters, view} from '../state/store';
 
@@ -38,6 +38,31 @@ export function Operations() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [detailId, setDetailId] = useState<string | null>(null);
+    const [formOpen, setFormOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const dialogRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        if (formOpen && !dialog.open) dialog.showModal();
+        if (!formOpen && dialog.open) dialog.close();
+    }, [formOpen]);
+
+    const openNew = () => {
+        setEditing(null);
+        setFormOpen(true);
+    };
+
+    const openEdit = (operation: Operation) => {
+        setEditing(operation);
+        setFormOpen(true);
+    };
+
+    const closeForm = () => {
+        setFormOpen(false);
+        setEditing(null);
+    };
 
     async function save(form: HTMLFormElement) {
         const data = new FormData(form);
@@ -102,10 +127,12 @@ export function Operations() {
             if (result === null) {
                 setEditing(null);
                 form.reset();
+                setFormOpen(false);
                 setMessage('Operación guardada en este dispositivo; se sincronizará al volver la conexión.');
             } else {
                 setEditing(null);
                 form.reset();
+                setFormOpen(false);
             }
         } catch (err) {
             setMessage(err instanceof Error ? err.message : 'No se pudo guardar la operación.');
@@ -222,75 +249,179 @@ export function Operations() {
     }
 
     const detail = operations.value.find((op) => op.id === detailId);
+    const normalizedQuery = normalize(query);
+    const visible = [...visibleOperations.value]
+        .filter((operation) => {
+            if (!normalizedQuery) return true;
+            return [operation.name, operation.date, operation.surgeon, operation.institution, operation.type]
+                .some((value) => normalize(value ?? '').includes(normalizedQuery));
+        })
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
     if (detail) {
         const orderedStudies = [...studies.value].sort((a, b) => b.date.localeCompare(a.date));
-        return <section className="directory" id="operation-detail" aria-labelledby="operation-detail-title">
-            <button type="button" onClick={() => setDetailId(null)}>Volver a operaciones</button>
-            <h2 id="operation-detail-title">{detail.name}</h2>
-            <p>{[detail.date, detail.surgeon, detail.institution, detail.type].filter(Boolean).join(' · ')}</p>
-            {detail.notes && <p>{detail.notes}</p>}
-            <h3>Estudios vinculados</h3>
-            <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola
-                operación.</p>
-            {message && <p role="alert">{message}</p>}
-            <ul>{orderedStudies.map((study) => <li key={study.id}
-                                                   data-linked={study.operationId === detail.id ? 'true' : 'false'}>
-                <label>
-                    <input type="checkbox" data-study-id={study.id} checked={study.operationId === detail.id}
-                           disabled={busy}
-                           onChange={(event) => void setLink(study, event.currentTarget.checked ? detail.id : '')}/>
-                    {study.title} · {study.date}{study.operationId && study.operationId !== detail.id ? ' (asociado a otra operación)' : ''}
-                </label></li>)}</ul>
-            {!orderedStudies.length && <p>Todavía no hay estudios para vincular.</p>}
+        const linkedCount = orderedStudies.filter((study) => study.operationId === detail.id).length;
+        return <section className="operation-detail" id="operation-detail" aria-labelledby="operation-detail-title">
+            <button className="button ghost button-sm operation-back" type="button" onClick={() => setDetailId(null)}>
+                <svg className="icon"><use href="#i-chevron-left" /></svg> Volver a operaciones
+            </button>
+
+            <div className="operation-detail-head">
+                <div>
+                    <p className="eyebrow">Ficha</p>
+                    <h2 id="operation-detail-title">{detail.name}</h2>
+                    <p className="operation-meta">{[detail.date, detail.surgeon, detail.institution, detail.type].filter(Boolean).join(' · ')}</p>
+                </div>
+                <span className="count-badge">{linkedCount} {linkedCount === 1 ? 'estudio' : 'estudios'}</span>
+            </div>
+
+            {detail.notes && <p className="operation-notes">{detail.notes}</p>}
+            {message && <p className="operation-message" role="alert">{message}</p>}
+
+            <div className="linked-head">
+                <h3>Estudios vinculados</h3>
+                <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola operación.</p>
+            </div>
+
+            {orderedStudies.length ? (
+                <ul className="linked-list">
+                    {orderedStudies.map((study) => {
+                        const linked = study.operationId === detail.id;
+                        const other = study.operationId && !linked;
+                        return <li className="linked-item" key={study.id} data-linked={linked ? 'true' : 'false'}>
+                            <label>
+                                <input type="checkbox" data-study-id={study.id} checked={linked} disabled={busy}
+                                       onChange={(event) => void setLink(study, event.currentTarget.checked ? detail.id : '')}/>
+                                <span className="linked-title">{study.title}</span>
+                                <time className="linked-date" dateTime={study.date}>{study.date}</time>
+                                {other && <span className="tag">Otra operación</span>}
+                            </label>
+                        </li>;
+                    })}
+                </ul>
+            ) : (
+                <p className="linked-empty">Todavía no hay estudios para vincular.</p>
+            )}
         </section>;
     }
 
-    return <section className="directory" aria-labelledby="operations-title">
-        <h2 id="operations-title">Operaciones</h2>
-        <form id="operation-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
-            event.preventDefault();
-            void save(event.currentTarget);
-        }}>
-            <fieldset disabled={busy}>
-                <legend>{editing ? 'Editar operación' : 'Agregar operación'}</legend>
-                <label>Nombre <input id="operation-name" name="name" required maxLength={120}
-                                     defaultValue={editing?.name ?? ''}/></label>
-                <label>Fecha <input id="operation-date" type="date" name="date" required
-                                    defaultValue={editing?.date ?? ''}/></label>
-                <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
-                <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
-                <label>Procedimiento <input id="operation-type" name="type" required
-                                            defaultValue={editing?.type ?? ''}/></label>
-                <label>Notas <textarea name="notes" defaultValue={editing?.notes ?? ''}/></label>
-                <button className="button primary" type="submit">Guardar operación</button>
-                {editing &&
-                    <button className="button quiet" type="button" onClick={() => setEditing(null)}>Cancelar</button>}
-            </fieldset>
-        </form>
-        {message && <p role="alert">{message}</p>}
-        <ul id="operations-list">
-            {[...visibleOperations.value].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).map((op) => {
-                const count = studies.value.filter((study) => study.operationId === op.id).length;
-                return <li key={op.id}><h3>{op.name}</h3><p>Cirugía</p>
-                    <p>{[op.date, op.surgeon, op.institution, op.type].filter(Boolean).join(' · ')}</p><p>{op.notes}</p>
-                    {op.syncStatus &&
-                        <p>{op.syncStatus === 'conflict' ? 'Requiere revisión' : op.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
-                    <button type="button" disabled={Boolean(op.syncStatus)} onClick={() => {
-                        filters.value = {...filters.value, operationId: op.id};
-                        view.value = 'cronologia';
-                    }}>Ver estudios ({count})
+    return <section className="operations" aria-labelledby="operations-title">
+        <div className="operations-head">
+            <div>
+                <p className="eyebrow">Historial</p>
+                <h2 id="operations-title">Operaciones</h2>
+                <p className="operations-desc">Cirugías y procedimientos con sus estudios vinculados.</p>
+            </div>
+            <div className="operations-head-actions">
+                <span className="count-badge">{visibleOperations.value.length}</span>
+                <button className="button primary" type="button" onClick={openNew}>
+                    <svg className="icon"><use href="#i-plus" /></svg> Agregar operación
+                </button>
+            </div>
+        </div>
+
+        <div className="operations-toolbar">
+            <label className="operations-search">
+                <svg className="icon"><use href="#i-search" /></svg>
+                <span className="sr-only">Buscar operaciones</span>
+                <input id="operation-search" type="search" placeholder="Buscar por nombre, cirujano o institución…" value={query}
+                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+            </label>
+        </div>
+
+        {message && <p className="operation-message" role="alert">{message}</p>}
+
+        {visible.length ? (
+            <ul id="operations-list" className="operation-grid">
+                {visible.map((operation) => {
+                    const count = studies.value.filter((study) => study.operationId === operation.id).length;
+                    const parts = (operation.date ?? '').split('-');
+                    const month = parts[1] ? new Intl.DateTimeFormat('es-AR', {month: 'short'}).format(new Date(Number(parts[0]), Number(parts[1]) - 1, 1)).replace('.', '') : '';
+                    const syncLabel = operation.syncStatus === 'conflict' ? 'Requiere revisión'
+                        : operation.syncStatus === 'failed' ? 'No se puede sincronizar'
+                            : operation.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
+                    const syncTone = operation.syncStatus === 'conflict' || operation.syncStatus === 'failed' ? 'danger' : 'warning';
+                    return <li className="operation-card" key={operation.id}>
+                        <div className="operation-card-top">
+                            <div className="operation-date" aria-label={operation.date || 'Sin fecha'}>
+                                <span>{month || '—'}</span>
+                                <strong>{parts[2] ?? '—'}</strong>
+                            </div>
+                            <div className="operation-title">
+                                <h3>{operation.name}</h3>
+                                <p>{operation.type || 'Cirugía'}</p>
+                            </div>
+                            {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
+                        </div>
+
+                        <p className="operation-meta">{[operation.surgeon, operation.institution].filter(Boolean).join(' · ') || 'Sin profesional'}</p>
+                        {operation.notes && <p className="operation-notes">{operation.notes}</p>}
+
+                        <div className="operation-card-foot">
+                            <span className="count-badge">{count} {count === 1 ? 'estudio' : 'estudios'}</span>
+                            <div className="operation-actions">
+                                <button className="button secondary button-sm" type="button" data-detail disabled={Boolean(operation.syncStatus)}
+                                        onClick={() => setDetailId(operation.id)}>Ver ficha
+                                </button>
+                                <button className="button ghost button-sm" type="button" disabled={Boolean(operation.syncStatus)}
+                                        onClick={() => {
+                                            filters.value = {...filters.value, operationId: operation.id};
+                                            view.value = 'cronologia';
+                                        }}>Ver estudios
+                                </button>
+                                <button className="button ghost button-sm" type="button" disabled={Boolean(operation.syncStatus)}
+                                        onClick={() => openEdit(operation)}>Editar
+                                </button>
+                                <button className="button ghost button-sm operation-delete" type="button" disabled={busy || Boolean(operation.syncStatus)}
+                                        onClick={() => void remove(operation)}>Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </li>;
+                })}
+            </ul>
+        ) : (
+            <div className="operation-empty">
+                <span className="operation-empty-icon"><svg className="icon"><use href="#i-clipboard" /></svg></span>
+                <p>{normalizedQuery ? 'No hay operaciones que coincidan con la búsqueda.' : 'Todavía no hay operaciones guardadas.'}</p>
+                {normalizedQuery ? (
+                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar búsqueda</button>
+                ) : (
+                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar operación</button>
+                )}
+            </div>
+        )}
+
+        <dialog ref={dialogRef} id="operation-dialog" className="dialog operation-dialog" aria-labelledby="operation-dialog-title" onClose={closeForm}>
+            <form id="operation-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
+                event.preventDefault();
+                void save(event.currentTarget);
+            }}>
+                <div className="dialog-heading">
+                    <div>
+                        <p className="eyebrow">Historial</p>
+                        <h2 id="operation-dialog-title">{editing ? 'Editar operación' : 'Agregar operación'}</h2>
+                    </div>
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm} disabled={busy}>
+                        <svg className="icon"><use href="#i-close" /></svg>
                     </button>
-                    <button type="button" data-detail disabled={Boolean(op.syncStatus)}
-                            onClick={() => setDetailId(op.id)}>Ficha y vínculos
-                    </button>
-                    <button type="button" disabled={Boolean(op.syncStatus)} onClick={() => setEditing(op)}>Editar
-                    </button>
-                    <button type="button" disabled={busy || Boolean(op.syncStatus)}
-                            onClick={() => void remove(op)}>Eliminar
-                    </button>
-                </li>;
-            })}
-        </ul>
+                </div>
+
+                <fieldset disabled={busy}>
+                    <div className="operation-form-grid">
+                        <label>Nombre <input id="operation-name" name="name" required maxLength={120} defaultValue={editing?.name ?? ''} /></label>
+                        <label>Fecha <input id="operation-date" name="date" type="date" required defaultValue={editing?.date ?? ''} /></label>
+                        <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''} /></label>
+                        <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''} /></label>
+                        <label className="wide">Procedimiento <input id="operation-type" name="type" required defaultValue={editing?.type ?? ''} /></label>
+                        <label className="wide">Notas <textarea name="notes" defaultValue={editing?.notes ?? ''} /></label>
+                    </div>
+                    <div className="dialog-actions">
+                        <button className="button secondary" type="button" onClick={closeForm} disabled={busy}>Cancelar</button>
+                        <button className="button primary" type="submit" disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar operación'}</button>
+                    </div>
+                </fieldset>
+            </form>
+        </dialog>
     </section>;
 }
