@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import {navigateTo} from './nav';
 
 test('navigates a long virtualized library with the keyboard without horizontal overflow', async ({page}, testInfo) => {
     await page.route('https://accounts.google.com/**', (route) => route.fulfill({
@@ -46,7 +47,7 @@ test('navigates a long virtualized library with the keyboard without horizontal 
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
-    await page.locator('#nav-cronologia').click();
+    await navigateTo(page, 'cronologia');
     await expect(page.locator('#count')).toHaveText('200');
     await expect(page.locator('#results li.record').first()).toBeVisible();
     expect(await page.locator('#results li.record').count()).toBeLessThan(50);
@@ -84,11 +85,11 @@ test('navigates a long virtualized library with the keyboard without horizontal 
     await page.locator('#results li.record .edit').first().click();
     await expect.poll(() => report.evaluate((input: HTMLInputElement) => input.files?.length)).toBe(0);
     await page.locator('#editor [aria-label="Cerrar"]').click();
-    await page.locator('#nav-operaciones').click();
+    await navigateTo(page, 'operaciones');
     await expect(page.getByRole('heading', {name: 'Operaciones', exact: true})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({path: testInfo.outputPath('operations.png'), fullPage: true});
-    await page.locator('#nav-portales').click();
+    await navigateTo(page, 'portales');
     await expect(page.getByRole('heading', {name: 'Portales e instituciones'})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
