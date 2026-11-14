@@ -1,12 +1,9 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {
     exporting,
-    exportScope,
     exportError,
     setExporting,
-    setExportScope,
     setExportError,
-    filteredStudies,
     visibleStudies,
     operations,
     portals,
@@ -45,7 +42,6 @@ function downloadBlob(blob: Blob, filename: string): void {
 export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const isExporting = exporting.value;
-    const scope = exportScope.value;
     const expError = exportError.value;
 
     const [includePdfs, setIncludePdfs] = useState(true);
@@ -79,19 +75,15 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         handleClose();
     };
 
-    const handleScopeChange = (newScope: 'all' | 'filtered') => {
-        setExportScope(newScope);
-    };
-
     const getStudiesToExport = () => {
-        return scope === 'filtered' ? filteredStudies.value : visibleStudies.value;
+        return visibleStudies.value;
     };
 
     const handleConfirm = async () => {
         setExportError(null);
 
         const studiesToExport = getStudiesToExport();
-        if (studiesToExport.length === 0 && (scope === 'filtered' || !hasOtherRecords)) {
+        if (studiesToExport.length === 0 && !hasOtherRecords) {
             setExportError('No hay registros para exportar');
             return;
         }
@@ -106,7 +98,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             setBusy(true);
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
-            const zip = await createExportZip(selectedStudies, includePdfs, includeViewerLinks, scope);
+            const zip = await createExportZip(selectedStudies, includePdfs, includeViewerLinks);
             if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
                 throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
             }
@@ -122,7 +114,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     };
 
     const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
-    const hasRecords = getStudiesToExport().length > 0 || (scope === 'all' && hasOtherRecords);
+    const hasRecords = getStudiesToExport().length > 0 || hasOtherRecords;
 
     return (
         <dialog
@@ -174,20 +166,13 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <legend>Qué exportar</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'}
-                                   onChange={() => handleScopeChange('all')}/>
+                            <input type="radio" name="export-scope" value="all" checked/>
                             <span>Todos los estudios <small>{visibleStudies.value.length}</small></span>
-                        </label>
-                        <label className="export-option">
-                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'}
-                                   onChange={() => handleScopeChange('filtered')}/>
-                            <span>Solo los filtrados <small>{filteredStudies.value.length}</small></span>
                         </label>
                     </div>
                 </fieldset>
 
-                <p className="export-note">La exportación completa incluye operaciones, portales, consultas, recetas,
-                    episodios y turnos. La filtrada incluye los estudios seleccionados y sus entidades relacionadas.</p>
+                <p className="export-note">La exportación incluye todos los estudios y sus entidades relacionadas.</p>
 
                 <fieldset className="export-section" disabled={busy || sessionLost}>
                     <legend>Contenido a incluir</legend>
@@ -231,19 +216,13 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     );
 }
 
-async function createExportZip(studiesToExport: Study[], includePdfs: boolean, includeViewerLinks: boolean, scope: 'all' | 'filtered'): Promise<Blob> {
+async function createExportZip(studiesToExport: Study[], includePdfs: boolean, includeViewerLinks: boolean): Promise<Blob> {
     const {default: JSZip} = await import('jszip');
     const zip = new JSZip();
 
-    const studyIds = new Set(studiesToExport.map(s => s.id));
-
-    const relatedOperations = operations.value.filter(op => op.studyIds?.some(id => studyIds.has(id)));
-    const relatedPortals = portals.value.filter(p => studiesToExport.some(s => s.portal === p.id));
-    const relatedEvents = medicalEvents.value.filter(e => e.studyIds.some(id => studyIds.has(id)) || e.documentIds.some(id => studyIds.has(id)));
-
     const manifest = {
         version: 1,
-        scope,
+        scope: 'all',
         exportedAt: new Date().toISOString(),
         totalStudies: studiesToExport.length,
         studies: studiesToExport.map(s => ({
@@ -286,49 +265,41 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
         zip.file('viewer-links.txt', viewerLinks.join('\n\n'));
     }
 
-    if (scope === 'all' || (scope === 'filtered' && (relatedOperations.length > 0 || relatedPortals.length > 0 || relatedEvents.length > 0 || episodes.value.length > 0 || appointments.value.length > 0))) {
-        if (scope === 'all' || relatedOperations.length > 0) {
-            const operationsList = (scope === 'all' ? operations.value : relatedOperations).map(op => ({
-                id: op.id,
-                name: op.name,
-                date: op.date,
-                surgeon: op.surgeon,
-                institution: op.institution,
-                type: op.type,
-                notes: op.notes,
-                studyIds: op.studyIds,
-            }));
-            zip.file('operations.json', JSON.stringify(operationsList, null, 2));
-        }
+    // Include all related data
+    const operationsList = operations.value.map(op => ({
+        id: op.id,
+        name: op.name,
+        date: op.date,
+        surgeon: op.surgeon,
+        institution: op.institution,
+        type: op.type,
+        notes: op.notes,
+        studyIds: op.studyIds,
+    }));
+    zip.file('operations.json', JSON.stringify(operationsList, null, 2));
 
-        if (scope === 'all' || relatedPortals.length > 0) {
-            const portalsList = (scope === 'all' ? portals.value : relatedPortals).map(p => ({
-                id: p.id,
-                name: p.name,
-                displayName: p.displayName,
-                url: p.url,
-                notes: p.notes,
-            }));
-            zip.file('portals.json', JSON.stringify(portalsList, null, 2));
-        }
+    const portalsList = portals.value.map(p => ({
+        id: p.id,
+        name: p.name,
+        displayName: p.displayName,
+        url: p.url,
+        notes: p.notes,
+    }));
+    zip.file('portals.json', JSON.stringify(portalsList, null, 2));
 
-        if (scope === 'all' || relatedEvents.length > 0) {
-            const eventsList = (scope === 'all' ? medicalEvents.value : relatedEvents).map(e => ({
-                id: e.id,
-                kind: e.kind,
-                date: e.date,
-                doctor: e.doctor,
-                notes: e.notes,
-                studyIds: e.studyIds,
-                documentIds: e.documentIds,
-            }));
-            zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
-        }
+    const eventsList = medicalEvents.value.map(e => ({
+        id: e.id,
+        kind: e.kind,
+        date: e.date,
+        doctor: e.doctor,
+        notes: e.notes,
+        studyIds: e.studyIds,
+        documentIds: e.documentIds,
+    }));
+    zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
 
-        // Episodes and appointments don't have direct study references, include all in both scopes
-        zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
-        zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
-    }
+    zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
+    zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
 
     return zip.generateAsync({type: 'blob', compression: 'DEFLATE', compressionOptions: {level: 6}});
 }

@@ -1,4 +1,4 @@
-import {view, categoryTypes, filters} from '../state/store';
+import {view, categoryTypes} from '../state/store';
 
 interface LibraryTabsProps {
     availableTypes: string[];
@@ -73,7 +73,6 @@ export function LibraryTabs({availableTypes}: LibraryTabsProps) {
                             type="button"
                             aria-pressed={categoryTypes.value.includes(type)}
                             onClick={() => {
-                                filters.value = {...filters.value, type: ''};
                                 categoryTypes.value = categoryTypes.value.includes(type)
                                     ? categoryTypes.value.filter((item) => item !== type)
                                     : [...categoryTypes.value, type];

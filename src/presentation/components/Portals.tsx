@@ -32,7 +32,7 @@ import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
-import {filters, portals, studies, view} from '../state/store';
+import {portals, studies, view} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
 
 const outbox = new Outbox();
@@ -246,7 +246,6 @@ export function Portals() {
                                 </div>
                                 <div className="portal-card-actions">
                                     <button className="button secondary button-sm" type="button" onClick={() => {
-                                        filters.value = {...filters.value, portal: portal.name};
                                         view.value = 'cronologia';
                                     }}>Ver estudios
                                     </button>

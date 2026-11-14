@@ -4,7 +4,7 @@ import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from 
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import type {Operation, OperationDraft, Study} from '@domain/models';
-import {operations, visibleOperations, studies, filters, view} from '../state/store';
+import {operations, visibleOperations, studies, view} from '../state/store';
 
 const outbox = new Outbox();
 
@@ -377,7 +377,6 @@ export function Operations() {
                                 <button className="button ghost button-sm" type="button"
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => {
-                                            filters.value = {...filters.value, operationId: operation.id};
                                             view.value = 'cronologia';
                                         }}>Ver estudios
                                 </button>

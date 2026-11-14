@@ -18,7 +18,6 @@ import {
 import {
     setIsSignedIn,
     setError,
-    clearFilters,
     setApprovedFolderId,
     setIntakeCandidates,
     setIntakeError,
@@ -52,7 +51,6 @@ export function useAuth({
             if (!signedIn) {
                 setIsSignedIn(false);
                 view.value = 'cronologia';
-                clearFilters();
                 setApprovedFolderId(null);
                 setIntakeCandidates([]);
                 setIntakeError(null);

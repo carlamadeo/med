@@ -3,7 +3,6 @@ import type {JSX} from 'preact';
 import type {Study, ViewMode} from '@domain/models';
 import {normalizeSearch, searchArchive} from '@domain/search';
 import {
-    filters,
     portals,
     setExporting,
     setRecoveringStudyId,
@@ -106,7 +105,6 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
             label: `Buscar «${query.trim()}» en la biblioteca`,
             icon: 'i-search',
             run: () => {
-                filters.value = {...filters.value, query};
                 onNavigate('cronologia');
                 close();
             },
@@ -140,7 +138,6 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
             hint: result.portal?.url ?? result.subtitle,
             icon: 'i-globe',
             run: () => {
-                if (result.portal) filters.value = {...filters.value, portal: result.portal.name};
                 onNavigate('cronologia');
                 close();
             },
