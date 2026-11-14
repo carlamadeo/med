@@ -1,5 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
@@ -263,7 +263,10 @@ export function Operations() {
         const linkedCount = orderedStudies.filter((study) => study.operationId === detail.id).length;
         return <section className="operation-detail" id="operation-detail" aria-labelledby="operation-detail-title">
             <button className="button ghost button-sm operation-back" type="button" onClick={() => setDetailId(null)}>
-                <svg className="icon"><use href="#i-chevron-left" /></svg> Volver a operaciones
+                <svg className="icon">
+                    <use href="#i-chevron-left"/>
+                </svg>
+                Volver a operaciones
             </button>
 
             <div className="operation-detail-head">
@@ -280,7 +283,8 @@ export function Operations() {
 
             <div className="linked-head">
                 <h3>Estudios vinculados</h3>
-                <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola operación.</p>
+                <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola
+                    operación.</p>
             </div>
 
             {orderedStudies.length ? (
@@ -315,17 +319,23 @@ export function Operations() {
             <div className="operations-head-actions">
                 <span className="count-badge">{visibleOperations.value.length}</span>
                 <button className="button primary" type="button" onClick={openNew}>
-                    <svg className="icon"><use href="#i-plus" /></svg> Agregar operación
+                    <svg className="icon">
+                        <use href="#i-plus"/>
+                    </svg>
+                    Agregar operación
                 </button>
             </div>
         </div>
 
         <div className="operations-toolbar">
             <label className="operations-search">
-                <svg className="icon"><use href="#i-search" /></svg>
+                <svg className="icon">
+                    <use href="#i-search"/>
+                </svg>
                 <span className="sr-only">Buscar operaciones</span>
-                <input id="operation-search" type="search" placeholder="Buscar por nombre, cirujano o institución…" value={query}
-                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+                <input id="operation-search" type="search" placeholder="Buscar por nombre, cirujano o institución…"
+                       value={query}
+                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
             </label>
         </div>
 
@@ -360,19 +370,23 @@ export function Operations() {
                         <div className="operation-card-foot">
                             <span className="count-badge">{count} {count === 1 ? 'estudio' : 'estudios'}</span>
                             <div className="operation-actions">
-                                <button className="button secondary button-sm" type="button" data-detail disabled={Boolean(operation.syncStatus)}
+                                <button className="button secondary button-sm" type="button" data-detail
+                                        disabled={Boolean(operation.syncStatus)}
                                         onClick={() => setDetailId(operation.id)}>Ver ficha
                                 </button>
-                                <button className="button ghost button-sm" type="button" disabled={Boolean(operation.syncStatus)}
+                                <button className="button ghost button-sm" type="button"
+                                        disabled={Boolean(operation.syncStatus)}
                                         onClick={() => {
                                             filters.value = {...filters.value, operationId: operation.id};
                                             view.value = 'cronologia';
                                         }}>Ver estudios
                                 </button>
-                                <button className="button ghost button-sm" type="button" disabled={Boolean(operation.syncStatus)}
+                                <button className="button ghost button-sm" type="button"
+                                        disabled={Boolean(operation.syncStatus)}
                                         onClick={() => openEdit(operation)}>Editar
                                 </button>
-                                <button className="button ghost button-sm operation-delete" type="button" disabled={busy || Boolean(operation.syncStatus)}
+                                <button className="button ghost button-sm operation-delete" type="button"
+                                        disabled={busy || Boolean(operation.syncStatus)}
                                         onClick={() => void remove(operation)}>Eliminar
                                 </button>
                             </div>
@@ -382,17 +396,20 @@ export function Operations() {
             </ul>
         ) : (
             <div className="operation-empty">
-                <span className="operation-empty-icon"><svg className="icon"><use href="#i-clipboard" /></svg></span>
+                <span className="operation-empty-icon"><svg className="icon"><use href="#i-clipboard"/></svg></span>
                 <p>{normalizedQuery ? 'No hay operaciones que coincidan con la búsqueda.' : 'Todavía no hay operaciones guardadas.'}</p>
                 {normalizedQuery ? (
-                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar búsqueda</button>
+                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
+                        búsqueda</button>
                 ) : (
-                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar operación</button>
+                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar
+                        operación</button>
                 )}
             </div>
         )}
 
-        <dialog ref={dialogRef} id="operation-dialog" className="dialog operation-dialog" aria-labelledby="operation-dialog-title" onClose={closeForm}>
+        <dialog ref={dialogRef} id="operation-dialog" className="dialog operation-dialog"
+                aria-labelledby="operation-dialog-title" onClose={closeForm}>
             <form id="operation-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
                 event.preventDefault();
                 void save(event.currentTarget);
@@ -402,23 +419,33 @@ export function Operations() {
                         <p className="eyebrow">Historial</p>
                         <h2 id="operation-dialog-title">{editing ? 'Editar operación' : 'Agregar operación'}</h2>
                     </div>
-                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm} disabled={busy}>
-                        <svg className="icon"><use href="#i-close" /></svg>
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm}
+                            disabled={busy}>
+                        <svg className="icon">
+                            <use href="#i-close"/>
+                        </svg>
                     </button>
                 </div>
 
                 <fieldset disabled={busy}>
                     <div className="operation-form-grid">
-                        <label>Nombre <input id="operation-name" name="name" required maxLength={120} defaultValue={editing?.name ?? ''} /></label>
-                        <label>Fecha <input id="operation-date" name="date" type="date" required defaultValue={editing?.date ?? ''} /></label>
-                        <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''} /></label>
-                        <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''} /></label>
-                        <label className="wide">Procedimiento <input id="operation-type" name="type" required defaultValue={editing?.type ?? ''} /></label>
-                        <label className="wide">Notas <textarea name="notes" defaultValue={editing?.notes ?? ''} /></label>
+                        <label>Nombre <input id="operation-name" name="name" required maxLength={120}
+                                             defaultValue={editing?.name ?? ''}/></label>
+                        <label>Fecha <input id="operation-date" name="date" type="date" required
+                                            defaultValue={editing?.date ?? ''}/></label>
+                        <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
+                        <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
+                        <label className="wide">Procedimiento <input id="operation-type" name="type" required
+                                                                     defaultValue={editing?.type ?? ''}/></label>
+                        <label className="wide">Notas <textarea name="notes"
+                                                                defaultValue={editing?.notes ?? ''}/></label>
                     </div>
                     <div className="dialog-actions">
-                        <button className="button secondary" type="button" onClick={closeForm} disabled={busy}>Cancelar</button>
-                        <button className="button primary" type="submit" disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar operación'}</button>
+                        <button className="button secondary" type="button" onClick={closeForm}
+                                disabled={busy}>Cancelar
+                        </button>
+                        <button className="button primary" type="submit"
+                                disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar operación'}</button>
                     </div>
                 </fieldset>
             </form>

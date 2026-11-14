@@ -83,8 +83,22 @@ it('does not open a downloaded candidate after the Drive account changes', async
 
 it('filters candidates by file name', async () => {
     const candidates = [
-        {id: 'a', name: 'informe-laboratorio.pdf', mimeType: 'application/pdf', modifiedTime: '2026-11-10', size: 8, status: 'new' as const},
-        {id: 'b', name: 'receta-completa.pdf', mimeType: 'application/pdf', modifiedTime: '2026-11-08', size: 8, status: 'new' as const},
+        {
+            id: 'a',
+            name: 'informe-laboratorio.pdf',
+            mimeType: 'application/pdf',
+            modifiedTime: '2026-11-10',
+            size: 8,
+            status: 'new' as const
+        },
+        {
+            id: 'b',
+            name: 'receta-completa.pdf',
+            mimeType: 'application/pdf',
+            modifiedTime: '2026-11-08',
+            size: 8,
+            status: 'new' as const
+        },
     ];
     vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue(candidates);
     document.body.append(root);

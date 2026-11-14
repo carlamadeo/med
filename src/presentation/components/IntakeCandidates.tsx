@@ -128,9 +128,10 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     </div>
                 </div>
                 <div className="intake-empty">
-                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-scan" /></svg></span>
+                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-scan"/></svg></span>
                     <h3>Intake asistido no configurado</h3>
-                    <p>Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de incorporarlos.</p>
+                    <p>Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de
+                        incorporarlos.</p>
                 </div>
             </section>
         );
@@ -149,10 +150,16 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     <button type="button" className="button secondary" disabled={loading} onClick={() => {
                         setIntakeLoading(true);
                         setIntakeError(null);
-                        setIntakeCandidates(intakeCandidates.value.map(c => c.status === 'imported' ? {...c, status: 'new'} : c));
+                        setIntakeCandidates(intakeCandidates.value.map(c => c.status === 'imported' ? {
+                            ...c,
+                            status: 'new'
+                        } : c));
                         setIntakeLoading(false);
                     }}>
-                        <svg className="icon"><use href="#i-refresh" /></svg> {loading ? 'Actualizando…' : 'Actualizar'}
+                        <svg className="icon">
+                            <use href="#i-refresh"/>
+                        </svg>
+                        {loading ? 'Actualizando…' : 'Actualizar'}
                     </button>
                 </div>
             </div>
@@ -163,10 +170,12 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
 
             {folderId && (
                 <label className="intake-search">
-                    <svg className="icon"><use href="#i-search" /></svg>
+                    <svg className="icon">
+                        <use href="#i-search"/>
+                    </svg>
                     <span className="sr-only">Buscar candidatos</span>
                     <input id="intake-search" type="search" placeholder="Buscar por nombre de archivo…" value={query}
-                           onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+                           onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
                 </label>
             )}
 
@@ -179,14 +188,19 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     <ul className="intake-list" aria-busy={loading}>
                         {newCandidates.map(candidate => (
                             <li key={candidate.id} className="intake-card" data-status="new">
-                                <span className="intake-icon"><svg className="icon"><use href="#i-file" /></svg></span>
+                                <span className="intake-icon"><svg className="icon"><use href="#i-file"/></svg></span>
                                 <div className="intake-text">
                                     <p className="intake-name">{candidate.name}</p>
                                     <p className="intake-meta">{formatDate(candidate.modifiedTime)} · {formatFileSize(candidate.size)}</p>
                                 </div>
                                 <div className="intake-card-actions">
-                                    <button type="button" className="button primary button-sm" onClick={() => handleImport(candidate)} disabled={isEditorOpen.value}>Importar</button>
-                                    <button type="button" className="button quiet button-sm" onClick={() => handleDiscard(candidate)}>Descartar</button>
+                                    <button type="button" className="button primary button-sm"
+                                            onClick={() => handleImport(candidate)}
+                                            disabled={isEditorOpen.value}>Importar
+                                    </button>
+                                    <button type="button" className="button quiet button-sm"
+                                            onClick={() => handleDiscard(candidate)}>Descartar
+                                    </button>
                                 </div>
                             </li>
                         ))}
@@ -203,7 +217,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     <ul className="intake-list">
                         {pendingCandidates.map(candidate => (
                             <li key={candidate.id} className="intake-card" data-status="pending">
-                                <span className="intake-icon"><svg className="icon"><use href="#i-clock" /></svg></span>
+                                <span className="intake-icon"><svg className="icon"><use href="#i-clock"/></svg></span>
                                 <div className="intake-text">
                                     <p className="intake-name">{candidate.name}</p>
                                     <p className="intake-meta" data-tone="warning">Importando…</p>
@@ -216,17 +230,20 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
 
             {importedCandidates.length > 0 && (
                 <details className="intake-group">
-                    <summary className="intake-group-summary">Importados <span className="count-badge">{importedCandidates.length}</span></summary>
+                    <summary className="intake-group-summary">Importados <span
+                        className="count-badge">{importedCandidates.length}</span></summary>
                     <ul className="intake-list">
                         {importedCandidates.map(candidate => (
                             <li key={candidate.id} className="intake-card" data-status="imported">
-                                <span className="intake-icon"><svg className="icon"><use href="#i-check" /></svg></span>
+                                <span className="intake-icon"><svg className="icon"><use href="#i-check"/></svg></span>
                                 <div className="intake-text">
                                     <p className="intake-name">{candidate.name}</p>
                                     <p className="intake-meta">Ya importado</p>
                                 </div>
                                 <div className="intake-card-actions">
-                                    <button type="button" className="button quiet button-sm" onClick={() => handleReview(candidate)}>Revisar de nuevo</button>
+                                    <button type="button" className="button quiet button-sm"
+                                            onClick={() => handleReview(candidate)}>Revisar de nuevo
+                                    </button>
                                 </div>
                             </li>
                         ))}
@@ -236,17 +253,20 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
 
             {discardedCandidates.length > 0 && (
                 <details className="intake-group">
-                    <summary className="intake-group-summary">Descartados <span className="count-badge">{discardedCandidates.length}</span></summary>
+                    <summary className="intake-group-summary">Descartados <span
+                        className="count-badge">{discardedCandidates.length}</span></summary>
                     <ul className="intake-list">
                         {discardedCandidates.map(candidate => (
                             <li key={candidate.id} className="intake-card" data-status="discarded">
-                                <span className="intake-icon"><svg className="icon"><use href="#i-trash" /></svg></span>
+                                <span className="intake-icon"><svg className="icon"><use href="#i-trash"/></svg></span>
                                 <div className="intake-text">
                                     <p className="intake-name">{candidate.name}</p>
                                     <p className="intake-meta">Descartado</p>
                                 </div>
                                 <div className="intake-card-actions">
-                                    <button type="button" className="button quiet button-sm" onClick={() => handleReview(candidate)}>Revisar</button>
+                                    <button type="button" className="button quiet button-sm"
+                                            onClick={() => handleReview(candidate)}>Revisar
+                                    </button>
                                 </div>
                             </li>
                         ))}
@@ -256,10 +276,11 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
 
             {!loading && !error && !hasVisibleCandidates && (
                 <div className="intake-empty">
-                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-file" /></svg></span>
+                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-file"/></svg></span>
                     <h3>{normalizedQuery ? 'Sin candidatos que coincidan' : 'No hay candidatos nuevos'}</h3>
                     <p>{normalizedQuery ? 'Probá con otro nombre de archivo.' : 'La carpeta aprobada no tiene PDFs nuevos o todos fueron revisados.'}</p>
-                    {normalizedQuery && <button type="button" className="button secondary button-sm" onClick={() => setQuery('')}>Limpiar búsqueda</button>}
+                    {normalizedQuery && <button type="button" className="button secondary button-sm"
+                                                onClick={() => setQuery('')}>Limpiar búsqueda</button>}
                 </div>
             )}
         </section>

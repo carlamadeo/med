@@ -92,7 +92,8 @@ export function Appointments() {
                 <button className="button secondary" type="button" onClick={() => {
                     setEditing(null);
                     document.querySelector<HTMLInputElement>('.appointments input[name="date"]')?.focus();
-                }}>Nuevo turno</button>
+                }}>Nuevo turno
+                </button>
             </div>
         </div>
 
@@ -104,24 +105,29 @@ export function Appointments() {
             <fieldset disabled={busy}>
                 <legend>{editing ? 'Editar turno' : 'Nuevo turno'}</legend>
                 <div className="appointment-form-grid">
-                    <label>Fecha <input name="date" type="date" required defaultValue={editing?.date ?? ''} /></label>
-                    <label>Hora <input name="time" type="time" required defaultValue={editing?.time ?? ''} /></label>
-                    <label className="wide">Zona horaria <input name="timeZone" required defaultValue={editing?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} /></label>
-                    <label className="wide">Profesional <input name="professional" defaultValue={editing?.professional ?? ''} /></label>
-                    <label className="wide">Detalles <textarea name="notes" defaultValue={editing?.notes ?? ''} /></label>
+                    <label>Fecha <input name="date" type="date" required defaultValue={editing?.date ?? ''}/></label>
+                    <label>Hora <input name="time" type="time" required defaultValue={editing?.time ?? ''}/></label>
+                    <label className="wide">Zona horaria <input name="timeZone" required
+                                                                defaultValue={editing?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone}/></label>
+                    <label className="wide">Profesional <input name="professional"
+                                                               defaultValue={editing?.professional ?? ''}/></label>
+                    <label className="wide">Detalles <textarea name="notes"
+                                                               defaultValue={editing?.notes ?? ''}/></label>
                     <label>Estado <select name="status" defaultValue={editing?.status ?? 'scheduled'}>
                         <option value="scheduled">Programado</option>
                         <option value="completed">Realizado</option>
                         <option value="cancelled">Cancelado</option>
                         <option value="absent">No asistí</option>
                     </select></label>
-                    <label>Recordatorio <select name="reminderMinutes" defaultValue={String(editing?.reminderMinutes ?? '')}>
+                    <label>Recordatorio <select name="reminderMinutes"
+                                                defaultValue={String(editing?.reminderMinutes ?? '')}>
                         <option value="">Sin recordatorio</option>
                         <option value="1440">24 horas antes</option>
                         <option value="60">1 hora antes</option>
                         <option value="15">15 minutos antes</option>
                     </select></label>
-                    <label>Importe <input name="cost" type="number" min="0" step="0.01" defaultValue={editing?.cost ?? ''} /></label>
+                    <label>Importe <input name="cost" type="number" min="0" step="0.01"
+                                          defaultValue={editing?.cost ?? ''}/></label>
                     <label>Cobertura <select name="coverage" defaultValue={editing?.coverage ?? ''}>
                         <option value="">Desconocida</option>
                         <option value="all">Total</option>
@@ -129,13 +135,19 @@ export function Appointments() {
                         <option value="none">Sin cobertura</option>
                     </select></label>
                 </div>
-                <p className="appointment-note">Los avisos requieren la aplicación abierta, una sesión activa y el turno sincronizado. Permiso: {permission === 'granted' ? 'concedido' : permission === 'denied' ? 'denegado' : permission === 'unavailable' ? 'no disponible' : 'pendiente'}.</p>
-                {(!navigator.locks || !navigator.serviceWorker?.controller) && <p className="appointment-note" role="status">Los avisos no están disponibles en este navegador o todavía se está iniciando la aplicación.</p>}
-                {permission === 'default' && <button className="button secondary button-sm" type="button" onClick={() => {
-                    void Notification.requestPermission().then(setPermission);
-                }}>Activar notificaciones</button>}
+                <p className="appointment-note">Los avisos requieren la aplicación abierta, una sesión activa y el turno
+                    sincronizado.
+                    Permiso: {permission === 'granted' ? 'concedido' : permission === 'denied' ? 'denegado' : permission === 'unavailable' ? 'no disponible' : 'pendiente'}.</p>
+                {(!navigator.locks || !navigator.serviceWorker?.controller) &&
+                    <p className="appointment-note" role="status">Los avisos no están disponibles en este navegador o
+                        todavía se está iniciando la aplicación.</p>}
+                {permission === 'default' &&
+                    <button className="button secondary button-sm" type="button" onClick={() => {
+                        void Notification.requestPermission().then(setPermission);
+                    }}>Activar notificaciones</button>}
                 <div className="dialog-actions">
-                    {editing && <button className="button quiet" type="button" onClick={() => setEditing(null)}>Cancelar edición</button>}
+                    {editing && <button className="button quiet" type="button" onClick={() => setEditing(null)}>Cancelar
+                        edición</button>}
                     <button className="button primary" type="submit">Guardar turno</button>
                 </div>
             </fieldset>
@@ -143,10 +155,13 @@ export function Appointments() {
 
         <div className="appointments-toolbar">
             <label className="appointments-search">
-                <svg className="icon"><use href="#i-search" /></svg>
+                <svg className="icon">
+                    <use href="#i-search"/>
+                </svg>
                 <span className="sr-only">Buscar turnos</span>
-                <input id="appointment-search" type="search" placeholder="Buscar por profesional, nota o fecha…" value={query}
-                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+                <input id="appointment-search" type="search" placeholder="Buscar por profesional, nota o fecha…"
+                       value={query}
+                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
             </label>
         </div>
 
@@ -175,23 +190,32 @@ export function Appointments() {
                             {item.notes && <p className="appointment-notes">{item.notes}</p>}
                             <div className="appointment-tags">
                                 <span className="tag">Importe: {item.cost === null ? 'Desconocido' : item.cost}</span>
-                                <span className="tag">Cobertura: {item.coverage === 'all' ? 'Total' : item.coverage === 'partial' ? 'Parcial' : item.coverage === 'none' ? 'Sin cobertura' : 'Desconocida'}</span>
-                                {item.reminderMinutes && <span className="tag">Recordatorio: {item.reminderMinutes === 1440 ? '24 horas' : item.reminderMinutes === 60 ? '1 hora' : '15 minutos'} antes</span>}
+                                <span
+                                    className="tag">Cobertura: {item.coverage === 'all' ? 'Total' : item.coverage === 'partial' ? 'Parcial' : item.coverage === 'none' ? 'Sin cobertura' : 'Desconocida'}</span>
+                                {item.reminderMinutes && <span
+                                    className="tag">Recordatorio: {item.reminderMinutes === 1440 ? '24 horas' : item.reminderMinutes === 60 ? '1 hora' : '15 minutos'} antes</span>}
                             </div>
-                            {syncLabel && <span className="status-pill" data-tone={item.syncStatus === 'conflict' ? 'danger' : 'warning'}>{syncLabel}</span>}
+                            {syncLabel && <span className="status-pill"
+                                                data-tone={item.syncStatus === 'conflict' ? 'danger' : 'warning'}>{syncLabel}</span>}
                         </div>
                         <div className="appointment-actions">
-                            <button className="button ghost button-sm" type="button" disabled={Boolean(item.syncStatus)} onClick={() => setEditing(item)}>Editar</button>
-                            <button className="button ghost button-sm appointment-delete" type="button" disabled={Boolean(item.syncStatus)} onClick={() => remove(item)}>Eliminar</button>
+                            <button className="button ghost button-sm" type="button" disabled={Boolean(item.syncStatus)}
+                                    onClick={() => setEditing(item)}>Editar
+                            </button>
+                            <button className="button ghost button-sm appointment-delete" type="button"
+                                    disabled={Boolean(item.syncStatus)} onClick={() => remove(item)}>Eliminar
+                            </button>
                         </div>
                     </li>;
                 })}
             </ul>
         ) : (
             <div className="appointment-empty">
-                <span className="appointment-empty-icon"><svg className="icon"><use href="#i-calendar" /></svg></span>
+                <span className="appointment-empty-icon"><svg className="icon"><use href="#i-calendar"/></svg></span>
                 <p>{normalizedQuery ? 'No hay turnos que coincidan con la búsqueda.' : 'Todavía no hay turnos guardados.'}</p>
-                {normalizedQuery && <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar búsqueda</button>}
+                {normalizedQuery &&
+                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
+                        búsqueda</button>}
             </div>
         )}
     </section>;

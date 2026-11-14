@@ -51,7 +51,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                 <h2 id="pending-changes-title">Cambios pendientes</h2>
                 <span className="count-badge">{changes.length}</span>
             </div>
-            <p className="pending-status" data-tone={tone} role="status">{isSyncing ? 'Sincronizando cambios con Google Drive…' : message || defaultMessage}</p>
+            <p className="pending-status" data-tone={tone}
+               role="status">{isSyncing ? 'Sincronizando cambios con Google Drive…' : message || defaultMessage}</p>
             <ul className="pending-list">{changes.map((entry) => {
                 const remote = entry.studyId ? studies.value.find((study) => study.id === entry.studyId)
                     : entry.operationId ? operations.value.find((operation) => operation.id === entry.operationId)

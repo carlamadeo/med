@@ -34,8 +34,8 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
         env: {
-          ...process.env,
-          VITE_GOOGLE_CLIENT_ID: process.env.VITE_GOOGLE_CLIENT_ID || '123-test.apps.googleusercontent.com',
+            ...process.env,
+            VITE_GOOGLE_CLIENT_ID: process.env.VITE_GOOGLE_CLIENT_ID || '123-test.apps.googleusercontent.com',
         },
     },
 });

@@ -48,9 +48,9 @@ const labels: Record<ViewMode, string> = {
 export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
-  const menuRef = useRef<HTMLButtonElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(false);
+    const menuRef = useRef<HTMLButtonElement>(null);
+    const closeRef = useRef<HTMLButtonElement>(null);
+    const wasOpen = useRef(false);
     const studiesCount = visibleStudies.value.length;
     const operationsCount = visibleOperations.value.length;
     const portalsCount = portals.value.length;
@@ -227,7 +227,8 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
 
             <div className="app-main">
                 <header className="topbar">
-                    <button ref={menuRef} id="menuBtn" className="icon-button topbar-menu" type="button" aria-label="Abrir menú"
+                    <button ref={menuRef} id="menuBtn" className="icon-button topbar-menu" type="button"
+                            aria-label="Abrir menú"
                             aria-expanded={open} aria-controls="sidebar" hidden={!isSignedIn}
                             onClick={() => setOpen(true)}>
                         <svg className="icon">
@@ -252,8 +253,12 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
                         </nav>
                     )}
 
-                    <button className="global-search" id="global-search-trigger" type="button" aria-label="Abrir búsqueda global" hidden={!isSignedIn} onClick={() => setPaletteOpen(true)}>
-                        <svg className="icon"><use href="#i-search"/></svg>
+                    <button className="global-search" id="global-search-trigger" type="button"
+                            aria-label="Abrir búsqueda global" hidden={!isSignedIn}
+                            onClick={() => setPaletteOpen(true)}>
+                        <svg className="icon">
+                            <use href="#i-search"/>
+                        </svg>
                         <span>Buscar en el archivo…</span>
                         <kbd className="kbd">⌘K</kbd>
                     </button>
@@ -289,7 +294,9 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
                 onClose={() => setPaletteOpen(false)}
                 onOpenStudy={onOpenStudy}
                 onAddStudy={onAddStudy}
-                onNavigate={(next) => { view.value = next; }}
+                onNavigate={(next) => {
+                    view.value = next;
+                }}
             />
         </div>
     );

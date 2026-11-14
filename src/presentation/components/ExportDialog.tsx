@@ -146,19 +146,24 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                         <h2 id="export-title">Exportar historia</h2>
                         <p id="export-copy" className="export-desc">Descargá una copia portable de tus registros.</p>
                     </div>
-                    <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy} onClick={handleCancel}>
-                        <svg className="icon"><use href="#i-close" /></svg>
+                    <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}
+                            onClick={handleCancel}>
+                        <svg className="icon">
+                            <use href="#i-close"/>
+                        </svg>
                     </button>
                 </div>
 
-                <p className="form-error export-error" id="export-error" role="alert" hidden={!error && !expError}>{error || expError}</p>
+                <p className="form-error export-error" id="export-error" role="alert"
+                   hidden={!error && !expError}>{error || expError}</p>
 
-                <button type="button" className="button secondary export-reconnect" hidden={!sessionLost} onClick={onReconnect}>
+                <button type="button" className="button secondary export-reconnect" hidden={!sessionLost}
+                        onClick={onReconnect}>
                     Reconectar Google Drive
                 </button>
 
                 <div className="export-summary" id="export-summary">
-                    <span className="export-summary-icon"><svg className="icon"><use href="#i-download" /></svg></span>
+                    <span className="export-summary-icon"><svg className="icon"><use href="#i-download"/></svg></span>
                     <div>
                         <strong>{getStudiesToExport().length} {getStudiesToExport().length === 1 ? 'estudio' : 'estudios'}</strong>
                         <span>{hasOtherRecords ? 'Incluye operaciones, portales, consultas, recetas, episodios y turnos.' : 'Se descargará un archivo ZIP con el manifiesto y los documentos seleccionados.'}</span>
@@ -169,29 +174,38 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <legend>Qué exportar</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'} onChange={() => handleScopeChange('all')} />
+                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'}
+                                   onChange={() => handleScopeChange('all')}/>
                             <span>Todos los estudios <small>{visibleStudies.value.length}</small></span>
                         </label>
                         <label className="export-option">
-                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'} onChange={() => handleScopeChange('filtered')} />
+                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'}
+                                   onChange={() => handleScopeChange('filtered')}/>
                             <span>Solo los filtrados <small>{filteredStudies.value.length}</small></span>
                         </label>
                     </div>
                 </fieldset>
 
-                <p className="export-note">La exportación completa incluye operaciones, portales, consultas, recetas, episodios y turnos. La filtrada incluye los estudios seleccionados y sus entidades relacionadas.</p>
+                <p className="export-note">La exportación completa incluye operaciones, portales, consultas, recetas,
+                    episodios y turnos. La filtrada incluye los estudios seleccionados y sus entidades relacionadas.</p>
 
                 <fieldset className="export-section" disabled={busy || sessionLost}>
                     <legend>Contenido a incluir</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="checkbox" checked={includePdfs} onChange={(e) => setIncludePdfs(e.currentTarget.checked)} />
-                            <svg className="icon"><use href="#i-file" /></svg>
+                            <input type="checkbox" checked={includePdfs}
+                                   onChange={(e) => setIncludePdfs(e.currentTarget.checked)}/>
+                            <svg className="icon">
+                                <use href="#i-file"/>
+                            </svg>
                             <span>Archivos PDF</span>
                         </label>
                         <label className="export-option">
-                            <input type="checkbox" checked={includeViewerLinks} onChange={(e) => setIncludeViewerLinks(e.currentTarget.checked)} />
-                            <svg className="icon"><use href="#i-external" /></svg>
+                            <input type="checkbox" checked={includeViewerLinks}
+                                   onChange={(e) => setIncludeViewerLinks(e.currentTarget.checked)}/>
+                            <svg className="icon">
+                                <use href="#i-external"/>
+                            </svg>
                             <span>Enlaces a visores</span>
                         </label>
                     </div>
@@ -199,13 +213,16 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
 
                 <label className="export-filename">
                     Nombre del archivo
-                    <input type="text" value={filename} onInput={(e) => setFilename(e.currentTarget.value)} placeholder="mis-estudios-2024-01-15.zip" maxLength={120} disabled={busy || sessionLost} />
+                    <input type="text" value={filename} onInput={(e) => setFilename(e.currentTarget.value)}
+                           placeholder="mis-estudios-2024-01-15.zip" maxLength={120} disabled={busy || sessionLost}/>
                     <span className="hint">La exportación se descargará como un archivo ZIP.</span>
                 </label>
 
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar</button>
-                    <button type="submit" className="button primary" id="export-confirm" disabled={busy || sessionLost || !hasRecords}>
+                    <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar
+                    </button>
+                    <button type="submit" className="button primary" id="export-confirm"
+                            disabled={busy || sessionLost || !hasRecords}>
                         {busy ? 'Exportando…' : 'Exportar'}
                     </button>
                 </div>
