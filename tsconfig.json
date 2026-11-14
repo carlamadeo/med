@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -17,21 +22,58 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@": ["src"],
-      "@core/*": ["src/core/*"],
-      "@core": ["src/core"],
-      "@domain/*": ["src/domain/*"],
-      "@domain": ["src/domain"],
-      "@data/*": ["src/data/*"],
-      "@data": ["src/data"],
-      "@presentation/*": ["src/presentation/*"],
-      "@presentation": ["src/presentation"],
-      "@workers/*": ["src/workers/*"],
-      "@workers": ["src/workers"]
+      "@/*": [
+        "src/*"
+      ],
+      "@": [
+        "src"
+      ],
+      "@core/*": [
+        "src/core/*"
+      ],
+      "@core": [
+        "src/core"
+      ],
+      "@domain/*": [
+        "src/domain/*"
+      ],
+      "@domain": [
+        "src/domain"
+      ],
+      "@data/*": [
+        "src/data/*"
+      ],
+      "@data": [
+        "src/data"
+      ],
+      "@presentation/*": [
+        "src/presentation/*"
+      ],
+      "@presentation": [
+        "src/presentation"
+      ],
+      "@workers/*": [
+        "src/workers/*"
+      ],
+      "@workers": [
+        "src/workers"
+      ]
     },
-    "types": ["vite/client", "node"]
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
-  "include": ["src/**/*", "test/**/*", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"],
-  "exclude": ["node_modules", "dist", "web"]
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "web"
+  ]
 }

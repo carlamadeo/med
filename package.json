@@ -21,13 +21,15 @@
     "test:outbox": "playwright test --config playwright.outbox.config.ts",
     "test:lighthouse": "npm run build && lhci autorun",
     "lint": "eslint . && stylelint 'src/**/*.css'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:a11y": "vitest run test/a11y.test.ts"
   },
   "dependencies": {
     "@preact/signals": "^2.0.0",
     "@tanstack/virtual-core": "^3.19.11",
     "@tesseract.js-data/spa": "1.0.0",
     "comlink": "^4.4.2",
+    "jszip": "^3.10.2",
     "pdfjs-dist": "6.5.438",
     "preact": "^10.23.0",
     "tesseract.js": "7.0.0"
@@ -40,6 +42,7 @@
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^5.1.0",
+    "axe-core": "^4.14.0",
     "eslint": "^9.9.0",
     "eslint-plugin-preact": "^0.1.0",
     "fake-indexeddb": "^6.2.8",

@@ -1,58 +1,74 @@
-import type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile } from './models';
+import type {
+    Study,
+    StudyDraft,
+    Operation,
+    OperationDraft,
+    Portal,
+    PortalDraft,
+    DriveFile,
+    Episode,
+    EpisodeDraft
+} from './models';
 
-export type { Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile };
+export type {Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, Episode, EpisodeDraft};
+
+export interface IntakeCandidate {
+    id: string;
+    name: string;
+    mimeType: string;
+    modifiedTime: string;
+    size: number;
+    status: 'new' | 'imported' | 'discarded' | 'pending';
+}
 
 export interface StudyRepository {
-  /** Served from the local cache while fresh; `force` always asks Drive. */
-  list(options?: { force?: boolean }): Promise<Study[]>;
-  get(id: string): Promise<Study>;
-  /** Reserves the id of a study before it is created, so a retried save cannot duplicate it. */
-  reserveId(): Promise<string>;
-  /** Rejects with a conflict error when `draft.revision` is not Drive's current one. */
-  save(draft: StudyDraft): Promise<Study>;
-  /** Rejects with a conflict error when `revision` is not Drive's current one. */
-  delete(id: string, revision: string): Promise<void>;
-  getPdfFile(fileId: string): Promise<File>;
-  watchChanges?(): AsyncIterable<StudyChange>;
-}
+    /** Served from the local cache while fresh; `force` always asks Drive. */
+    list(options?: { force?: boolean }): Promise<Study[]>;
 
-export interface OperationRepository {
-  list(): Promise<Operation[]>;
-  get(id: string): Promise<Operation>;
-  save(draft: OperationDraft): Promise<Operation>;
-  delete(id: string): Promise<void>;
-}
+    get(id: string): Promise<Study>;
 
-export interface PortalRepository {
-  list(): Promise<Portal[]>;
-  get(name: string): Promise<Portal | undefined>;
-  save(draft: PortalDraft): Promise<Portal>;
-  delete(name: string): Promise<void>;
+    /** Reserves the id of a study before it is created, so a retried save cannot duplicate it. */
+    reserveId(): Promise<string>;
+
+    /** Rejects with a conflict error when `draft.revision` is not Drive's current one. */
+    save(draft: StudyDraft): Promise<Study>;
+
+    /** Rejects with a conflict error when `revision` is not Drive's current one. */
+    delete(id: string, revision: string): Promise<void>;
+
+    getPdfFile(fileId: string): Promise<File>;
+
+    watchChanges?(): AsyncIterable<StudyChange>;
 }
 
 export interface AuthRepository {
-  signIn(): Promise<void>;
-  signOut(): Promise<void>;
-  getAccessToken(): Promise<string>;
-  isSignedIn(): boolean;
-  onAuthChange(callback: (signedIn: boolean) => void): () => void;
+    signIn(): Promise<void>;
+
+    signOut(): Promise<void>;
+
+    getAccessToken(): Promise<string>;
+
+    isSignedIn(): boolean;
+
+    onAuthChange(callback: (signedIn: boolean) => void): () => void;
 }
 
 export type StudyChange =
-  | { type: 'added'; study: Study }
-  | { type: 'updated'; study: Study }
-  | { type: 'deleted'; id: string };
+    | { type: 'added'; study: Study }
+    | { type: 'updated'; study: Study }
+    | { type: 'deleted'; id: string };
 
 export interface DriveFileMetadata {
-  id: string;
-  title: string;
-  date: string;
-  types: string[];
-  /** Legacy single-type field written by older versions; read-only, never written back. */
-  type?: string;
-  doctor: string;
-  portal: string;
-  viewer: string;
-  reportName: string;
-  operationId?: string;
+    id: string;
+    title: string;
+    date: string;
+    types: string[];
+    /** Legacy single-type field written by older versions; read-only, never written back. */
+    type?: string;
+    doctor: string;
+    portal: string;
+    viewer: string;
+    reportName: string;
+    operationId?: string;
+    documentIds?: string[];
 }

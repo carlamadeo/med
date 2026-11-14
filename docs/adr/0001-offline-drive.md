@@ -8,7 +8,7 @@ La aplicación no tiene servidor propio. Drive es la fuente de verdad y los docu
 
 ## Decisión
 
-El service worker guarda únicamente recursos públicos de la aplicación. Las fichas consultadas se guardan en IndexedDB y la copia se vincula a un hash del token de la sesión. Al cambiar o vencer el token no se muestra la copia anterior. Esto permite la lectura sin red durante la misma sesión, pero obliga a volver a cargar los datos tras renovar el token.
+El service worker guarda únicamente recursos públicos de la aplicación. Las fichas consultadas se guardan en IndexedDB y la copia se vincula a un hash del identificador verificado de la cuenta y del token de la sesión. Al cambiar o vencer el token no se muestra la copia anterior. Esto permite la lectura sin red durante la misma sesión, pero obliga a volver a cargar los datos tras renovar el token.
 
 La cola de cambios se guarda en otra base de IndexedDB y se asocia al identificador de la cuenta que devuelve `about.user.permissionId` de Drive. La identidad debe haberse verificado en línea antes de aceptar cambios sin red. Cerrar sesión borra la caché de fichas, no la cola. Se reserva un ID de Drive antes de enviar una ficha nueva y se conserva para poder reintentar. Los cambios a una misma ficha no se acumulan de forma concurrente y Web Locks serializa el envío entre pestañas.
 
