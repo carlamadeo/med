@@ -4016,3 +4016,268 @@
     max-width: none;
   }
 }
+
+
+.dialog.editor {
+  width: min(calc(100vw - 2rem), 44rem);
+  max-height: 90vh;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.dialog.editor .dialog-heading h2 {
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.dialog.editor .dialog-heading p {
+  margin-top: 0.2rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.dialog.editor label {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.dialog.editor .attachments {
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.dialog.editor .report-upload {
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+  background: var(--color-brand-light);
+}
+
+.dialog.editor .type-option {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 0.75rem;
+}
+
+.dialog.editor .type-option:has(input:checked) {
+  border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-border));
+  background: var(--color-brand-light);
+  color: var(--color-brand);
+}
+
+.dialog.editor .analysis-progress {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.dialog.editor .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.library.access {
+  width: min(100%, 34rem);
+  margin: 3rem auto;
+  padding: 2.5rem 1.75rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.library.access .file-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-brand-light);
+  color: var(--color-brand);
+}
+
+.library.access .file-icon .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.library.access h2 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.library.access p {
+  max-width: 42ch;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.library.access .button {
+  margin-top: 0.4rem;
+}
+
+.dialog.onboarding {
+  width: min(calc(100vw - 2rem), 32rem);
+  padding: 1.25rem;
+}
+
+.dialog.onboarding .dialog-heading h2 {
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.dialog.onboarding .onboarding-steps {
+  margin: 1rem 0;
+}
+
+.pending-changes {
+  padding: 1rem;
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pending-head h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.pending-status {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.pending-status[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--color-warning) 25%, var(--color-border));
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.pending-status[data-tone='danger'] {
+  border-color: color-mix(in srgb, var(--color-error) 25%, var(--color-border));
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.pending-status[data-tone='info'] {
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+  background: var(--color-brand-light);
+  color: var(--color-brand);
+}
+
+.pending-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pending-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.pending-item[data-status='conflict'],
+.pending-item[data-status='failed'] {
+  border-color: color-mix(in srgb, var(--color-error) 30%, var(--color-border));
+  background: var(--color-error-light);
+}
+
+.pending-item p {
+  margin: 0.15rem 0;
+  color: var(--color-text-secondary);
+}
+
+.pending-item summary {
+  color: var(--color-brand);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.pending-item .button {
+  margin-top: 0.25rem;
+  justify-self: start;
+}
+
+#share,
+#confirm,
+#recovery {
+  width: min(calc(100vw - 2rem), 40rem);
+  max-height: 90vh;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+#share .dialog-heading h2,
+#confirm .dialog-heading h2,
+#recovery .dialog-heading h2 {
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+#share .dialog-heading p,
+#confirm .dialog-heading p,
+#recovery .dialog-heading p {
+  margin-top: 0.2rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+}
+
+#share fieldset,
+#recovery fieldset {
+  padding: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+#share label,
+#recovery label {
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+#share .dialog-actions,
+#confirm .dialog-actions,
+#recovery .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}

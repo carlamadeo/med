@@ -43,17 +43,22 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
 
     if (changes.length === 0 && !message) return null;
 
+    const tone = isSyncing ? 'info' : changes.some((entry) => entry.status === 'failed') ? 'danger' : changes.some((entry) => entry.status === 'conflict') ? 'warning' : 'neutral';
+
     return (
-        <section id="pending-changes" className="pending-changes" aria-label="Cambios pendientes">
-            <h2>Cambios pendientes ({changes.length})</h2>
-            <p role="status">{isSyncing ? 'Sincronizando cambios con Google Drive…' : message || defaultMessage}</p>
-            <ul>{changes.map((entry) => {
+        <section id="pending-changes" className="pending-changes" aria-labelledby="pending-changes-title">
+            <div className="pending-head">
+                <h2 id="pending-changes-title">Cambios pendientes</h2>
+                <span className="count-badge">{changes.length}</span>
+            </div>
+            <p className="pending-status" data-tone={tone} role="status">{isSyncing ? 'Sincronizando cambios con Google Drive…' : message || defaultMessage}</p>
+            <ul className="pending-list">{changes.map((entry) => {
                 const remote = entry.studyId ? studies.value.find((study) => study.id === entry.studyId)
                     : entry.operationId ? operations.value.find((operation) => operation.id === entry.operationId)
                         : entry.portalId ? portals.value.find((portal) => portal.id === entry.portalId)
                             : entry.eventId ? medicalEvents.value.find((event) => event.id === entry.eventId) : undefined;
                 return (
-                    <li key={entry.id}>
+                    <li key={entry.id} className="pending-item" data-status={entry.status}>
                         {entry.kind === 'appointment-save'
                             ? `Turno ${entry.appointmentDraft?.date ?? ''} ${entry.appointmentDraft?.time ?? ''}`
                             : entry.kind === 'restore'
