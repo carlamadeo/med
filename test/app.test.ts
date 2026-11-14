@@ -7,7 +7,6 @@ import {http, HttpResponse} from 'msw';
 import {act} from 'preact/test-utils';
 import {afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 import {driveAuth} from '@data';
-import {clearFilters} from '@presentation/state/store';
 import {addRemoteStudy, clearFakeDrive, fakeDriveFile, resetFakeDrive, SEED_PDF_ID, touchRemote} from './fake-drive';
 import {$, closeDialogs, mountPage, reloadLibrary, rowIds, text, TYPES, typeInto} from './page';
 import {server} from './server';
@@ -26,7 +25,6 @@ beforeAll(() => mountPage());
 
 beforeEach(async () => {
     resetFakeDrive();
-    clearFilters(); // filters from a previous test must not leak into this one
     await reloadLibrary();
 });
 

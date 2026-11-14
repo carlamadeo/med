@@ -23,8 +23,6 @@ import {
     recoveryError,
     setStudies,
     setError,
-    filters,
-    clearFilters,
     setEditingStudy,
     setEditorOpen,
     setDeletingStudyId,
@@ -113,12 +111,7 @@ export function LibraryPage() {
                 document.querySelector('dialog[open]')) return;
             const target = event.target;
             if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
-            if (event.key === 'Escape') {
-                clearFilters();
-            } else if (event.key === '/') {
-                event.preventDefault();
-                document.querySelector<HTMLInputElement>('#search')?.focus();
-            } else if (event.key.toLowerCase() === 'n' && !event.repeat) {
+            if (event.key.toLowerCase() === 'n' && !event.repeat) {
                 event.preventDefault();
                 openEditor(null);
             }
@@ -234,7 +227,6 @@ export function LibraryPage() {
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
             invalidateStudies();
             setStudies([...studies.value.filter((item) => item.id !== saved.id), saved]);
-            if (!draft.driveFileId) clearFilters();
             pendingId.current = '';
             setEditorOpen(false);
             await loadStudies(true);
@@ -335,10 +327,6 @@ export function LibraryPage() {
                                 onEdit={openEditor}
                                 onDelete={(study: Study) => setDeletingStudyId(study.id)}
                                 onShare={openShare}
-                                onClearFilters={clearFilters}
-                                onSearch={(query) => {
-                                    filters.value = {...filters.value, query};
-                                }}
                                 onRetryLoad={loadStudies}
                                 onAddStudy={() => openEditor(null)}
                                 onOpenCandidate={openEditor}

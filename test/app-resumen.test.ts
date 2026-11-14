@@ -1,12 +1,11 @@
 import {act} from 'preact/test-utils';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
-import {clearFilters, view} from '@presentation/state/store';
+import {view} from '@presentation/state/store';
 import {$, mountPage, reloadLibrary} from './page';
 
 beforeAll(() => mountPage());
 
 beforeEach(async () => {
-    clearFilters();
     act(() => {
         view.value = 'cronologia';
     });

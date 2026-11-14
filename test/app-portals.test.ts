@@ -1,6 +1,6 @@
 import {act} from 'preact/test-utils';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
-import {portals, clearFilters, view} from '@presentation/state/store';
+import {portals, view} from '@presentation/state/store';
 import {$, mountPage, typeInto} from './page';
 
 beforeAll(async () => {
@@ -9,7 +9,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-    clearFilters();
     act(() => {
         view.value = 'portales';
     });

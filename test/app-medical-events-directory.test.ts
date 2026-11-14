@@ -1,6 +1,6 @@
 import {act} from 'preact/test-utils';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
-import {clearFilters, medicalEvents, view} from '@presentation/state/store';
+import {medicalEvents, view} from '@presentation/state/store';
 import type {MedicalEvent} from '@domain/models';
 import {$, mountPage, typeInto} from './page';
 
@@ -29,7 +29,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-    clearFilters();
     act(() => {
         view.value = 'eventos';
     });
