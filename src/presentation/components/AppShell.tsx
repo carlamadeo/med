@@ -1,9 +1,8 @@
 import {useEffect, useState} from 'preact/hooks';
 import type {ComponentChildren} from 'preact';
 import {appointmentStatus} from '@domain/appointments';
-import type {ViewMode} from '@domain/models';
+import type {Study, ViewMode} from '@domain/models';
 import {
-    filters,
     pendingChanges,
     portals,
     setExporting,
@@ -14,10 +13,13 @@ import {
     visibleStudies,
 } from '../state/store';
 import {ThemeToggle} from './ThemeToggle';
+import {CommandPalette} from './CommandPalette';
 
 interface AppShellProps {
     isSignedIn: boolean;
     onSignOut: () => void;
+    onOpenStudy: (study: Study) => void;
+    onAddStudy: () => void;
     children: ComponentChildren;
 }
 
@@ -43,8 +45,9 @@ const labels: Record<ViewMode, string> = {
     intake: 'Intake asistido',
 };
 
-export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
+export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
+    const [paletteOpen, setPaletteOpen] = useState(false);
     const studiesCount = visibleStudies.value.length;
     const operationsCount = visibleOperations.value.length;
     const portalsCount = portals.value.length;
@@ -71,6 +74,21 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
             document.body.style.overflow = '';
         };
     }, [open]);
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+                const target = event.target as HTMLElement | null;
+                const tag = target?.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+                if (document.querySelector('dialog[open]') && !paletteOpen) return;
+                event.preventDefault();
+                setPaletteOpen((value) => !value);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [paletteOpen]);
 
     const groups: { label: string; items: NavItem[] }[] = [
         {
@@ -124,14 +142,6 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
             return;
         }
         if (item.view) view.value = item.view;
-    };
-
-    const submitSearch = (event: Event) => {
-        event.preventDefault();
-        const input = document.getElementById('global-search') as HTMLInputElement | null;
-        filters.value = {...filters.value, query: input?.value ?? ''};
-        view.value = 'cronologia';
-        window.setTimeout(() => document.getElementById('search')?.focus(), 0);
     };
 
     const isActive = (item: NavItem) => item.activeViews ? item.activeViews.includes(view.value) : item.view === view.value;
@@ -230,16 +240,11 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
                         </nav>
                     )}
 
-                    <form className="global-search" role="search" onSubmit={submitSearch} hidden={!isSignedIn}>
-                        <svg className="icon">
-                            <use href="#i-search"/>
-                        </svg>
-                        <span className="sr-only">Buscar en el archivo</span>
-                        <input id="global-search" type="search" placeholder="Buscar estudios, portales…"
-                               value={filters.value.query} onInput={(event) => {
-                            filters.value = {...filters.value, query: (event.target as HTMLInputElement).value};
-                        }}/>
-                    </form>
+                    <button className="global-search" id="global-search-trigger" type="button" aria-label="Abrir búsqueda global" hidden={!isSignedIn} onClick={() => setPaletteOpen(true)}>
+                        <svg className="icon"><use href="#i-search"/></svg>
+                        <span>Buscar en el archivo…</span>
+                        <kbd className="kbd">⌘K</kbd>
+                    </button>
 
                     <div className="topbar-actions">
                         <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Privado</span>
@@ -266,6 +271,14 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
 
                 {children}
             </div>
+
+            <CommandPalette
+                open={paletteOpen}
+                onClose={() => setPaletteOpen(false)}
+                onOpenStudy={onOpenStudy}
+                onAddStudy={onAddStudy}
+                onNavigate={(next) => { view.value = next; }}
+            />
         </div>
     );
 }

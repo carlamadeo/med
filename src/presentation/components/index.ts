@@ -14,6 +14,7 @@ export * from './Operations';
 export * from './Portals';
 export * from './PendingChangesSection';
 export * from './AppShell';
+export * from './CommandPalette';
 export * from './Resumen';
 export * from './SummaryChart';
 export * from './LibraryTabs';

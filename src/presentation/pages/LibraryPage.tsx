@@ -309,7 +309,7 @@ export function LibraryPage() {
 
     return (
         <>
-            <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()}>
+            <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()} onOpenStudy={openEditor} onAddStudy={() => openEditor(null)}>
                 <main className="wrap" id="main" role="main">
                     <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value}
                                   typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'}/>
