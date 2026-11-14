@@ -62,7 +62,7 @@ export function StudyRow({
                 <div className="record-text">
                     <h3 className="record-title">{study.title}</h3>
                     {study.syncStatus &&
-                        <p>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
+                        <p className="record-status" data-tone={study.syncStatus === 'conflict' ? 'danger' : study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
                     <p className="record-meta">
                         <time dateTime={study.date}>{formatStudyDate(study.date)}</time>
                         {study.doctor && <span className="record-doctor">{study.doctor}</span>}
