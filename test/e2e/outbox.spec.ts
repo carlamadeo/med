@@ -136,12 +136,14 @@ test('queues a study offline and syncs it after reconnecting to the same account
     await expect(page.locator('#results')).toContainText('Informe de prueba');
     await context.setOffline(true);
     await navigateTo(page, 'operaciones');
+    await page.getByRole('button', {name: 'Agregar operación'}).first().click();
     await page.locator('#operation-name').fill('Cirugía pendiente');
     await page.locator('#operation-date').fill('2024-01-01');
     await page.locator('#operation-type').fill('Procedimiento');
     await page.getByRole('button', {name: 'Guardar operación'}).click();
     await expect(page.locator('#pending-changes')).toContainText('Cirugía pendiente');
     await navigateTo(page, 'portales');
+    await page.getByRole('button', {name: 'Agregar portal'}).first().click();
     await page.locator('#portal-name').fill('Clínica pendiente');
     await page.locator('#portal-url').fill('https://example.com');
     await page.getByRole('button', {name: 'Guardar portal'}).click();
@@ -153,6 +155,7 @@ test('queues a study offline and syncs it after reconnecting to the same account
     await expect(page.locator('#operations-list')).toContainText('Cirugía pendiente');
     await context.setOffline(true);
     await navigateTo(page, 'eventos');
+    await page.getByRole('button', {name: 'Agregar consulta'}).first().click();
     await page.locator('#event-date').fill('2024-04-01');
     await page.locator('#event-notes').fill('Consulta de prueba');
     await page.locator('[data-event-study="test-study"]').check();
