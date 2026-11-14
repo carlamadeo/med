@@ -1,8 +1,8 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useState} from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
-import {todayLocal} from '@domain/utils';
+import {normalize, todayLocal} from '@domain/utils';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
 import {episodes, visibleEpisodes} from '../state/store';
 
@@ -69,6 +69,28 @@ export function Episodes() {
     const [message, setMessage] = useState('');
     const [observations, setObservations] = useState<FormObservation[]>([createEmptyObservation()]);
     const [medications, setMedications] = useState<FormMedication[]>([{name: '', frequency: '', instructions: ''}]);
+    const [formOpen, setFormOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const dialogRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        if (formOpen && !dialog.open) dialog.showModal();
+        if (!formOpen && dialog.open) dialog.close();
+    }, [formOpen]);
+
+    function openNew() {
+        setEditing(null);
+        resetForm();
+        setFormOpen(true);
+    }
+
+    function closeForm() {
+        setFormOpen(false);
+        setEditing(null);
+        resetForm();
+    }
     const illnessCounts = new Map<string, number>();
     const medicationNames = new Map<string, string>();
     for (const episode of visibleEpisodes.value) {
@@ -228,6 +250,7 @@ export function Episodes() {
             setEditing(null);
             resetForm();
             form.reset();
+            setFormOpen(false);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'No se pudo guardar el episodio.');
         } finally {
@@ -245,6 +268,7 @@ export function Episodes() {
         }];
         setObservations(obs);
         setMedications(meds);
+        setFormOpen(true);
     }
 
     async function deleteEpisode(episode: Episode) {
@@ -330,123 +354,197 @@ export function Episodes() {
         updateMedication(medIndex, 'instructions', (e.currentTarget as HTMLInputElement).value);
     }
 
-    return <section className="directory" aria-labelledby="episodes-title">
-        <h2 id="episodes-title">Episodios de salud</h2>
-        <form id="episode-form" key={editing?.id ?? 'new'} onSubmit={(event: Event) => {
-            event.preventDefault();
-            void save(event.currentTarget as HTMLFormElement);
-        }}>
-            <fieldset disabled={busy}>
-                <legend>{editing ? 'Editar episodio' : 'Nuevo episodio'}</legend>
-                <label>Enfermedad <input name="illness" defaultValue={editing?.illness ?? ''}
-                                         placeholder="Ej: Gripe, Lumbalgia, Sinusitis..."/></label>
-                <label><input name="closed" type="checkbox" defaultChecked={editing?.closed ?? false}/> Episodio
-                    finalizado</label>
-                <fieldset>
-                    <legend>Observaciones (días de ocurrencia)</legend>
-                    {observations.map((obs: FormObservation, obsIndex: number) => (
-                        <div key={obsIndex} className="observation-block">
-                            <label>Fecha <input type="date" defaultValue={obs.date}
-                                                onChange={(e) => handleDateChange(obsIndex, e)}/></label>
-                            <label>Texto libre <textarea defaultValue={obs.text}
-                                                         onChange={(e) => handleTextChange(obsIndex, e)}
-                                                         placeholder="Síntomas, evolución, notas..."/></label>
-                            <label>Temperatura (°C) <input type="number" step="0.1" min="35" max="42"
-                                                           defaultValue={obs.temperature ?? ''}
-                                                           onChange={(e) => handleTempChange(obsIndex, e)}/></label>
-                            <fieldset>
-                                <legend>Síntomas con intensidad (1-5)</legend>
-                                {obs.symptoms.map((symptom: FormSymptomEntry, symIndex: number) => (
-                                    <div key={symIndex} className="symptom-row">
-                                        <select defaultValue={symptom.name}
-                                                onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}>
-                                            <option value="">— Seleccionar o escribir —</option>
-                                            {COMMON_SYMPTOMS.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        <input type="number" min="1" max="5" placeholder="Intensidad 1-5"
-                                               defaultValue={symptom.intensity ?? ''}
-                                               onChange={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>
-                                        <input type="text" placeholder="Descripción"
-                                               defaultValue={symptom.description ?? ''}
-                                               onChange={(e) => handleSymptomDescChange(obsIndex, symIndex, e)}/>
-                                        {obs.symptoms.length > 1 &&
-                                            <button type="button" onClick={() => removeSymptom(obsIndex, symIndex)}
-                                                    aria-label="Quitar síntoma">×</button>}
+    const normalizedQuery = normalize(query);
+    const latestDate = (episode: Episode) => episode.observations.map((item) => item.date).sort().at(-1) ?? '';
+    const visible = [...visibleEpisodes.value]
+        .filter((episode) => {
+            if (!normalizedQuery) return true;
+            const fields = [
+                episode.illness,
+                ...episode.observations.flatMap((observation) => [
+                    observation.date, observation.text, observation.temperature?.toString() ?? '',
+                    ...observation.symptoms.flatMap((symptom) => [symptom.name, symptom.description, symptom.intensity?.toString() ?? '']),
+                ]),
+                ...episode.medications.flatMap((medication) => [medication.name, medication.frequency, medication.instructions]),
+            ];
+            return fields.some((value) => normalize(value ?? '').includes(normalizedQuery));
+        })
+        .sort((a, b) => latestDate(b).localeCompare(latestDate(a)));
+
+    return <section className="episodes" aria-labelledby="episodes-title">
+        <div className="episodes-head">
+            <div>
+                <p className="eyebrow">Seguimiento</p>
+                <h2 id="episodes-title">Episodios de salud</h2>
+                <p className="episodes-desc">Enfermedades, días de ocurrencia, síntomas y medicación.</p>
+            </div>
+            <div className="episodes-head-actions">
+                <span className="count-badge">{visibleEpisodes.value.length}</span>
+                <button className="button primary" type="button" onClick={openNew}>
+                    <svg className="icon"><use href="#i-plus" /></svg> Nuevo episodio
+                </button>
+            </div>
+        </div>
+
+        <div className="episodes-toolbar">
+            <label className="episodes-search">
+                <svg className="icon"><use href="#i-search" /></svg>
+                <span className="sr-only">Buscar episodios</span>
+                <input id="episode-search" type="search" placeholder="Buscar por enfermedad, síntoma o medicamento…" value={query}
+                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)} />
+            </label>
+        </div>
+
+        {message && <p className="episodes-message" role="status">{message}</p>}
+
+        {illnessCounts.size > 0 && (
+            <div className="episode-chips" aria-label="Episodios por enfermedad">
+                {[...illnessCounts].map(([illness, count]) => <span className="episode-chip" key={illness}>
+                    {illness} · {count} {count === 1 ? 'episodio' : 'episodios'}
+                </span>)}
+            </div>
+        )}
+
+        {visible.length ? (
+            <ul id="episodes-list" className="episode-list">
+                {visible.map((episode) => {
+                    const observations = [...episode.observations].sort((a, b) => a.date.localeCompare(b.date));
+                    const dates = observations.map((item) => item.date).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
+                    const duration = dates.length ? Math.round((Date.parse(`${dates[dates.length - 1]}T00:00:00Z`) - Date.parse(`${dates[0]}T00:00:00Z`)) / 86400000) + 1 : null;
+                    const activeMeds = episode.medications.filter((medication) => medication.name);
+                    const syncLabel = episode.syncStatus === 'conflict' ? 'Requiere revisión'
+                        : episode.syncStatus === 'failed' ? 'No se puede sincronizar'
+                            : episode.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
+                    const syncTone = episode.syncStatus === 'conflict' || episode.syncStatus === 'failed' ? 'danger' : 'warning';
+                    return <li className="episode-card" key={episode.id}>
+                        <div className="episode-top">
+                            <div className="episode-title">
+                                <h3>{episode.illness || 'Episodio de salud'}</h3>
+                                <p>{episode.closed ? 'Finalizado' : 'En curso'}{duration !== null ? ` · ${duration} ${duration === 1 ? 'día' : 'días'}` : ''}</p>
+                            </div>
+                            {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
+                        </div>
+
+                        <div className="episode-stats">
+                            <span>{observations.length} {observations.length === 1 ? 'día' : 'días'}</span>
+                            <span>{activeMeds.length} {activeMeds.length === 1 ? 'medicamento' : 'medicamentos'}</span>
+                        </div>
+
+                        {observations.length > 0 && (
+                            <div className="episode-observations">
+                                {observations.map((observation, index) => (
+                                    <div className="episode-observation" key={`${observation.date}-${index}`}>
+                                        <time dateTime={observation.date}>{observation.date}</time>
+                                        <p>{observation.text || 'Sin notas'}</p>
+                                        <div className="episode-symptoms">
+                                            {observation.temperature !== undefined && <span className="episode-symptom">Temp. {observation.temperature} °C</span>}
+                                            {observation.symptoms.map((symptom, symptomIndex) => <span className="episode-symptom" key={symptomIndex}>
+                                                {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` · ${symptom.description}` : ''}
+                                            </span>)}
+                                        </div>
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
-                            </fieldset>
-                            {observations.length > 1 &&
-                                <button type="button" onClick={() => removeObservation(obsIndex)}
-                                        aria-label="Quitar observación">Quitar esta observación</button>}
+                            </div>
+                        )}
+
+                        {activeMeds.length > 0 && (
+                            <div className="episode-meds">
+                                {activeMeds.map((medication, index) => <span className="episode-med" key={`${medication.name}-${index}`}>
+                                    <svg className="icon"><use href="#i-message" /></svg>
+                                    {medication.name}{medication.frequency ? ` · ${medication.frequency}` : ''}
+                                </span>)}
+                            </div>
+                        )}
+
+                        <div className="episode-foot">
+                            <span className="count-badge">{episode.observations.length} observaciones</span>
+                            <div className="episode-actions">
+                                <button className="button ghost button-sm" type="button" disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar</button>
+                                <button className="button ghost button-sm episode-delete" type="button" disabled={Boolean(episode.syncStatus)} onClick={() => void deleteEpisode(episode)}>Eliminar</button>
+                            </div>
                         </div>
-                    ))}
-                    <button type="button" onClick={addObservation}>+ Agregar día de ocurrencia</button>
+                    </li>;
+                })}
+            </ul>
+        ) : (
+            <div className="episode-empty">
+                <span className="episode-empty-icon"><svg className="icon"><use href="#i-activity" /></svg></span>
+                <p>{normalizedQuery ? 'No hay episodios que coincidan con la búsqueda.' : 'Todavía no hay episodios guardados.'}</p>
+                {normalizedQuery ? (
+                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar búsqueda</button>
+                ) : (
+                    <button className="button secondary button-sm" type="button" onClick={openNew}>Nuevo episodio</button>
+                )}
+            </div>
+        )}
+
+        <dialog ref={dialogRef} id="episode-dialog" className="dialog episode-dialog" aria-labelledby="episode-dialog-title" onClose={closeForm}>
+            <form id="episode-form" key={editing?.id ?? 'new'} onSubmit={(event: Event) => {
+                event.preventDefault();
+                void save(event.currentTarget as HTMLFormElement);
+            }}>
+                <div className="dialog-heading">
+                    <div>
+                        <p className="eyebrow">Seguimiento</p>
+                        <h2 id="episode-dialog-title">{editing ? 'Editar episodio' : 'Nuevo episodio'}</h2>
+                    </div>
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm} disabled={busy}>
+                        <svg className="icon"><use href="#i-close" /></svg>
+                    </button>
+                </div>
+
+                <fieldset disabled={busy}>
+                    <label>Enfermedad <input name="illness" defaultValue={editing?.illness ?? ''} placeholder="Ej: Gripe, Lumbalgia, Sinusitis..."/></label>
+                    <label className="episode-check"><input name="closed" type="checkbox" defaultChecked={editing?.closed ?? false}/> Episodio finalizado</label>
+
+                    <fieldset>
+                        <legend>Observaciones (días de ocurrencia)</legend>
+                        {observations.map((obs: FormObservation, obsIndex: number) => (
+                            <div key={obsIndex} className="observation-block">
+                                <label>Fecha <input type="date" defaultValue={obs.date} onChange={(e) => handleDateChange(obsIndex, e)}/></label>
+                                <label>Texto libre <textarea defaultValue={obs.text} onChange={(e) => handleTextChange(obsIndex, e)} placeholder="Síntomas, evolución, notas..."/></label>
+                                <label>Temperatura (°C) <input type="number" step="0.1" min="35" max="42" defaultValue={obs.temperature ?? ''} onChange={(e) => handleTempChange(obsIndex, e)}/></label>
+                                <fieldset>
+                                    <legend>Síntomas con intensidad (1-5)</legend>
+                                    {obs.symptoms.map((symptom: FormSymptomEntry, symIndex: number) => (
+                                        <div key={symIndex} className="symptom-row">
+                                            <select defaultValue={symptom.name} onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}>
+                                                <option value="">— Seleccionar o escribir —</option>
+                                                {COMMON_SYMPTOMS.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <input type="number" min="1" max="5" placeholder="Intensidad 1-5" defaultValue={symptom.intensity ?? ''} onChange={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>
+                                            <input type="text" placeholder="Descripción" defaultValue={symptom.description ?? ''} onChange={(e) => handleSymptomDescChange(obsIndex, symIndex, e)}/>
+                                            {obs.symptoms.length > 1 && <button type="button" onClick={() => removeSymptom(obsIndex, symIndex)} aria-label="Quitar síntoma">×</button>}
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
+                                </fieldset>
+                                {observations.length > 1 && <button type="button" onClick={() => removeObservation(obsIndex)} aria-label="Quitar observación">Quitar esta observación</button>}
+                            </div>
+                        ))}
+                        <button type="button" onClick={addObservation}>+ Agregar día de ocurrencia</button>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Medicamentos e indicaciones</legend>
+                        <datalist id="episode-medications">{[...medicationNames.values()].map(name => <option key={name} value={name}/>)}</datalist>
+                        {medications.map((med: FormMedication, medIndex: number) => (
+                            <div key={medIndex} className="medication-row">
+                                <input type="text" list="episode-medications" placeholder="Nombre del medicamento" defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)}/>
+                                <input type="text" placeholder="Frecuencia (ej: cada 8h)" defaultValue={med.frequency} onChange={(e) => handleMedFreqChange(medIndex, e)}/>
+                                <input type="text" placeholder="Indicaciones médicas" defaultValue={med.instructions} onChange={(e) => handleMedInstrChange(medIndex, e)}/>
+                                {medications.length > 1 && <button type="button" onClick={() => removeMedication(medIndex)} aria-label="Quitar medicamento">×</button>}
+                            </div>
+                        ))}
+                        <button type="button" onClick={addMedication}>+ Medicamento</button>
+                    </fieldset>
+
+                    <div className="dialog-actions">
+                        <button className="button secondary" type="button" onClick={closeForm} disabled={busy}>Cancelar</button>
+                        <button className="button primary" type="submit" disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar episodio'}</button>
+                    </div>
                 </fieldset>
-                <fieldset>
-                    <legend>Medicamentos e indicaciones</legend>
-                    <datalist id="episode-medications">{[...medicationNames.values()].map(name => <option key={name}
-                                                                                                          value={name}/>)}</datalist>
-                    {medications.map((med: FormMedication, medIndex: number) => (
-                        <div key={medIndex} className="medication-row">
-                            <input type="text" list="episode-medications" placeholder="Nombre del medicamento"
-                                   defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)}/>
-                            <input type="text" placeholder="Frecuencia (ej: cada 8h)" defaultValue={med.frequency}
-                                   onChange={(e) => handleMedFreqChange(medIndex, e)}/>
-                            <input type="text" placeholder="Indicaciones médicas" defaultValue={med.instructions}
-                                   onChange={(e) => handleMedInstrChange(medIndex, e)}/>
-                            {medications.length > 1 && <button type="button" onClick={() => removeMedication(medIndex)}
-                                                               aria-label="Quitar medicamento">×</button>}
-                        </div>
-                    ))}
-                    <button type="button" onClick={addMedication}>+ Medicamento</button>
-                </fieldset>
-                <button className="button primary" type="submit">Guardar episodio</button>
-                {editing && <button type="button" onClick={() => {
-                    setEditing(null);
-                    resetForm();
-                }}>Cancelar edición</button>}
-            </fieldset>
-        </form>
-        {message && <p role="status">{message}</p>}
-        {illnessCounts.size > 0 && <section aria-label="Episodios por enfermedad">
-            <h3>Por enfermedad</h3>
-            <ul>{[...illnessCounts].map(([illness, count]) => <li
-                key={illness}>{illness} · {count} {count === 1 ? 'episodio' : 'episodios'}</li>)}</ul>
-        </section>}
-        <ul id="episodes-list">
-            {[...visibleEpisodes.value].sort((a: Episode, b: Episode) => {
-                const dateA = a.observations.map(item => item.date).sort().at(-1) ?? '';
-                const dateB = b.observations.map(item => item.date).sort().at(-1) ?? '';
-                return dateB.localeCompare(dateA);
-            }).map((episode: Episode) => {
-                const observations = [...episode.observations].sort((a, b) => a.date.localeCompare(b.date));
-                const dates = observations.map(item => item.date).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date));
-                const duration = dates.length ? Math.round((Date.parse(`${dates[dates.length - 1]}T00:00:00Z`) - Date.parse(`${dates[0]}T00:00:00Z`)) / 86400000) + 1 : null;
-                return (
-                    <li key={episode.id}>
-                        <h3>{episode.illness || 'Episodio de salud'}</h3>
-                        <p>{episode.closed ? 'Finalizado' : 'En curso'}</p>
-                        {duration !== null && <p>Duración: {duration} {duration === 1 ? 'día' : 'días'}</p>}
-                        <p>{episode.observations.length} día(s) de ocurrencia
-                            · {episode.medications.filter((m: Medication) => m.name).length} medicamento(s)</p>
-                        <ul>{observations.map((observation, index) => <li key={index}>
-                            <span>{observation.date} {observation.text}</span>
-                            {observation.temperature !== undefined && <span> · {observation.temperature} °C</span>}
-                            {observation.symptoms.map((symptom, symptomIndex) => <span
-                                key={symptomIndex}> · {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` ${symptom.description}` : ''}</span>)}
-                        </li>)}</ul>
-                        {episode.syncStatus &&
-                            <p>{episode.syncStatus === 'conflict' ? 'Requiere revisión' : episode.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
-                        <button type="button" disabled={Boolean(episode.syncStatus)}
-                                onClick={() => startEdit(episode)}>Editar
-                        </button>
-                        <button type="button" disabled={Boolean(episode.syncStatus)}
-                                onClick={() => deleteEpisode(episode)}>Eliminar
-                        </button>
-                    </li>
-                );
-            })}
-        </ul>
+            </form>
+        </dialog>
     </section>;
 }
