@@ -1,8 +1,8 @@
 /**
  * Store para outbox y sincronización
  */
-import { signal } from '@preact/signals';
-import type { OutboxEntry } from '@data/outbox';
+import {signal} from '@preact/signals';
+import type {OutboxEntry} from '@data/outbox';
 
 // ------------------------------------------------------------------
 // Estado primitivo - Outbox

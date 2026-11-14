@@ -3,7 +3,7 @@ name: Verificar cambios
 on:
   pull_request:
   push:
-    branches-ignore: [main]
+    branches-ignore: [ main ]
 
 permissions:
   contents: read

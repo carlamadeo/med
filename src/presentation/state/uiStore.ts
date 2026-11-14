@@ -1,8 +1,8 @@
 /**
  * Store para estado de UI (modales, dialogs, loading, error, offline, etc.)
  */
-import { signal } from '@preact/signals';
-import type { Study } from '@domain/models';
+import {signal} from '@preact/signals';
+import type {Study} from '@domain/models';
 
 // ------------------------------------------------------------------
 // Estado primitivo - UI
@@ -32,61 +32,65 @@ export const directoryWarning = signal(false);
 // ------------------------------------------------------------------
 
 export function setLoading(v: boolean): void {
-  loading.value = v;
+    loading.value = v;
 }
 
 export function setError(msg: string | null): void {
-  error.value = msg;
+    error.value = msg;
 }
 
 export function setEditingStudy(study: Study | null): void {
-  editingStudy.value = study;
-  isEditorOpen.value = true; // Open for both edit (study) and new (null)
+    editingStudy.value = study;
+    isEditorOpen.value = true; // Open for both edit (study) and new (null)
 }
 
 export function setEditorOpen(v: boolean): void {
-  isEditorOpen.value = v;
-  if (!v) editingStudy.value = null;
+    isEditorOpen.value = v;
+    if (!v) editingStudy.value = null;
 }
 
 export function setDeletingStudyId(id: string | null): void {
-  deletingStudyId.value = id;
+    deletingStudyId.value = id;
 }
 
 export function setSharingStudyId(id: string | null): void {
-  sharingStudyId.value = id;
-  if (!id) {
-    shareSelection.value = null;
-  }
+    sharingStudyId.value = id;
+    if (!id) {
+        shareSelection.value = null;
+    }
 }
 
-export function setShareSelection(selection: { includePdf: boolean; includeViewer: boolean; filename: string } | null): void {
-  shareSelection.value = selection;
+export function setShareSelection(selection: {
+    includePdf: boolean;
+    includeViewer: boolean;
+    filename: string
+} | null): void {
+    shareSelection.value = selection;
 }
 
 export function setOffline(v: boolean): void {
-  offline.value = v;
+    offline.value = v;
 }
 
 export function setExporting(v: boolean): void {
-  exporting.value = v;
+    exporting.value = v;
 }
 
 export function setExportScope(scope: 'all' | 'filtered'): void {
-  exportScope.value = scope;
+    exportScope.value = scope;
 }
 
 export function setExportError(msg: string | null): void {
-  exportError.value = msg;
+    exportError.value = msg;
 }
 
 export function setRecoveringStudyId(id: string | null): void {
-  recoveringStudyId.value = id;
-  if (!id) {
-    recoveryError.value = null;
-  }
+    recoveringStudyId.value = id;
+    if (!id) {
+        recoveryError.value = null;
+    }
 }
 
 export function setRecoveryError(msg: string | null): void {
-  recoveryError.value = msg;
+    recoveryError.value = msg;
 }

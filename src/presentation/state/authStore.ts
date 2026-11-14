@@ -1,7 +1,7 @@
 /**
  * Store para autenticación
  */
-import { signal } from '@preact/signals';
+import {signal} from '@preact/signals';
 
 // ------------------------------------------------------------------
 // Estado primitivo - Auth
@@ -14,5 +14,5 @@ export const isSignedIn = signal(false);
 // ------------------------------------------------------------------
 
 export function setIsSignedIn(v: boolean): void {
-  isSignedIn.value = v;
+    isSignedIn.value = v;
 }
