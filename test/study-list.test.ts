@@ -2,7 +2,7 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {StudyList} from '@presentation/components/StudyList';
-import {clearFilters, setStudies, view} from '@presentation/state/store';
+import {setStudies, view, visibleStudies} from '@presentation/state/store';
 
 const root = document.createElement('div');
 beforeEach(() => {
@@ -11,7 +11,6 @@ beforeEach(() => {
 afterEach(() => {
     render(null, root);
     setStudies([]);
-    clearFilters();
     vi.restoreAllMocks();
 });
 
@@ -36,7 +35,8 @@ it('shows loaded studies instead of remaining on the loading placeholder', async
         render(h(StudyList, {
             onEdit: () => {
             }, onDelete: () => {
-            }
+            },
+            studies: visibleStudies.value
         }), root);
     });
     expect(root.textContent).toContain('Estudio visible');
@@ -64,7 +64,8 @@ it('prepares all filtered studies for printing and removes the temporary copy af
         render(h(StudyList, {
             onEdit: () => {
             }, onDelete: () => {
-            }
+            },
+            studies: visibleStudies.value
         }), root);
     });
     expect(root.querySelector('.print-results')?.children).toHaveLength(0);
@@ -97,10 +98,11 @@ it('moves focus between studies with arrow keys', async () => {
         render(h(StudyList, {
             onEdit: () => {
             }, onDelete: () => {
-            }
+            },
+            studies: visibleStudies.value
         }), root);
     });
-    const rows = [...root.querySelectorAll<HTMLLIElement>('#results li')];
+    const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
     rows[0]!.focus();
     await act(async () => {
         rows[0]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true}));
@@ -131,7 +133,8 @@ it('groups chronological studies by year and month', async () => {
         render(h(StudyList, {
             onEdit: () => {
             }, onDelete: () => {
-            }
+            },
+            studies: visibleStudies.value
         }), root);
     });
     const groups = [...root.querySelectorAll('.month-heading')].map((item) => item.textContent?.toLowerCase());

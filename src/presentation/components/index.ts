@@ -4,7 +4,6 @@ export * from './OnboardingDialog';
 export * from './AppointmentDialog';
 export * from './StudyList';
 export * from './StudyRow';
-export * from './FilterBar';
 export * from './EditorDialog';
 export * from './ConfirmDialog';
 export * from './ShareDialog';

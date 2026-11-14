@@ -1,7 +1,7 @@
 import {act} from 'preact/test-utils';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 import {driveAppointmentRepo} from '@data';
-import {appointments, clearFilters, view} from '@presentation/state/store';
+import {appointments, view} from '@presentation/state/store';
 import {$, mountPage} from './page';
 
 beforeAll(async () => {
@@ -10,7 +10,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-    clearFilters();
     act(() => {
         view.value = 'resumen';
     });

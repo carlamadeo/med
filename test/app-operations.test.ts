@@ -1,6 +1,6 @@
 import {act} from 'preact/test-utils';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
-import {clearFilters, operations, view} from '@presentation/state/store';
+import {operations, view} from '@presentation/state/store';
 import type {Operation} from '@domain/models';
 import {$, mountPage, typeInto} from './page';
 
@@ -30,7 +30,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-    clearFilters();
     act(() => {
         view.value = 'operaciones';
     });

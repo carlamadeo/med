@@ -15,7 +15,7 @@ import type {
     ViewMode,
     Filters
 } from '@domain/models';
-import {filterStudies, type StudySortOrder} from '@domain/library';
+import type {StudySortOrder} from '@domain/library';
 import {pendingChanges} from './outboxStore';
 
 export interface IntakeCandidate {
@@ -41,16 +41,6 @@ export const appointments = signal<Appointment[]>([]);
 export const view = signal<ViewMode>('resumen');
 export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
-export const filters = signal<Filters>({
-    query: '',
-    type: '',
-    from: '',
-    to: '',
-    operationId: '',
-    portal: '',
-    onlyPdf: false,
-    onlyViewer: false,
-});
 
 // Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
 export const unavailableSources = signal<Set<string>>(new Set());
@@ -169,33 +159,12 @@ export const visibleAppointments = computed<Appointment[]>(() => {
     return result;
 });
 
-const listResult = computed(() =>
-    filterStudies(visibleStudies.value, filters.value, categoryTypes.value, sortOrder.value),
-);
-export const filteredStudies = computed(() => listResult.value.matches);
-export const hasFilters = computed(() => listResult.value.filtered);
-export const invalidRange = computed(() => listResult.value.invalidRange);
-
 // ------------------------------------------------------------------
 // Acciones - Estudios
 // ------------------------------------------------------------------
 
 export function setStudies(list: Study[]): void {
     studies.value = list;
-}
-
-export function clearFilters(): void {
-    categoryTypes.value = [];
-    filters.value = {
-        query: '',
-        type: '',
-        from: '',
-        to: '',
-        operationId: '',
-        portal: '',
-        onlyPdf: false,
-        onlyViewer: false
-    };
 }
 
 export function markSourceUnavailable(sourceId: string): void {
@@ -244,5 +213,6 @@ export type {
     Episode,
     Appointment,
     ViewMode,
-    Filters
+    Filters,
+    StudySortOrder
 };
