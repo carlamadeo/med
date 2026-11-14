@@ -227,7 +227,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
 
             <div className="app-main">
                 <header className="topbar">
-                    <button ref={menuRef} className="icon-button topbar-menu" type="button" aria-label="Abrir menú"
+                    <button ref={menuRef} id="menuBtn" className="icon-button topbar-menu" type="button" aria-label="Abrir menú"
                             aria-expanded={open} aria-controls="sidebar" hidden={!isSignedIn}
                             onClick={() => setOpen(true)}>
                         <svg className="icon">

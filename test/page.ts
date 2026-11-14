@@ -28,6 +28,7 @@ export async function mountPage({
     resetGis();
     installGis();
     document.documentElement.innerHTML = html;
+    document.documentElement.lang = 'es';
     view.value = 'cronologia';
     server.use(types ?? typesHandler());
     await act(() => {
