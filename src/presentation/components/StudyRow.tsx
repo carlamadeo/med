@@ -2,22 +2,10 @@
  * Fila individual de un estudio en la lista virtualizada.
  */
 import type { Study } from '@domain/models';
-import { reportUrl } from '@domain/library';
+import { formatStudyDate, reportUrl } from '@domain/library';
 import { studies, isSourceUnavailable, offline } from '../state/store';
 
-function formatDate(dateStr: string): string {
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return dateStr;
-  return new Date(year, month - 1, day).toLocaleDateString('es-AR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+
 
 interface StudyRowProps {
   study: Study;
@@ -60,7 +48,7 @@ export function StudyRow({ study, onEdit, onDelete, onShare, virtualIndex, virtu
           <h3 className="record-title">{study.title}</h3>
           {study.syncStatus && <p>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</p>}
           <p className="record-meta">
-            <time dateTime={study.date}>{formatDate(study.date)}</time>
+            <time dateTime={study.date}>{formatStudyDate(study.date)}</time>
             {study.doctor && <span className="record-doctor">{study.doctor}</span>}
             {study.portal && <span className="record-portal">{study.portal}</span>}
           </p>

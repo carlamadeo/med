@@ -39,6 +39,8 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await expect(page.locator('.skiplink')).toHaveCSS('position', 'absolute');
   await expect(page.locator('dialog.onboarding:modal')).toBeVisible();
   await page.getByRole('button', { name: 'Entendido' }).click();
+  await page.locator('#nav-cronologia').click();
+  await expect(page.locator('#results')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Agregar estudio' }).first()).toBeVisible();
   await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com') ?? '{}').accountId)).toBe('test-account');
   await context.setOffline(true);
@@ -62,13 +64,13 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await expect(page.locator('#pending-changes')).toHaveCount(0);
   await expect(page.locator('#results')).toContainText('Informe de prueba');
   await context.setOffline(true);
-  await page.getByRole('button', { name: 'Operaciones', exact: true }).click();
+  await page.locator('#nav-operaciones').click();
   await page.locator('#operation-name').fill('Cirugía pendiente');
   await page.locator('#operation-date').fill('2024-01-01');
   await page.locator('#operation-type').fill('Procedimiento');
   await page.getByRole('button', { name: 'Guardar operación' }).click();
   await expect(page.locator('#pending-changes')).toContainText('Cirugía pendiente');
-  await page.getByRole('button', { name: 'Portales', exact: true }).click();
+  await page.locator('#nav-portales').click();
   await page.locator('#portal-name').fill('Clínica pendiente');
   await page.locator('#portal-url').fill('https://example.com');
   await page.getByRole('button', { name: 'Guardar portal' }).click();
@@ -76,10 +78,10 @@ test('queues a study offline and syncs it after reconnecting to the same account
   await context.setOffline(false);
   await expect(page.locator('#pending-changes')).toHaveCount(0);
   await expect(page.locator('#portals-list')).toContainText('Clínica pendiente');
-  await page.getByRole('button', { name: 'Operaciones', exact: true }).click();
+  await page.locator('#nav-operaciones').click();
   await expect(page.locator('#operations-list')).toContainText('Cirugía pendiente');
   await context.setOffline(true);
-  await page.getByRole('button', { name: 'Consultas y recetas' }).click();
+  await page.locator('#nav-eventos').click();
   await page.locator('#event-date').fill('2024-04-01');
   await page.locator('#event-notes').fill('Consulta de prueba');
   await page.locator('[data-event-study="test-study"]').check();

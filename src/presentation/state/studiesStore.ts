@@ -26,7 +26,7 @@ export const medicalEvents = signal<MedicalEvent[]>([]);
 export const episodes = signal<Episode[]>([]);
 export const appointments = signal<Appointment[]>([]);
 
-export const view = signal<ViewMode>('cronologia');
+export const view = signal<ViewMode>('resumen');
 export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
 export const filters = signal<Filters>({

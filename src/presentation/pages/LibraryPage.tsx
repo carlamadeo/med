@@ -16,6 +16,7 @@ import {
 } from '@data';
 import {
   isSignedIn,
+  view,
   studies,
   error,
   exportError,
@@ -41,7 +42,8 @@ import {
   ConfirmDialog,
   OnboardingDialog,
   PendingChangesSection,
-  LibraryHeader,
+  AppShell,
+  Resumen,
   StudyListContainer,
   AccessSection,
   LibraryIntro,
@@ -255,40 +257,53 @@ export function LibraryPage() {
 
   return (
     <>
-      <LibraryHeader onSignOut={() => void driveAuth.signOut()} />
-      <main className="wrap" id="main" role="main">
-        <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value} typesReady={typesReady} />
-        <section id="library" aria-label="Biblioteca" className="library" hidden={!isSignedIn.value}>
-          <StudyListContainer
-            onEdit={openEditor}
-            onDelete={(study: Study) => setDeletingStudyId(study.id)}
-            onShare={openShare}
-            onClearFilters={clearFilters}
-            onSearch={(query) => { filters.value = { ...filters.value, query }; }}
-            onRetryLoad={loadStudies}
-            onAddStudy={() => openEditor(null)}
-            onOpenCandidate={openEditor}
-            typesReady={typesReady}
-            availableTypes={availableTypes}
-            offline={offline.value}
-            directoryWarning={directoryWarning.value}
-            pendingChangesCount={pendingChanges.value.length}
-          />
-        </section>
-        <section id="access" className="library access" aria-labelledby="access-title" hidden={isSignedIn.value}>
-          <AccessSection
-            onConnect={() => void connectDrive()}
-            error={error.value}
-            bootFailed={bootFailed}
-            configured={driveAuth.configured}
-          />
-        </section>
-        {isSignedIn.value && <PendingChangesSection
-          onDiscard={discardPending}
-          onRetrySync={prepareOutbox}
-          onResolveConflict={(entry, revision) => void resolveConflict(entry, revision)}
-        />}
-      </main>
+      <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()}>
+        <main className="wrap" id="main" role="main">
+          <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value} typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'} />
+          <section id="library" aria-label="Biblioteca" className={view.value === 'resumen' ? 'library library-resumen' : 'library'} hidden={!isSignedIn.value}>
+            {view.value === 'resumen' ? (
+              <Resumen
+                typesReady={typesReady}
+                onAddStudy={() => openEditor(null)}
+                onEdit={openEditor}
+                onDelete={(study: Study) => setDeletingStudyId(study.id)}
+                onShare={openShare}
+                onNavigate={(next) => { view.value = next; }}
+                onRetryLoad={() => void loadStudies(true)}
+              />
+            ) : (
+              <StudyListContainer
+                onEdit={openEditor}
+                onDelete={(study: Study) => setDeletingStudyId(study.id)}
+                onShare={openShare}
+                onClearFilters={clearFilters}
+                onSearch={(query) => { filters.value = { ...filters.value, query }; }}
+                onRetryLoad={loadStudies}
+                onAddStudy={() => openEditor(null)}
+                onOpenCandidate={openEditor}
+                typesReady={typesReady}
+                availableTypes={availableTypes}
+                offline={offline.value}
+                directoryWarning={directoryWarning.value}
+                pendingChangesCount={pendingChanges.value.length}
+              />
+            )}
+          </section>
+          <section id="access" className="library access" aria-labelledby="access-title" hidden={isSignedIn.value}>
+            <AccessSection
+              onConnect={() => void connectDrive()}
+              error={error.value}
+              bootFailed={bootFailed}
+              configured={driveAuth.configured}
+            />
+          </section>
+          {isSignedIn.value && <PendingChangesSection
+            onDiscard={discardPending}
+            onRetrySync={prepareOutbox}
+            onResolveConflict={(entry, revision) => void resolveConflict(entry, revision)}
+          />}
+        </main>
+      </AppShell>
       <EditorDialog
         onClose={() => setEditorOpen(false)}
         error={editorError}

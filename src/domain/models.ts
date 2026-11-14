@@ -104,7 +104,7 @@ export interface PortalDraft {
   revision?: string;
 }
 
-export type ViewMode = 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'episodios' | 'turnos' | 'intake';
+export type ViewMode = 'resumen' | 'cronologia' | 'categoria' | 'portales' | 'operaciones' | 'eventos' | 'episodios' | 'turnos' | 'intake';
 
 export interface Filters {
   query: string;

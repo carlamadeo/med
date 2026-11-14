@@ -20,6 +20,21 @@ export function reportUrl(driveFileId: string): string {
   return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
 }
 
+/** Medium es-AR date for a `YYYY-MM-DD` study date; malformed values are returned untouched. */
+export function formatStudyDate(date: string): string {
+  const parts = date.split('-');
+  if (parts.length !== 3) return date;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return date;
+  return new Date(year, month - 1, day).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 /** Newest first; same-day studies in alphabetical order (Argentine Spanish collation). */
 function compareStudies(a: Study, b: Study): number {
   return b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR');

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { http, HttpResponse, type RequestHandler } from 'msw';
 import { expect, vi } from 'vitest';
 import { driveAuth } from '@data';
+import { view } from '@presentation/state/store';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 import { LibraryPage } from '@presentation/pages/LibraryPage';
@@ -27,6 +28,7 @@ export async function mountPage({
   resetGis();
   installGis();
   document.documentElement.innerHTML = html;
+  view.value = 'cronologia';
   server.use(types ?? typesHandler());
   await act(() => { render(h(LibraryPage, {}), document.getElementById('app')!); });
   if (signIn) {
