@@ -45,9 +45,6 @@ export function StudyList({onEdit, onDelete, onShare, studies}: StudyListProps) 
                             <tr key={study.id} role="row">
                                 <td role="cell">
                                     <div className="study-cell">
-                                        <span className="study-icon" aria-hidden="true">
-                                            <svg className="icon"><use href="#i-file"/></svg>
-                                        </span>
                                         <span className="study-text">
                                             <span className="study-title">{study.title}</span>
                                         </span>
