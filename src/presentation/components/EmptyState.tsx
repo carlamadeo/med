@@ -10,11 +10,21 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({variant, title, description, action}: EmptyStateProps) {
+    const iconId = variant === 'error'
+        ? '#i-alert'
+        : variant === 'no-connection'
+            ? '#i-wifi-off'
+            : variant === 'no-results'
+                ? '#i-search'
+                : '#i-plus';
+
     return (
         <div id={variant === 'no-studies' ? 'empty' : `empty-${variant}`} className={`empty empty-${variant}`}
              role="status">
             <div className="empty-icon" aria-hidden="true">
-                <span>{variant === 'error' ? '!' : variant === 'no-connection' ? '↗' : variant === 'no-results' ? '⌕' : '+'}</span>
+                <svg className="icon" aria-hidden="true">
+                    <use href={iconId}/>
+                </svg>
             </div>
             <h3>{title}</h3>
             <p>{description}</p>

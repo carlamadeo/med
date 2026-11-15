@@ -6,6 +6,7 @@ import {isValidDate, normalize} from '@domain/utils';
 import {formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {medicalEvents, visibleMedicalEvents, studies} from '../state/store';
+import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
@@ -16,6 +17,7 @@ export function MedicalEvents() {
     const [message, setMessage] = useState('');
     const [formOpen, setFormOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<MedicalEvent | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -105,8 +107,11 @@ export function MedicalEvents() {
         }
     }
 
-    async function deleteEvent(event: MedicalEvent) {
-        if (!confirm(`Eliminar la ${event.kind === 'consultation' ? 'consulta' : 'receta'} del ${event.date}?`)) return;
+    function deleteEvent(event: MedicalEvent) {
+        setPendingDelete(event);
+    }
+
+    async function executeDeleteEvent(event: MedicalEvent) {
         try {
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
@@ -147,6 +152,7 @@ export function MedicalEvents() {
             setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el evento.');
         } finally {
             setBusy(false);
+            setPendingDelete(null);
         }
     }
 
@@ -337,5 +343,17 @@ export function MedicalEvents() {
                 </fieldset>
             </form>
         </dialog>
+
+        <ConfirmActionDialog
+            open={Boolean(pendingDelete)}
+            title="Eliminar evento"
+            message={pendingDelete ? `¿Eliminar la ${pendingDelete.kind === 'consultation' ? 'consulta' : 'receta'} del ${pendingDelete.date}?` : ''}
+            confirmLabel="Eliminar evento"
+            busy={busy}
+            onConfirm={() => {
+                if (pendingDelete) void executeDeleteEvent(pendingDelete);
+            }}
+            onCancel={() => setPendingDelete(null)}
+        />
     </section>;
 }

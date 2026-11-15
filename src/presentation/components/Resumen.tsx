@@ -267,14 +267,6 @@ export function Resumen({
                                                     <use href="#i-edit"/>
                                                 </svg>
                                             </button>
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus)}
-                                                    aria-label={`Eliminar ${study.title}`}
-                                                    onClick={() => onDelete(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-trash"/>
-                                                </svg>
-                                            </button>
                                             <button className="icon-button" type="button" title="Imprimir"
                                                     aria-label={`Imprimir ${study.title}`} onClick={() => setPrinting(study)}>
                                                 <svg className="icon"><use href="#i-print"/></svg>
@@ -285,6 +277,14 @@ export function Resumen({
                                                     onClick={() => onShare(study)}>
                                                 <svg className="icon">
                                                     <use href="#i-share"/>
+                                                </svg>
+                                            </button>
+                                            <button className="icon-button row-action-danger" type="button"
+                                                    disabled={Boolean(study.syncStatus)}
+                                                    aria-label={`Eliminar ${study.title}`}
+                                                    onClick={() => onDelete(study)}>
+                                                <svg className="icon">
+                                                    <use href="#i-trash"/>
                                                 </svg>
                                             </button>
                                         </div>

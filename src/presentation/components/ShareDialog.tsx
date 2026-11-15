@@ -245,9 +245,9 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 </button>
                 <fieldset disabled={busy || sessionLost || preparing || Boolean(prepared)}>
                     <legend>Qué compartir</legend>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                    <div className="share-options">
                         {attachmentAvailable && (
-                            <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
+                            <label className="share-option-row">
                                 <input
                                     type="checkbox"
                                     checked={includeAttachment}
@@ -257,29 +257,23 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                     }}
                                     disabled={!attachmentAvailable}
                                 />
-                                <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
+                                <svg className="icon" aria-hidden="true">
                                     <use href="#i-file"/>
                                 </svg>
                                 <span>{study?.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({study?.reportName || study?.title})</span>
                             </label>
                         )}
                         {!attachmentAvailable && study?.pendingAttachment && (
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                minHeight: '44px',
-                                opacity: 0.6
-                            }}>
+                            <label className="share-option-row share-option-disabled">
                                 <input type="checkbox" disabled/>
-                                <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
+                                <svg className="icon" aria-hidden="true">
                                     <use href="#i-file"/>
                                 </svg>
                                 <span>Informe pendiente de sincronización</span>
                             </label>
                         )}
                         {viewerAvailable && (
-                            <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
+                            <label className="share-option-row">
                                 <input
                                     type="checkbox"
                                     checked={includeViewer}
@@ -288,26 +282,26 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                         setFilenameError('');
                                     }}
                                 />
-                                <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
+                                <svg className="icon" aria-hidden="true">
                                     <use href="#i-external"/>
                                 </svg>
                                 <span>Enlace al visor</span>
                             </label>
                         )}
-                        {associatedDocuments.map(document => <label key={document.id}>
+                        {associatedDocuments.map(document => <label key={document.id} className="share-option-row">
                             <input type="checkbox" value={document.id} checked={documentIds.includes(document.id)}
                                    onChange={(event) => {
                                        setDocumentIds(event.currentTarget.checked ? [...documentIds, document.id] : documentIds.filter(id => id !== document.id));
                                        setFilenameError('');
                                    }}/>
-                            {document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {document.reportName || document.title}
+                            <span>{document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {document.reportName || document.title}</span>
                         </label>)}
                         {!hasShareableContent && (
-                            <span style={{color: 'var(--muted)', fontSize: '0.9rem'}}>Este estudio no tiene archivos ni enlaces para compartir</span>
+                            <span className="share-doc-hint">Este estudio no tiene archivos ni enlaces para compartir</span>
                         )}
                     </div>
                 </fieldset>
-                <label style={{display: 'block', marginTop: '16px'}}>
+                <label className="share-filename-field">
                     Nombre del archivo
                     <input
                         type="text"
@@ -326,22 +320,32 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                     <button type="button" className="button quiet" disabled={busy || preparing}
                             onClick={handleCancel}>Cancelar
                     </button>
-                    {!prepared && !includeAttachment && !documentIds.length && includeViewer && study?.viewer && <>
-                        <a href={`https://wa.me/?text=${encodeURIComponent(study.viewer)}`} target="_blank"
-                           rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
-                        <a href={`mailto:?body=${encodeURIComponent(study.viewer)}`}>Abrir correo con enlace</a>
-                    </>}
-                    {prepared ? <>
-                        <p role="status">Listo para
-                            compartir {prepared.files?.map(file => file.name).join(', ')}{prepared.url ? ` · ${prepared.url}` : ''}</p>
-                        <button type="button" onClick={() => setPrepared(null)}>Volver</button>
-                        {prepared.files?.map((file, index) => <button type="button" key={index}
-                                                                      onClick={() => downloadPrepared(file)}>Descargar {file.name}</button>)}
-                        {prepared.url && <>
-                            <a href={`https://wa.me/?text=${encodeURIComponent(prepared.url)}`} target="_blank"
+                    {!prepared && !includeAttachment && !documentIds.length && includeViewer && study?.viewer && (
+                        <div className="share-links">
+                            <a className="button secondary button-sm"
+                               href={`https://wa.me/?text=${encodeURIComponent(study.viewer)}`} target="_blank"
                                rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
-                            <a href={`mailto:?body=${encodeURIComponent(prepared.url)}`}>Abrir correo con enlace</a>
-                        </>}
+                            <a className="button secondary button-sm"
+                               href={`mailto:?body=${encodeURIComponent(study.viewer)}`}>Abrir correo con enlace</a>
+                        </div>
+                    )}
+                    {prepared ? <>
+                        <p role="status" className="share-prepared-note">Listo para
+                            compartir {prepared.files?.map(file => file.name).join(', ')}{prepared.url ? ` · ${prepared.url}` : ''}</p>
+                        <button type="button" className="button secondary" onClick={() => setPrepared(null)}>Volver
+                        </button>
+                        {prepared.files?.map((file, index) => <button type="button" className="button secondary"
+                                                                      key={index}
+                                                                      onClick={() => downloadPrepared(file)}>Descargar {file.name}</button>)}
+                        {prepared.url && (
+                            <div className="share-links">
+                                <a className="button secondary button-sm"
+                                   href={`https://wa.me/?text=${encodeURIComponent(prepared.url)}`} target="_blank"
+                                   rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
+                                <a className="button secondary button-sm"
+                                   href={`mailto:?body=${encodeURIComponent(prepared.url)}`}>Abrir correo con enlace</a>
+                            </div>
+                        )}
                         <button type="button" className="button primary" id="share-send"
                                 onClick={() => void sendShare(prepared)}>Compartir
                         </button>

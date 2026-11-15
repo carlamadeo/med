@@ -27,6 +27,7 @@ export const recoveringStudyId = signal<string | null>(null);
 export const recoveryError = signal<string | null>(null);
 export const editingAppointment = signal<Appointment | null>(null);
 export const isAppointmentEditorOpen = signal(false);
+export const isFolderPickerOpen = signal(false);
 
 export const offline = signal(!navigator.onLine);
 export const directoryWarning = signal(false);
@@ -107,4 +108,8 @@ export function setEditingAppointment(appointment: Appointment | null): void {
 export function setAppointmentEditorOpen(open: boolean): void {
     isAppointmentEditorOpen.value = open;
     if (!open) editingAppointment.value = null;
+}
+
+export function setFolderPickerOpen(open: boolean): void {
+    isFolderPickerOpen.value = open;
 }

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveClient} from '@data';
-import {approvedFolderId, setApprovedFolderId} from '../state/store';
+import {approvedFolderId, isFolderPickerOpen, setApprovedFolderId, setFolderPickerOpen} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 
 const STORAGE_KEY = 'mis-estudios-intake-folder';
@@ -12,7 +12,8 @@ interface DriveFolder {
 }
 
 export function FolderPickerDialog() {
-    const [open, setOpen] = useState(false);
+    const open = isFolderPickerOpen.value;
+    const setOpen = setFolderPickerOpen;
     const [folders, setFolders] = useState<DriveFolder[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -61,14 +62,20 @@ export function FolderPickerDialog() {
     };
 
     useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
         if (open) {
             loadFolders();
-            dialogRef.current?.showModal();
+            if (!dialog.open) dialog.showModal();
         } else {
-            dialogRef.current?.close();
+            if (dialog.open) dialog.close();
         }
-        return () => dialogRef.current?.close();
+        return () => {
+            if (dialog.open) dialog.close();
+        };
     }, [open]);
+
+    useEffect(() => () => setOpen(false), []);
 
     const handleSelect = (folder: DriveFolder) => {
         setSelectedId(folder.id);
@@ -94,12 +101,12 @@ export function FolderPickerDialog() {
         <>
             <button
                 type="button"
-                className="icon-button"
-                aria-label="Configurar carpeta de intake"
+                className="button quiet sidebar-folder-button"
                 onClick={handleOpen}
                 title="Configurar carpeta de intake"
             >
-                <svg className="icon"><use href="#i-folder"/></svg>
+                <svg className="icon" aria-hidden="true"><use href="#i-folder"/></svg>
+                <span>Carpeta de intake</span>
             </button>
 
             <dialog
@@ -110,10 +117,11 @@ export function FolderPickerDialog() {
                     event.preventDefault();
                     setOpen(false);
                 }}
+                onClose={() => setOpen(false)}
             >
                 <div className="dialog-heading">
                     <div>
-                        <p className="eyebrow">INTAKE ASISTIDO</p>
+                        <p className="eyebrow">Intake asistido</p>
                         <h2 id="folder-picker-title">Carpeta de documentos</h2>
                     </div>
                     <button className="icon-button" type="button" aria-label="Cerrar" onClick={() => setOpen(false)}>

@@ -173,10 +173,6 @@ export function StudyList({
                                                 aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-edit"/></svg>
                                         </button>
-                                        <button className="icon-button" type="button" title="Eliminar" disabled={pending}
-                                                aria-label={`Eliminar ${study.title}`} onClick={() => onDelete(study)}>
-                                            <svg className="icon" aria-hidden="true"><use href="#i-trash"/></svg>
-                                        </button>
                                         <button className="icon-button" type="button" title="Imprimir" aria-label={`Imprimir ${study.title}`}
                                                 onClick={() => setPrinting(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>
@@ -184,6 +180,10 @@ export function StudyList({
                                         <button className="icon-button" type="button" title="Compartir" disabled={pending || !canShare}
                                                 aria-label={`Compartir ${study.title}`} onClick={() => onShare?.(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-share"/></svg>
+                                        </button>
+                                        <button className="icon-button row-action-danger" type="button" title="Eliminar" disabled={pending}
+                                                aria-label={`Eliminar ${study.title}`} onClick={() => onDelete(study)}>
+                                            <svg className="icon" aria-hidden="true"><use href="#i-trash"/></svg>
                                         </button>
                                     </div>
                                 </td>

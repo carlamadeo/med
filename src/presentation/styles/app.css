@@ -35,8 +35,12 @@ button, select {
 }
 
 button:disabled {
-    cursor: wait;
+    cursor: not-allowed;
     opacity: .65;
+}
+
+[data-busy='true'] button:disabled {
+    cursor: wait;
 }
 
 a {
@@ -849,8 +853,8 @@ input::file-selector-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #e53935;
-    color: #fff;
+    background: var(--color-error);
+    color: var(--color-text-inverse);
     font-weight: 700;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
@@ -953,7 +957,7 @@ input::file-selector-button {
 }
 
 [data-theme='dark'] .theme-toggle .theme-icon-dark {
-    display: inline;
+    display: inline-flex;
 }
 
 .empty-icon {
@@ -967,6 +971,11 @@ input::file-selector-button {
     color: var(--color-brand);
     font-size: 2rem;
     font-weight: 400;
+}
+
+.empty-icon .icon {
+    width: 1.75rem;
+    height: 1.75rem;
 }
 
 .onboarding {

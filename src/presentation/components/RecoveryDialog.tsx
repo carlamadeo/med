@@ -357,7 +357,8 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                         </div>
                     )}
                 </div>
-                <p><a href="https://drive.google.com/drive/trash" target="_blank" rel="noopener noreferrer">Abrir
+                <p className="recovery-drive-link"><a href="https://drive.google.com/drive/trash" target="_blank"
+                                                      rel="noopener noreferrer">Abrir
                     papelera de Google Drive</a></p>
                 <div className="dialog-actions">
                     <button type="button" className="button quiet" disabled={loading} onClick={handleCancel}>Cerrar
