@@ -111,10 +111,6 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         }
     };
 
-    const handleCancel = () => {
-        handleClose();
-    };
-
     const getStudiesToExport = () => {
         return visibleStudies.value;
     };
@@ -140,8 +136,10 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             setBusy(true);
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
+            await assertExportReady(owner);
             const snapshot = readExportSnapshot();
             const zip = await createExportZip(snapshot, selectedStudies, includeAttachments, includeViewerLinks, token);
+            await assertExportReady(owner);
             if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
                 throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
             }

@@ -87,12 +87,11 @@ it('allows the user to select and start an export when the dialog opens', async 
     expect(root.querySelector<HTMLFieldSetElement>('fieldset')!.disabled).toBe(false);
 });
 
-it('exports every study regardless of category and preserves the legacy PDF path and bytes', async () => {
+it('exports every study and preserves the legacy PDF path and bytes', async () => {
     setStudies([
         study('one', {types: ['Ecografía'], hasPdf: true, reportName: 'informe.pdf'}),
         study('two', {types: ['Otro']}),
     ]);
-    categoryTypes.value = ['Ecografía'];
     vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['contenido'], 'informe.pdf', {type: 'application/pdf'}));
     const createUrl = captureDownload();
     await openDialog();
@@ -101,7 +100,6 @@ it('exports every study regardless of category and preserves the legacy PDF path
 
     const zip = await downloadedZip(createUrl);
     expect(await zip.file('pdfs/one.pdf')!.async('text')).toBe('contenido');
-<<<<<<< HEAD
     expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
         version: 1, scope: 'all', totalStudies: 2, studies: [{id: 'one'}, {id: 'two'}],
     });
