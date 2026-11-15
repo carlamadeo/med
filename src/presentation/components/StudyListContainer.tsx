@@ -1,5 +1,6 @@
 import {useRef, useState} from 'preact/hooks';
 import {filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
+import {normalize} from '@domain/utils';
 import {visibleStudies, loading, error, view, categoryTypes} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
@@ -40,10 +41,12 @@ export function StudyListContainer({
                                          pendingChangesCount
                                      }: StudyListContainerProps) {
     const [query, setQuery] = useState('');
+    const [portalFilter, setPortalFilter] = useState('');
     const [sortOrder, setSortOrder] = useState<StudySortOrder>('date-desc');
     const searchInput = useRef<HTMLInputElement>(null);
-    const studiesList = sortStudies(filterStudiesByQuery(visibleStudies.value, query), sortOrder);
-    const hasFilters = Boolean(query.trim() || categoryTypes.value.length || sortOrder !== 'date-desc');
+    const portalStudies = portalFilter ? visibleStudies.value.filter(study => normalize(study.portal) === normalize(portalFilter)) : visibleStudies.value;
+    const studiesList = sortStudies(filterStudiesByQuery(portalStudies, query), sortOrder);
+    const hasFilters = Boolean(portalFilter || query.trim() || categoryTypes.value.length || sortOrder !== 'date-desc');
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -60,7 +63,12 @@ export function StudyListContainer({
             {view.value === 'eventos' && <MedicalEvents/>}
             {view.value === 'episodios' && <Episodes/>}
             {view.value === 'turnos' && <Appointments/>}
-            {view.value === 'portales' && <Portals/>}
+            {view.value === 'portales' && <Portals onViewStudies={portal => {
+                setPortalFilter(portal);
+                setQuery('');
+                categoryTypes.value = [];
+                view.value = 'cronologia';
+            }}/>}
             {view.value === 'intake' && (
                 <IntakeCandidates onOpenEditor={onOpenCandidate}/>
             )}
@@ -86,6 +94,7 @@ export function StudyListContainer({
                             />
                         </div>
                     </div>
+                    {portalFilter && <p>Institución: {portalFilter} <button type="button" className="button quiet" onClick={() => setPortalFilter('')}>Quitar filtro</button></p>}
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (
                         <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
                     )}
@@ -136,6 +145,7 @@ export function StudyListContainer({
                                     type="button"
                                     onClick={() => {
                                         setQuery('');
+                                        setPortalFilter('');
                                         setSortOrder('date-desc');
                                         categoryTypes.value = [];
                                         searchInput.current?.focus();

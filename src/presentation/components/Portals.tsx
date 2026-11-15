@@ -32,13 +32,13 @@ import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
-import {portals, studies, view} from '../state/store';
+import {portals, studies} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
-export function Portals() {
+export function Portals({onViewStudies}: {onViewStudies: (portal: string) => void}) {
     const [editing, setEditing] = useState<Portal | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -254,9 +254,7 @@ export function Portals() {
                                     )}
                                 </div>
                                 <div className="portal-card-actions">
-                                    <button className="button secondary button-sm" type="button" onClick={() => {
-                                        view.value = 'cronologia';
-                                    }}>Ver estudios
+                                    <button className="button secondary button-sm" type="button" onClick={() => onViewStudies(portal.name)}>Ver estudios
                                     </button>
                                     <button className="button ghost button-sm" type="button"
                                             onClick={() => openEdit(portal)}>Editar
