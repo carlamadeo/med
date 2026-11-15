@@ -219,6 +219,7 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
                     id="command-input"
                     type="text"
                     role="combobox"
+                    aria-label="Buscar estudios, portales y turnos"
                     aria-expanded="true"
                     aria-controls="command-results"
                     aria-autocomplete="list"

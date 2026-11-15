@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveClient} from '@data';
 import {approvedFolderId, setApprovedFolderId} from '../state/store';
+import {useFocusTrap} from '../utils/focusTrap';
 
 const STORAGE_KEY = 'mis-estudios-intake-folder';
 
@@ -18,6 +19,7 @@ export function FolderPickerDialog() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const currentFolderId = approvedFolderId.value;
+    useFocusTrap(dialogRef, open);
 
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -100,13 +102,25 @@ export function FolderPickerDialog() {
                 <svg className="icon"><use href="#i-folder"/></svg>
             </button>
 
-            <dialog ref={dialogRef} className="dialog folder-picker" aria-labelledby="folder-picker-title">
+            <dialog
+                ref={dialogRef}
+                className="dialog folder-picker"
+                aria-labelledby="folder-picker-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    setOpen(false);
+                }}
+            >
                 <div className="dialog-heading">
                     <div>
                         <p className="eyebrow">INTAKE ASISTIDO</p>
                         <h2 id="folder-picker-title">Carpeta de documentos</h2>
                     </div>
-                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={() => setOpen(false)}>×</button>
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={() => setOpen(false)}>
+                        <svg className="icon">
+                            <use href="#i-close"/>
+                        </svg>
+                    </button>
                 </div>
 
                 {error && <p className="form-error" role="alert">{error}</p>}

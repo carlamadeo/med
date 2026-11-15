@@ -1,14 +1,25 @@
 /** Lista de estudios en formato tabla. */
 import {useState} from 'preact/hooks';
 import {StudyPrintDialog} from './StudyPrintDialog';
-import {formatStudyDate, reportUrl, studyAttachmentLabel} from '@domain/library';
+import {formatStudyDate, reportUrl, studyAttachmentLabel, type StudySortOrder} from '@domain/library';
 import {isSourceUnavailable} from '../state/store';
 import type {Study} from '@domain/models';
+
+type SortColumn = 'title' | 'date' | 'doctor' | 'portal';
+
+const COLUMN_ORDERS: Record<SortColumn, { asc: StudySortOrder; desc: StudySortOrder; defaultOrder: StudySortOrder }> = {
+    title: {asc: 'title', desc: 'title-desc', defaultOrder: 'title'},
+    date: {asc: 'date-asc', desc: 'date-desc', defaultOrder: 'date-desc'},
+    doctor: {asc: 'doctor', desc: 'doctor-desc', defaultOrder: 'doctor'},
+    portal: {asc: 'portal', desc: 'portal-desc', defaultOrder: 'portal'},
+};
 
 interface StudyListProps {
     onEdit: (study: Study) => void;
     onDelete: (study: Study) => void;
     onShare?: (study: Study) => void;
+    sortOrder?: StudySortOrder;
+    onSortChange?: (order: StudySortOrder) => void;
     studies: Study[];
 }
 
@@ -17,9 +28,43 @@ export function StudyList({
                                onDelete,
                                onShare = () => {
     },
+                               sortOrder = 'date-desc',
+                               onSortChange,
                                studies: studiesList
                            }: StudyListProps) {
     const [printing, setPrinting] = useState<Study | null>(null);
+
+    const renderSortHeader = (column: SortColumn, label: string) => {
+        const orders = COLUMN_ORDERS[column];
+        const isAsc = sortOrder === orders.asc;
+        const isDesc = sortOrder === orders.desc;
+        const active = isAsc || isDesc;
+        const ariaSort = isAsc ? 'ascending' : isDesc ? 'descending' : 'none';
+        const toggleSort = () => {
+            if (!onSortChange) return;
+            if (isAsc) onSortChange(orders.desc);
+            else if (isDesc) onSortChange(orders.asc);
+            else onSortChange(orders.defaultOrder);
+        };
+
+        return (
+            <th scope="col" role="columnheader" aria-sort={onSortChange ? ariaSort : undefined}>
+                {onSortChange ? (
+                    <button
+                        type="button"
+                        className={`table-sort-button ${active ? 'is-active' : ''} ${isAsc ? 'is-asc' : ''}`}
+                        onClick={toggleSort}
+                    >
+                        <span>{label}</span>
+                        <svg className="icon table-sort-icon" aria-hidden="true">
+                            <use href="#i-chevron-down"/>
+                        </svg>
+                    </button>
+                ) : label}
+            </th>
+        );
+    };
+
     return (
         <>
         <div className="summary-table-scroll library-table">
@@ -27,10 +72,10 @@ export function StudyList({
                 <caption className="sr-only">Estudios guardados en el archivo</caption>
                 <thead role="rowgroup">
                     <tr role="row">
-                        <th scope="col" role="columnheader">Estudio</th>
-                        <th scope="col" role="columnheader">Fecha</th>
-                        <th scope="col" role="columnheader">Profesional</th>
-                        <th scope="col" role="columnheader">Institución</th>
+                        {renderSortHeader('title', 'Estudio')}
+                        {renderSortHeader('date', 'Fecha')}
+                        {renderSortHeader('doctor', 'Profesional')}
+                        {renderSortHeader('portal', 'Institución')}
                         <th scope="col" role="columnheader"><span className="sr-only">Acciones</span></th>
                     </tr>
                 </thead>
@@ -59,9 +104,23 @@ export function StudyList({
                                             <span className="study-title">{study.title}</span>
                                             {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
                                             <span className="study-types">
-                                                {study.types.length ? study.types.slice(0, 2).map((type) => <span className="type-badge"
-                                                                                                           key={type}>{type}</span>) :
-                                                    <span className="type-badge">Sin tipo</span>}
+                                                {study.types.length ? (
+                                                    <>
+                                                        {study.types.slice(0, 2).map((type) => (
+                                                            <span className="type-badge" key={type}>{type}</span>
+                                                        ))}
+                                                        {study.types.length > 2 && (
+                                                            <span
+                                                                className="type-badge"
+                                                                title={study.types.slice(2).join(', ')}
+                                                            >
+                                                                +{study.types.length - 2}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="type-badge">Sin tipo</span>
+                                                )}
                                             </span>
                                         </span>
                                     </div>

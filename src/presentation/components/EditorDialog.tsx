@@ -46,18 +46,131 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {formatStudyDate, portalNames} from '@domain/library';
+import {doctorNames, formatStudyDate, portalNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {
+    appointments,
     editingStudy,
     studies,
     operations,
+    medicalEvents,
+    portals,
     isEditorOpen,
 } from '../state/store';
 
 import type {StudyDraft} from '@domain/models';
+
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+interface AutocompleteTextFieldProps {
+    name: string;
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    options: string[];
+    placeholder: string;
+    listId: string;
+    maxLength?: number;
+    ariaDescribedBy?: string;
+}
+
+function AutocompleteTextField({
+    name,
+    label,
+    value,
+    onChange,
+    options,
+    placeholder,
+    listId,
+    maxLength = 120,
+    ariaDescribedBy,
+}: AutocompleteTextFieldProps) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const suppressFocusRef = useRef(false);
+
+    useEffect(() => {
+        const handleOutside = (e: Event) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutside);
+        document.addEventListener('focusin', handleOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleOutside);
+            document.removeEventListener('focusin', handleOutside);
+        };
+    }, []);
+
+    const query = value.trim().toLowerCase();
+    const filtered = query ? options.filter((option) => option.toLowerCase().includes(query)) : options;
+
+    return (
+        <div className="portal-field" ref={containerRef}>
+            <label>
+                {label} <small>Opcional</small>
+                <input
+                    ref={inputRef}
+                    name={name}
+                    value={value}
+                    onInput={(e: Event) => {
+                        onChange((e.currentTarget as HTMLInputElement).value);
+                        setOpen(true);
+                    }}
+                    onFocus={() => {
+                        if (suppressFocusRef.current) {
+                            suppressFocusRef.current = false;
+                            return;
+                        }
+                        if (options.length > 0) setOpen(true);
+                    }}
+                    onKeyDown={(e: KeyboardEvent) => {
+                        if (e.key === 'Escape' && open) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpen(false);
+                        }
+                    }}
+                    maxLength={maxLength}
+                    placeholder={placeholder}
+                    autoComplete="off"
+                    aria-describedby={ariaDescribedBy}
+                />
+            </label>
+            {open && filtered.length > 0 && (
+                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox">
+                    {filtered.map((option) => (
+                        <li key={option} role="option">
+                            <button
+                                type="button"
+                                className="portal-autocomplete-item"
+                                onClick={() => {
+                                    suppressFocusRef.current = true;
+                                    onChange(option);
+                                    setOpen(false);
+                                    if (inputRef.current) {
+                                        inputRef.current.value = option;
+                                        inputRef.current.focus();
+                                    }
+                                }}
+                            >
+                                {option}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
 
 // Test-only: allow setting types programmatically for e2e tests
 let _testOnlySetTypes: ((types: string[]) => void) | null = null;
@@ -96,18 +209,6 @@ export function EditorDialog({
     })).filter((group) => group.items.length > 0) : [];
 
     const [isDragging, setIsDragging] = useState(false);
-    const [portalOpen, setPortalOpen] = useState(false);
-    const portalRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (portalRef.current && !portalRef.current.contains(e.target as Node)) {
-                setPortalOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     const {
         dialogRef,
@@ -163,6 +264,13 @@ export function EditorDialog({
         _testOnlySetTypes = setTypes;
         return () => { _testOnlySetTypes = null; };
     }, [setTypes]);
+
+    const availablePortals = portalNames(studies.value, portals.value);
+    const availableDoctors = doctorNames(studies.value, [
+        ...medicalEvents.value.map((event) => event.doctor),
+        ...appointments.value.map((appointment) => appointment.professional),
+        ...operations.value.map((operation) => operation.surgeon),
+    ]);
 
     useFocusTrap(dialogRef, isEditorOpen.value);
 
@@ -285,8 +393,9 @@ export function EditorDialog({
                                 <div className="selected-report-info">
                                     <p className="selected-report-name">{selectedReport.name}</p>
                                     <p className="selected-report-meta">
-                                        {selectedReport.size.toLocaleString('es-AR')} bytes
-                                        · {checkingReport ? 'Validando archivo' : 'Listo para revisar · todavía sin guardar'}
+                                        {formatFileSize(selectedReport.size)}
+                                        {' · '}
+                                        {checkingReport ? 'Validando archivo' : 'Listo para revisar · todavía sin guardar'}
                                     </p>
                                 </div>
                                 <button
@@ -432,67 +541,27 @@ export function EditorDialog({
                     <div className="form-section">
                         <h3 className="form-section-title">Profesional e institución</h3>
                         <div className="two form-grid-2">
-                            <label>
-                                Médico o profesional <small>Opcional</small>
-                                <input
-                                    name="doctor"
-                                    value={doctor}
-                                    onInput={(e: Event) => {
-                                        setDoctor((e.currentTarget as HTMLInputElement).value);
-                                    }}
-                                    maxLength={120}
-                                    placeholder="Ej. Dra. Ana Pérez"
-                                />
-                            </label>
-                            <div className="portal-field" ref={portalRef}>
-                                <label>
-                                    Portal o institución <small>Opcional</small>
-                                    <input
-                                        name="portal"
-                                        value={portal}
-                                        onInput={(e: Event) => {
-                                            setPortal((e.currentTarget as HTMLInputElement).value);
-                                            setPortalOpen(true);
-                                        }}
-                                        onFocus={() => {
-                                            if (portalNames(studies.value).length > 0) setPortalOpen(true);
-                                        }}
-                                        maxLength={120}
-                                        placeholder="Escribí o elegí una institución"
-                                        autoComplete="off"
-                                        aria-describedby="portal-hint"
-                                    />
-                                </label>
-                                {portalOpen && portalNames(studies.value).filter(name =>
-                                    portal.trim() ? name.toLowerCase().includes(portal.trim().toLowerCase()) : true
-                                ).length > 0 && (
-                                    <ul id="portal-options" className="portal-autocomplete-dropdown" role="listbox">
-                                        {portalNames(studies.value).filter(name =>
-                                            portal.trim() ? name.toLowerCase().includes(portal.trim().toLowerCase()) : true
-                                        ).map(name => (
-                                            <li key={name} role="option">
-                                                <button
-                                                    type="button"
-                                                    className="portal-autocomplete-item"
-                                                    onClick={() => {
-                                                        setPortal(name);
-                                                        setPortalOpen(false);
-                                                        const input = formRef.current?.querySelector<HTMLInputElement>('[name="portal"]');
-                                                        if (input) {
-                                                            input.value = name;
-                                                            input.focus();
-                                                        }
-                                                    }}
-                                                >
-                                                    {name}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
+                            <AutocompleteTextField
+                                name="doctor"
+                                label="Médico o profesional"
+                                value={doctor}
+                                onChange={setDoctor}
+                                options={availableDoctors}
+                                placeholder="Ej. Dra. Ana Pérez"
+                                listId="doctor-options"
+                            />
+                            <AutocompleteTextField
+                                name="portal"
+                                label="Portal o institución"
+                                value={portal}
+                                onChange={setPortal}
+                                options={availablePortals}
+                                placeholder="Escribí o elegí una institución"
+                                listId="portal-options"
+                                ariaDescribedBy="portal-hint"
+                            />
                         </div>
-                        <p className="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una nueva.</p>
+                        <p className="hint" id="portal-hint">Podés elegir un profesional o institución que ya usaste, o escribir uno nuevo.</p>
                     </div>
 
                     <div className="form-section">
@@ -525,18 +594,22 @@ export function EditorDialog({
                                 setOperationError('');
                             }}>Crear operación nueva
                             </button>
-                            {creatingOperation && <fieldset disabled={operationBusy}>
+                            {creatingOperation && <fieldset className="editor-inline-fieldset" disabled={operationBusy}>
                                 <legend>Nueva operación</legend>
-                                <label>Nombre <input id="new-operation-name" name="newOperationName" maxLength={120}/></label>
-                                <label>Fecha <input name="newOperationDate" type="date"/></label>
-                                <label>Cirujano <input name="newOperationSurgeon"/></label>
-                                <label>Institución <input name="newOperationInstitution"/></label>
+                                <div className="two form-grid-2">
+                                    <label>Nombre <input id="new-operation-name" name="newOperationName" maxLength={120}/></label>
+                                    <label>Fecha <input name="newOperationDate" type="date"/></label>
+                                    <label>Cirujano <input name="newOperationSurgeon"/></label>
+                                    <label>Institución <input name="newOperationInstitution"/></label>
+                                </div>
                                 <label>Intervención <input name="newOperationType"/></label>
                                 <label>Notas <textarea name="newOperationNotes"/></label>
-                                {operationError && <p role="alert">{operationError}</p>}
-                                <button type="button" id="save-new-operation"
-                                        onClick={() => void createOperation()}>{operationBusy ? 'Guardando…' : 'Guardar operación'}</button>
-                                <button type="button" onClick={() => setCreatingOperation(false)}>Cancelar</button>
+                                {operationError && <p className="form-error" role="alert">{operationError}</p>}
+                                <div className="editor-inline-actions">
+                                    <button type="button" className="button quiet" onClick={() => setCreatingOperation(false)}>Cancelar</button>
+                                    <button type="button" className="button secondary" id="save-new-operation"
+                                            onClick={() => void createOperation()}>{operationBusy ? 'Guardando…' : 'Guardar operación'}</button>
+                                </div>
                             </fieldset>}
                         </details>
                     </div>

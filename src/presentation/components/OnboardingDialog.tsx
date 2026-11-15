@@ -30,7 +30,10 @@ export function OnboardingDialog() {
                     <p className="eyebrow">EMPEZÁ EN TRES PASOS</p>
                     <h2 id="onboarding-title">Tu archivo médico, ordenado</h2>
                 </div>
-                <button className="icon-button" type="button" aria-label="Cerrar introducción" onClick={close}>×
+                <button className="icon-button" type="button" aria-label="Cerrar introducción" onClick={close}>
+                    <svg className="icon">
+                        <use href="#i-close"/>
+                    </svg>
                 </button>
             </div>
             <ol className="onboarding-steps">

@@ -83,21 +83,6 @@ export function StudyListContainer({
                                     onInput={(event) => setQuery(event.currentTarget.value)}
                                 />
                             </div>
-                            <div className="sort-control">
-                                <label htmlFor="library-sort" className="sr-only">Ordenar por</label>
-                                <select
-                                    id="library-sort"
-                                    className="sort-select"
-                                    aria-label="Ordenar estudios"
-                                    value={sortOrder}
-                                    onChange={(event) => setSortOrder(event.currentTarget.value as StudySortOrder)}
-                                >
-                                    <option value="date-desc">Más recientes</option>
-                                    <option value="date-asc">Más antiguos</option>
-                                    <option value="title">Título (A-Z)</option>
-                                    <option value="doctor">Profesional (A-Z)</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                     <LibraryTabs availableTypes={availableTypes}/>
@@ -183,8 +168,14 @@ export function StudyListContainer({
                             }
                         />
                     ) : (
-                        <StudyList onEdit={onEdit} onDelete={onDelete} onShare={onShare ?? (() => {
-                        })} studies={studiesList}/>
+                        <StudyList
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                            onShare={onShare ?? (() => {})}
+                            sortOrder={sortOrder}
+                            onSortChange={setSortOrder}
+                            studies={studiesList}
+                        />
                     )}
                 </>
             )}

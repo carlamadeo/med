@@ -330,7 +330,7 @@ export function Episodes() {
     }
 
     function handleSymptomNameChange(obsIndex: number, symIndex: number, e: Event) {
-        updateSymptom(obsIndex, symIndex, 'name', (e.currentTarget as HTMLSelectElement).value);
+        updateSymptom(obsIndex, symIndex, 'name', (e.currentTarget as HTMLInputElement).value);
     }
 
     function handleSymptomIntensityChange(obsIndex: number, symIndex: number, e: Event) {
@@ -522,6 +522,9 @@ export function Episodes() {
 
                     <fieldset>
                         <legend>Observaciones (días de ocurrencia)</legend>
+                        <datalist id="episode-common-symptoms">
+                            {COMMON_SYMPTOMS.map(s => <option key={s} value={s}/>)}
+                        </datalist>
                         {observations.map((obs: FormObservation, obsIndex: number) => (
                             <div key={obsIndex} className="observation-block">
                                 <label>Fecha <input type="date" defaultValue={obs.date}
@@ -536,11 +539,12 @@ export function Episodes() {
                                     <legend>Síntomas con intensidad (1-5)</legend>
                                     {obs.symptoms.map((symptom: FormSymptomEntry, symIndex: number) => (
                                         <div key={symIndex} className="symptom-row">
-                                            <select defaultValue={symptom.name}
-                                                    onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}>
-                                                <option value="">— Seleccionar o escribir —</option>
-                                                {COMMON_SYMPTOMS.map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
+                                            <input type="text"
+                                                   list="episode-common-symptoms"
+                                                   placeholder="Seleccionar o escribir síntoma"
+                                                   aria-label="Nombre del síntoma"
+                                                   defaultValue={symptom.name}
+                                                   onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}/>
                                             <input type="number" min="1" max="5" placeholder="Intensidad 1-5"
                                                    defaultValue={symptom.intensity ?? ''}
                                                    onChange={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>

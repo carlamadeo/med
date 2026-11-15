@@ -3,7 +3,6 @@ export * from './EmptyState';
 export * from './OnboardingDialog';
 export * from './AppointmentDialog';
 export * from './StudyList';
-export * from './StudyRow';
 export * from './EditorDialog';
 export * from './ConfirmDialog';
 export * from './ShareDialog';

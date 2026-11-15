@@ -18,6 +18,7 @@ import {FolderPickerDialog} from './FolderPickerDialog';
 interface AppShellProps {
     isSignedIn: boolean;
     onSignOut: () => void;
+    onOpenSearch?: () => void;
     children: ComponentChildren;
 }
 
@@ -43,7 +44,7 @@ const labels: Record<ViewMode, string> = {
     intake: 'Intake asistido',
 };
 
-export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
+export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef<HTMLButtonElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
@@ -232,6 +233,15 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
 
                     <div className="topbar-actions">
                         <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Cuenta privada verificada</span>
+                        {onOpenSearch && (
+                            <button className="icon-button" id="open-command-palette" type="button"
+                                    title="Buscar en el archivo (⌘K / Ctrl+K)" aria-label="Buscar en el archivo"
+                                    hidden={!isSignedIn} onClick={onOpenSearch}>
+                                <svg className="icon">
+                                    <use href="#i-search"/>
+                                </svg>
+                            </button>
+                        )}
                         <button className="icon-button optional" id="export-history" type="button"
                                 title="Exportar historia" aria-label="Exportar historia" hidden={!isSignedIn}
                                 onClick={() => setExporting(true)}>

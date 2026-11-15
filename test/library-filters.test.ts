@@ -81,13 +81,13 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     expect(root.textContent).toContain('Tu archivo empieza acá');
 });
 
-it('allows changing sort order in the study list', async () => {
+it('allows changing sort order by clicking table headers in the study list', async () => {
     view.value = 'cronologia';
     const base = {driveFileId: 'drive-id', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
     setStudies([
-        {...base, id: '1', date: '2024-01-01', title: 'Radiografía', doctor: 'Dr. Zorrilla', portal: 'Centro A', types: ['Radiografía']},
-        {...base, id: '2', date: '2024-03-01', title: 'Análisis', doctor: 'Dr. Álvarez', portal: 'Centro B', types: ['Análisis']},
-        {...base, id: '3', date: '2023-01-01', title: 'Ecografía', doctor: 'Dr. Méndez', portal: 'Centro C', types: ['Ecografía']},
+        {...base, id: '1', date: '2024-01-01', title: 'Radiografía', doctor: 'Dr. Zorrilla', portal: 'Centro B', types: ['Radiografía']},
+        {...base, id: '2', date: '2024-03-01', title: 'Análisis', doctor: 'Dr. Álvarez', portal: 'Centro C', types: ['Análisis']},
+        {...base, id: '3', date: '2023-01-01', title: 'Ecografía', doctor: 'Dr. Méndez', portal: 'Centro A', types: ['Ecografía']},
     ]);
     await act(() => render(h(StudyListContainer, {
         onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
@@ -95,31 +95,31 @@ it('allows changing sort order in the study list', async () => {
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
 
-    const sortSelect = root.querySelector<HTMLSelectElement>('#library-sort');
-    expect(sortSelect).not.toBeNull();
+    expect(root.querySelector('#library-sort')).toBeNull();
     const titles = () => [...root.querySelectorAll('.study-title')].map((t) => t.textContent);
+    const headerButton = (name: string) =>
+        [...root.querySelectorAll<HTMLButtonElement>('thead th button')].find((b) => b.textContent?.trim() === name)!;
 
     // Default: date-desc
     expect(titles()).toEqual(['Análisis', 'Radiografía', 'Ecografía']);
+    expect(headerButton('Fecha').closest('th')?.getAttribute('aria-sort')).toBe('descending');
 
-    // Change to date-asc
-    await act(() => {
-        sortSelect!.value = 'date-asc';
-        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
-    });
+    // Toggle Fecha to date-asc
+    await act(() => headerButton('Fecha').click());
     expect(titles()).toEqual(['Ecografía', 'Radiografía', 'Análisis']);
+    expect(headerButton('Fecha').closest('th')?.getAttribute('aria-sort')).toBe('ascending');
 
-    // Change to title (A-Z)
-    await act(() => {
-        sortSelect!.value = 'title';
-        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
-    });
+    // Sort by Estudio (A-Z) and toggle to Z-A
+    await act(() => headerButton('Estudio').click());
+    expect(titles()).toEqual(['Análisis', 'Ecografía', 'Radiografía']);
+    await act(() => headerButton('Estudio').click());
+    expect(titles()).toEqual(['Radiografía', 'Ecografía', 'Análisis']);
+
+    // Sort by Profesional (A-Z)
+    await act(() => headerButton('Profesional').click());
     expect(titles()).toEqual(['Análisis', 'Ecografía', 'Radiografía']);
 
-    // Change to doctor (A-Z)
-    await act(() => {
-        sortSelect!.value = 'doctor';
-        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
-    });
-    expect(titles()).toEqual(['Análisis', 'Ecografía', 'Radiografía']);
+    // Sort by Institución (A-Z)
+    await act(() => headerButton('Institución').click());
+    expect(titles()).toEqual(['Ecografía', 'Radiografía', 'Análisis']);
 });

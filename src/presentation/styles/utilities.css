@@ -316,16 +316,6 @@
     }
 }
 
-@media (min-width: 731px) {
-    .md\:hidden {
-        display: none;
-    }
-
-    .md\:flex {
-        display: flex;
-    }
-}
-
 @media (max-width: 560px) {
     .sm\:hidden {
         display: none;
@@ -337,15 +327,5 @@
 
     .sm\:w-full {
         width: 100%;
-    }
-}
-
-@media (min-width: 561px) {
-    .sm\:hidden {
-        display: none;
-    }
-
-    .sm\:flex {
-        display: flex;
     }
 }

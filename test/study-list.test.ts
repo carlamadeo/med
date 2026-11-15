@@ -158,3 +158,24 @@ it('offers a named print action for each study', async () => {
     await act(() => [...(dialog?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Imprimir')?.click());
     expect(print).toHaveBeenCalledOnce();
 });
+
+it('shows a +N badge when a study has more than two types', async () => {
+    setStudies([{
+        id: 'multi',
+        driveFileId: 'multi',
+        title: 'Control anual',
+        date: '2024-01-01',
+        types: ['Laboratorio', 'Ecografía', 'Radiografía', 'Otro'],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1',
+    }]);
+    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    const badges = [...root.querySelectorAll('.type-badge')];
+    expect(badges.map((badge) => badge.textContent)).toEqual(['Laboratorio', 'Ecografía', '+2']);
+    expect(badges[2]?.getAttribute('title')).toBe('Radiografía, Otro');
+});

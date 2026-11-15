@@ -26,7 +26,11 @@ export function StudyPrintDialog({study, onClose}: StudyPrintDialogProps) {
                     <h2 id="study-print-title">Preparar impresión</h2>
                     <p>Revisá el contenido antes de imprimir.</p>
                 </div>
-                <button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}>×</button>
+                <button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}>
+                    <svg className="icon">
+                        <use href="#i-close"/>
+                    </svg>
+                </button>
             </div>
             <p className="study-print-note print-controls">Los archivos adjuntos se imprimen por separado. Las copias impresas quedan fuera de los controles de acceso de Drive.</p>
             <article className="study-print-record">

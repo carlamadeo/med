@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {filterStudies, portalNames} from '@domain/library';
+import {doctorNames, filterStudies, portalNames} from '@domain/library';
 import type {Filters, Study} from '@domain/models';
 
 function study(id: string, over: Partial<Study> = {}): Study {
@@ -191,5 +191,23 @@ describe('portalNames', () => {
 
     it('is empty when no study names an institution', () => {
         expect(portalNames([study('1')])).toEqual([]);
+    });
+
+    it('includes saved portals without duplicating existing study institutions', () => {
+        const names = portalNames(
+            [study('1', {portal: 'Hospital Central'})],
+            [{name: 'hospital central', displayName: 'Hospital Central'}, {name: 'laboratorio norte', displayName: 'Laboratorio Norte'}],
+        );
+        expect(names).toEqual(['Hospital Central', 'Laboratorio Norte']);
+    });
+});
+
+describe('doctorNames', () => {
+    it('lists unique professionals from studies and extra records sorted for display', () => {
+        const names = doctorNames(
+            [study('1', {doctor: 'Dra.  Ana Pérez'}), study('2', {doctor: 'dra. ana perez'})],
+            ['Dr. Bruno Díaz', '  ', undefined],
+        );
+        expect(names).toEqual(['Dr. Bruno Díaz', 'Dra. Ana Pérez']);
     });
 });

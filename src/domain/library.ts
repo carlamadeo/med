@@ -5,7 +5,16 @@
 import type {Filters, Study} from './models';
 import {normalize} from './utils';
 
-export type StudySortOrder = 'date-desc' | 'date-asc' | 'title' | 'doctor' | 'type';
+export type StudySortOrder =
+    | 'date-desc'
+    | 'date-asc'
+    | 'title'
+    | 'title-desc'
+    | 'doctor'
+    | 'doctor-desc'
+    | 'portal'
+    | 'portal-desc'
+    | 'type';
 
 interface ListResult {
     matches: Study[];
@@ -59,15 +68,33 @@ export function filterStudiesByQuery(studies: Study[], query: string): Study[] {
     return normalizedQuery ? studies.filter((study) => studyMatchesQuery(study, normalizedQuery)) : studies;
 }
 
+function compareByOrder(a: Study, b: Study, sortOrder: StudySortOrder): number {
+    switch (sortOrder) {
+        case 'date-asc':
+            return a.date.localeCompare(b.date);
+        case 'title':
+            return a.title.localeCompare(b.title, 'es') || b.date.localeCompare(a.date);
+        case 'title-desc':
+            return b.title.localeCompare(a.title, 'es') || b.date.localeCompare(a.date);
+        case 'doctor':
+            return (a.doctor || '').localeCompare(b.doctor || '', 'es') || b.date.localeCompare(a.date);
+        case 'doctor-desc':
+            return (b.doctor || '').localeCompare(a.doctor || '', 'es') || b.date.localeCompare(a.date);
+        case 'portal':
+            return (a.portal || '').localeCompare(b.portal || '', 'es') || b.date.localeCompare(a.date);
+        case 'portal-desc':
+            return (b.portal || '').localeCompare(a.portal || '', 'es') || b.date.localeCompare(a.date);
+        case 'type':
+            return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || b.date.localeCompare(a.date);
+        case 'date-desc':
+        default:
+            return b.date.localeCompare(a.date);
+    }
+}
+
 export function sortStudies(studies: readonly Study[], sortOrder: StudySortOrder = 'date-desc'): Study[] {
     const list = [...studies];
-    list.sort((a, b) => {
-        if (sortOrder === 'date-asc') return a.date.localeCompare(b.date);
-        if (sortOrder === 'title') return a.title.localeCompare(b.title, 'es') || b.date.localeCompare(a.date);
-        if (sortOrder === 'doctor') return (a.doctor || '').localeCompare(b.doctor || '', 'es') || b.date.localeCompare(a.date);
-        if (sortOrder === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || b.date.localeCompare(a.date);
-        return b.date.localeCompare(a.date);
-    });
+    list.sort((a, b) => compareByOrder(a, b, sortOrder));
     return list;
 }
 
@@ -97,23 +124,38 @@ export function filterStudies(
         if (categories.size && !study.types.some((value) => categories.has(normalize(value)))) return false;
         return !query || studyMatchesQuery(study, query);
     });
-    matches.sort((a, b) => {
-        if (sortOrder === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
-        if (sortOrder === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
-        if (sortOrder === 'doctor') return (a.doctor || '').localeCompare(b.doctor || '', 'es') || compareStudies(a, b);
-        if (sortOrder === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || compareStudies(a, b);
-        return compareStudies(a, b);
-    });
+    matches.sort((a, b) => compareByOrder(a, b, sortOrder) || compareStudies(a, b));
     return {matches, filtered, invalidRange};
 }
 
-/** Distinct institutions already used, ignoring case/accents/extra spaces, sorted for display. */
-export function portalNames(studies: readonly Study[]): string[] {
-    const names = new Map<string, string>();
-    for (const study of studies) {
-        if (typeof study.portal !== 'string') continue;
-        const name = study.portal.trim().replace(/\s+/g, ' ');
-        if (name && !names.has(normalize(name))) names.set(normalize(name), name);
-    }
+function addNormalizedName(names: Map<string, string>, raw: unknown): void {
+    if (typeof raw !== 'string') return;
+    const name = raw.trim().replace(/\s+/g, ' ');
+    if (name && !names.has(normalize(name))) names.set(normalize(name), name);
+}
+
+function sortDisplayNames(names: Map<string, string>): string[] {
     return [...names.values()].sort((a, b) => a.localeCompare(b, 'es', {sensitivity: 'base'}));
+}
+
+/** Distinct institutions already used, ignoring case/accents/extra spaces, sorted for display. */
+export function portalNames(
+    studies: readonly Study[],
+    savedPortals: readonly { name?: string; displayName?: string }[] = [],
+): string[] {
+    const names = new Map<string, string>();
+    for (const study of studies) addNormalizedName(names, study.portal);
+    for (const portal of savedPortals) addNormalizedName(names, portal.displayName || portal.name);
+    return sortDisplayNames(names);
+}
+
+/** Distinct professionals already used across studies and related records, sorted for display. */
+export function doctorNames(
+    studies: readonly Study[],
+    extraNames: readonly (string | undefined)[] = [],
+): string[] {
+    const names = new Map<string, string>();
+    for (const study of studies) addNormalizedName(names, study.doctor);
+    for (const extra of extraNames) addNormalizedName(names, extra);
+    return sortDisplayNames(names);
 }

@@ -2,7 +2,7 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {EditorDialog} from '@presentation/components/EditorDialog';
-import {setEditingStudy, setEditorOpen, setStudies} from '@presentation/state/store';
+import {portals, setEditingStudy, setEditorOpen, setStudies} from '@presentation/state/store';
 
 it('submits a new study with its selected type', async () => {
     const root = document.createElement('div');
@@ -162,6 +162,85 @@ it('handles drag and drop of valid files onto the dropzone', async () => {
     expect(root.querySelector('#selected-report')).not.toBeNull();
     expect(root.querySelector('#selected-report')!.textContent).toContain('estudio.pdf');
 
+    render(null, root);
+    root.remove();
+});
+
+it('closes the portal dropdown after selecting an institution', async () => {
+    portals.value = [{id: 'p1', name: 'hospital central', displayName: 'Hospital Central', url: 'https://hospital.example', revision: '1'}];
+    const root = document.createElement('div');
+    document.body.append(root);
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio']
+    }), root));
+    await act(() => {
+        setEditingStudy(null);
+        setEditorOpen(true);
+    });
+
+    const input = root.querySelector<HTMLInputElement>('input[name="portal"]')!;
+    await act(() => {
+        input.dispatchEvent(new FocusEvent('focus', {bubbles: true}));
+    });
+    const option = root.querySelector<HTMLButtonElement>('#portal-options .portal-autocomplete-item');
+    expect(option?.textContent).toBe('Hospital Central');
+
+    await act(() => {
+        option!.click();
+    });
+
+    expect(input.value).toBe('Hospital Central');
+    expect(root.querySelector('#portal-options')).toBeNull();
+
+    portals.value = [];
+    setEditorOpen(false);
+    render(null, root);
+    root.remove();
+});
+
+it('suggests previously saved doctors and closes the dropdown on selection', async () => {
+    setStudies([{
+        id: 's1',
+        driveFileId: 'f1',
+        title: 'Estudio previo',
+        date: '2024-01-01',
+        doctor: 'Dra. Ana Pérez',
+        portal: '',
+        types: ['Laboratorio'],
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1',
+    }]);
+    const root = document.createElement('div');
+    document.body.append(root);
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio']
+    }), root));
+    await act(() => {
+        setEditingStudy(null);
+        setEditorOpen(true);
+    });
+
+    const input = root.querySelector<HTMLInputElement>('input[name="doctor"]')!;
+    await act(() => {
+        input.dispatchEvent(new FocusEvent('focus', {bubbles: true}));
+    });
+    const option = root.querySelector<HTMLButtonElement>('#doctor-options .portal-autocomplete-item');
+    expect(option?.textContent).toBe('Dra. Ana Pérez');
+
+    await act(() => {
+        option!.click();
+    });
+
+    expect(input.value).toBe('Dra. Ana Pérez');
+    expect(root.querySelector('#doctor-options')).toBeNull();
+
+    setStudies([]);
+    setEditorOpen(false);
     render(null, root);
     root.remove();
 });

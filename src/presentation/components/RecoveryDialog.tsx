@@ -270,89 +270,73 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                         onClick={onReconnect}>Reconectar Google Drive
                 </button>
 
-                <div role="tablist" aria-label="Tipos de elementos"
-                     style={{display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap'}}>
-                    {ENTITY_TYPES.map(({value, label, icon}) => (
+                <div role="tablist" aria-label="Tipos de elementos" className="recovery-tablist">
+                    {ENTITY_TYPES.map(({value, label, icon}, index) => (
                         <button
                             key={value}
+                            type="button"
                             role="tab"
                             aria-selected={activeTab === value}
                             aria-controls={`panel-${value}`}
                             id={`tab-${value}`}
+                            tabIndex={activeTab === value ? 0 : -1}
                             onClick={() => setActiveTab(value)}
+                            onKeyDown={(event) => {
+                                if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+                                event.preventDefault();
+                                const delta = event.key === 'ArrowRight' ? 1 : -1;
+                                const nextIndex = (index + delta + ENTITY_TYPES.length) % ENTITY_TYPES.length;
+                                const nextTab = ENTITY_TYPES[nextIndex];
+                                if (nextTab) {
+                                    setActiveTab(nextTab.value);
+                                    dialogRef.current?.querySelector<HTMLButtonElement>(`#tab-${nextTab.value}`)?.focus();
+                                }
+                            }}
                             className={`tab-button ${activeTab === value ? 'active' : ''}`}
                             disabled={loading}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--edge)',
-                                background: activeTab === value ? 'var(--accent)' : 'transparent',
-                                color: activeTab === value ? 'var(--accent-foreground)' : 'inherit',
-                                cursor: loading ? 'not-allowed' : 'pointer'
-                            }}
                         >
-                            <svg className="icon" style={{width: 18, height: 18}}>
+                            <svg className="icon" aria-hidden="true">
                                 <use href={`#${icon}`}/>
                             </svg>
                             <span>{label}</span>
-                            <span style={{
-                                fontSize: '0.75rem',
-                                padding: '2px 6px',
-                                borderRadius: '999px',
-                                background: 'var(--muted)',
-                                color: 'var(--muted-foreground)'
-                            }}>
-                {deletedItems[value].length}
-              </span>
+                            <span className="recovery-tab-count">
+                                {deletedItems[value].length}
+                            </span>
                         </button>
                     ))}
                 </div>
 
-                <div style={{maxHeight: '60vh', overflow: 'auto'}}>
+                <div className="recovery-panel-scroll">
                     {loading ? (
                         <p className="list-status" role="status">Cargando elementos recuperables…</p>
                     ) : currentError ? (
-                        <div className="empty-state" style={{padding: '32px 16px', textAlign: 'center'}}>
-                            <p style={{color: 'var(--error)'}}>{currentError}</p>
+                        <div className="empty-state recovery-empty-state">
+                            <p className="recovery-error-text">{currentError}</p>
                         </div>
                     ) : currentItems.length === 0 ? (
-                        <div className="empty-state" style={{padding: '32px 16px', textAlign: 'center'}}>
-                            <svg className="icon"
-                                 style={{width: '48px', height: '48px', margin: '0 auto 16px', color: 'var(--muted)'}}>
+                        <div className="empty-state recovery-empty-state">
+                            <svg className="icon recovery-empty-icon" aria-hidden="true">
                                 <use href="#i-trash-off"/>
                             </svg>
                             <h3>No
                                 hay {ENTITY_TYPES.find(t => t.value === activeTab)?.label.toLowerCase()} recuperables</h3>
-                            <p style={{color: 'var(--muted)', marginTop: '8px'}}>Los elementos eliminados hace más de 30
+                            <p className="recovery-empty-copy">Los elementos eliminados hace más de 30
                                 días no se pueden recuperar</p>
                         </div>
                     ) : (
                         <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
-                            <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
+                            <ul className="recovery-list">
                                 {currentItems.map(item => (
-                                    <li key={item.id} style={{
-                                        borderBottom: '1px solid var(--edge)',
-                                        padding: '16px 0',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        gap: '16px',
-                                        flexWrap: 'wrap'
-                                    }}>
-                                        <div style={{minWidth: 0, flex: 1}}>
-                                            <h4 style={{margin: '0 0 4px', fontSize: '1rem'}}>{item.title}</h4>
-                                            <p style={{margin: 0, color: 'var(--muted)', fontSize: '0.875rem'}}>
+                                    <li key={item.id} className="recovery-item">
+                                        <div className="recovery-item-info">
+                                            <h4>{item.title}</h4>
+                                            <p className="recovery-item-meta">
                                                 {item.date ? `Fecha: ${item.date} · ` : ''}Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString('es-AR') : 'fecha desconocida'}
                                             </p>
                                             {!item.recoverable && (
-                                                <p style={{
-                                                    margin: '8px 0 0',
-                                                    color: 'var(--error)',
-                                                    fontSize: '0.875rem'
-                                                }}>Consultá la papelera de Google Drive para este elemento.</p>
+                                                <p className="recovery-item-warning">
+                                                    Consultá la papelera de Google Drive para este elemento.
+                                                </p>
                                             )}
                                         </div>
                                         {hasPending(item) ? (
@@ -360,8 +344,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                                         ) : item.recoverable && (
                                             <button
                                                 type="button"
-                                                className="button primary"
-                                                style={{flexShrink: 0}}
+                                                className="button primary recovery-action-btn"
                                                 onClick={() => handleRecover(item)}
                                                 disabled={loading}
                                             >

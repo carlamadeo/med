@@ -22,20 +22,29 @@ export function MultiSelectCombobox({
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [activeIndex, setActiveIndex] = useState(-1);
-    const buttonRef = useRef<HTMLButtonElement>(null);
+    const buttonRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const id = useRef(`combobox-${Math.random().toString(36).slice(2)}`).current;
+    const labelId = `${id}-label`;
     const listId = `${id}-list`;
 
     const filteredOptions = options.filter(opt =>
         opt.toLowerCase().includes(search.toLowerCase())
     );
 
+    const toggleOption = useCallback((option: string) => {
+        const newValue = value.includes(option)
+            ? value.filter(v => v !== option)
+            : [...value, option];
+        onChange(newValue);
+    }, [value, onChange]);
+
     const handleKeyDown = useCallback((event: KeyboardEvent) => {
         switch (event.key) {
             case 'ArrowDown':
                 event.preventDefault();
+                if (!isOpen) setIsOpen(true);
                 setActiveIndex(prev => Math.min(prev + 1, filteredOptions.length - 1));
                 break;
             case 'ArrowUp':
@@ -44,7 +53,10 @@ export function MultiSelectCombobox({
                 break;
             case 'Enter':
             case ' ':
-                if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
+                if (!isOpen) {
+                    event.preventDefault();
+                    setIsOpen(true);
+                } else if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
                     event.preventDefault();
                     const option = filteredOptions[activeIndex];
                     if (option) toggleOption(option);
@@ -68,14 +80,7 @@ export function MultiSelectCombobox({
                 }
                 break;
         }
-    }, [activeIndex, filteredOptions, onChange, value]);
-
-    const toggleOption = useCallback((option: string) => {
-        const newValue = value.includes(option)
-            ? value.filter(v => v !== option)
-            : [...value, option];
-        onChange(newValue);
-    }, [value, onChange]);
+    }, [activeIndex, filteredOptions, isOpen, onChange, search, toggleOption, value]);
 
     const removeTag = useCallback((option: string) => {
         onChange(value.filter(v => v !== option));
@@ -108,21 +113,25 @@ export function MultiSelectCombobox({
 
     return (
         <div className="multi-select-combobox">
-            {label && <label htmlFor={id}>{label}</label>}
-            <button type="button"
-                    className="combobox-trigger"
-                    role="combobox"
-                    aria-expanded={isOpen}
-                    aria-controls={listId}
-                    aria-autocomplete="list"
-                    aria-required={required}
-                    aria-describedby={ariaDescribedBy}
-                    aria-label="Tipos de estudio"
-                    onClick={() => setIsOpen(!isOpen)}
-                    onKeyDown={handleKeyDown}
-                    tabIndex={0}
-                    ref={buttonRef}
-                    id={id}>
+            {label && (
+                <label id={labelId} onClick={() => buttonRef.current?.focus()}>
+                    {label}
+                </label>
+            )}
+            <div className="combobox-trigger"
+                 role="combobox"
+                 aria-expanded={isOpen}
+                 aria-controls={listId}
+                 aria-autocomplete="list"
+                 aria-required={required}
+                 aria-describedby={ariaDescribedBy}
+                 aria-labelledby={label ? labelId : undefined}
+                 aria-label={label ? undefined : 'Tipos de estudio'}
+                 onClick={() => setIsOpen(!isOpen)}
+                 onKeyDown={handleKeyDown}
+                 tabIndex={0}
+                 ref={buttonRef}
+                 id={id}>
                 <div className="combobox-tags">
                     {value.map((opt) => (
                         <span key={opt} className="combobox-tag">
@@ -133,6 +142,7 @@ export function MultiSelectCombobox({
                                         e.stopPropagation();
                                         removeTag(opt);
                                     }}
+                                    onKeyDown={(e) => e.stopPropagation()}
                                     aria-label={`Quitar ${opt}`}>
                                 <svg className="icon" aria-hidden="true"><use href="#i-close"/></svg>
                             </button>
@@ -143,7 +153,7 @@ export function MultiSelectCombobox({
                 <svg className="combobox-chevron" aria-hidden="true">
                     <use href="#i-chevron-down"/>
                 </svg>
-            </button>
+            </div>
             {isOpen && (
                 <ul className="combobox-dropdown" role="listbox" id={listId} ref={listRef}>
                     <li className="combobox-search-wrapper">

@@ -53,6 +53,7 @@ import {
     ShareDialog,
     ExportDialog,
     RecoveryDialog,
+    CommandPalette,
 } from '../components';
 import {handleDriveError} from '../utils/driveErrorHandler';
 import {checkAppointmentReminders} from '../utils/appointmentReminders';
@@ -69,6 +70,7 @@ export function LibraryPage() {
     const [editorError, setEditorError] = useState<string | null>(null);
     const [sessionLost, setSessionLost] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [paletteOpen, setPaletteOpen] = useState(false);
 
     const clearEditorError = useCallback(() => setEditorError(null), []);
 
@@ -111,7 +113,13 @@ export function LibraryPage() {
     // Keyboard shortcuts
     useEffect(() => {
         const handleShortcut = (event: KeyboardEvent) => {
-            if (!isSignedIn.value || !typesReady || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+            if (!isSignedIn.value || event.defaultPrevented) return;
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                setPaletteOpen((prev) => !prev);
+                return;
+            }
+            if (!typesReady || event.ctrlKey || event.metaKey || event.altKey ||
                 document.querySelector('dialog[open]')) return;
             const target = event.target;
             if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
@@ -387,6 +395,7 @@ export function LibraryPage() {
         <>
             <AppShell
                 isSignedIn={isSignedIn.value}
+                onOpenSearch={() => setPaletteOpen(true)}
                 onSignOut={() => {
                     if (isLocalDemo.value) {
                         setIsLocalDemo(false);
@@ -488,6 +497,15 @@ export function LibraryPage() {
                 onReconnect={() => void connectDrive()}
                 error={recoveryError.value}
                 sessionLost={sessionLost}
+            />
+            <CommandPalette
+                open={paletteOpen}
+                onClose={() => setPaletteOpen(false)}
+                onOpenStudy={(study) => openEditor(study)}
+                onAddStudy={() => openEditor(null)}
+                onNavigate={(next) => {
+                    view.value = next;
+                }}
             />
             <OnboardingDialog/>
         </>
