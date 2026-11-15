@@ -46,7 +46,7 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {formatStudyDate, hasStudyAttachment, portalNames} from '@domain/library';
+import {formatStudyDate, portalNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect} from 'preact/hooks';
@@ -121,8 +121,6 @@ export function EditorDialog({
         candidates,
         operationId,
         setOperationId,
-        documentIds,
-        setDocumentIds,
         creatingOperation,
         setCreatingOperation,
         operationBusy,
@@ -353,26 +351,7 @@ export function EditorDialog({
                         </div>)}
                     </section>}
                     <details className="editor-advanced">
-                        <summary>Documentos y operaciones relacionadas</summary>
-                    {(documentIds.length > 0 || studies.value.some((item) => hasStudyAttachment(item) && item.id !== study?.id)) &&
-                        <fieldset>
-                            <legend>Documentos de otros estudios</legend>
-                            <p className="hint">Vinculá documentos existentes sin crear otra copia.</p>
-                            {studies.value.filter((item) => hasStudyAttachment(item) && item.id !== study?.id).map((item) => <label
-                                key={item.id}>
-                                <input type="checkbox" name="documentIds" value={item.id}
-                                       checked={documentIds.includes(item.id)} onChange={(event) => {
-                                    const checked = event.currentTarget.checked;
-                                    setDocumentIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id));
-                                }}/> {item.reportName || item.title} · {item.title}
-                            </label>)}
-                            {documentIds.filter((id) => !studies.value.some((item) => item.id === id && hasStudyAttachment(item))).map((id) =>
-                                <label key={id}>
-                                    <input type="checkbox" name="documentIds" value={id} checked
-                                           onChange={() => setDocumentIds((current) => current.filter((item) => item !== id))}/> Documento
-                                    no disponible
-                                </label>)}
-                        </fieldset>}
+                        <summary>Operación relacionada</summary>
 
                     <label>Operación <small>Opcional</small>
                         <select id="operation-id" name="operationId" value={operationId}
