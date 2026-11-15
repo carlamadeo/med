@@ -70,11 +70,6 @@ export function StudyRow({
                         {study.portal && <span className="record-portal">{study.portal}</span>}
                     </p>
                 </div>
-                <div className="type-badges" aria-label="Tipos de estudio">
-                    {study.types.map(type => (
-                        <span key={type} className="type-badge">{type}</span>
-                    ))}
-                </div>
             </div>
             <div className="record-controls">
                 <div className="record-links">

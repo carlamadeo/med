@@ -1,0 +1,99 @@
+.library-search-head {
+    flex-flow: row wrap;
+    align-items: center;
+}
+
+.library-search {
+    width: min(100%, 22rem);
+}
+
+#categories.library-types button {
+    min-height: 2.75rem;
+    overflow-wrap: anywhere;
+}
+
+.library-table .study-cell {
+    min-width: 8rem;
+}
+
+.library-table .study-title {
+    max-width: none;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.library-table .row-actions {
+    flex-wrap: wrap;
+    opacity: 1;
+}
+
+.library-mobile-label {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .library-search {
+        width: 100%;
+    }
+
+    .library-table.summary-table-scroll thead,
+    .library-table.summary-table-scroll tbody td.library-study-metadata[data-empty='true'] {
+        position: absolute;
+        display: block;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .library-table .study-cell {
+        min-width: 0;
+    }
+
+    .library-table .study-title {
+        font-size: var(--text-sm);
+    }
+
+    .library-table .date-cell {
+        color: var(--color-text-secondary);
+    }
+
+    .library-table.summary-table-scroll tbody tr,
+    .library-table.summary-table-scroll tbody td:first-child,
+    .library-table.summary-table-scroll tbody td:last-child {
+        padding-inline: 0;
+    }
+
+    .library-table.summary-table-scroll tbody td.library-study-metadata {
+        display: block;
+        max-width: none;
+        grid-column: 1 / -1;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .library-table.summary-table-scroll tbody td:last-child {
+        grid-column: 1 / -1;
+        grid-row: auto;
+        justify-self: start;
+    }
+
+    .library-mobile-label {
+        display: inline;
+        margin-inline-end: var(--space-1);
+        color: var(--color-text-secondary);
+        font-weight: 550;
+    }
+
+    .library-table .row-actions .icon-button {
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+}
+
+@media print {
+    .library-search,
+    .library-table .row-actions {
+        display: none;
+    }
+}

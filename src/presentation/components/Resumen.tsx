@@ -1,4 +1,4 @@
-import {formatStudyDate, portalNames, reportUrl} from '@domain/library';
+import {formatStudyDate, hasStudyAttachment, portalNames, reportUrl, studyAttachmentLabel} from '@domain/library';
 import {
     latestStudy,
     monthlyStudyActivity,
@@ -20,6 +20,7 @@ import {
     visibleStudies,
 } from '../state/store';
 import {SummaryChart} from './SummaryChart';
+import {AppointmentStudyList} from './AppointmentStudies';
 
 interface ResumenProps {
     typesReady: boolean;
@@ -204,7 +205,9 @@ export function Resumen({
                     <section className="card side-card" aria-labelledby="next-appointment-title">
                         <div className="side-head">
                             <h2 className="card-title" id="next-appointment-title">Próximo turno</h2>
-                            {appointment && <span className="tag tag-primary">Confirmado</span>}
+                            {appointment && <span className="tag tag-primary">
+                                {appointment.syncStatus ? syncMeta[appointment.syncStatus].label : 'Confirmado'}
+                            </span>}
                         </div>
 
                         {appointment && appointmentDate ? (
@@ -220,8 +223,10 @@ export function Resumen({
                                         <p className="appointment-meta">{appointment.time} · {appointment.notes || appointment.timeZone}</p>
                                     </div>
                                 </div>
+                                <AppointmentStudyList studyIds={appointment.studyIds}/>
                                 <div className="side-foot appointment-actions">
                                     <button className="button secondary button-sm" type="button"
+                                            disabled={Boolean(appointment.syncStatus)}
                                             onClick={() => setEditingAppointment(appointment)}>Editar turno
                                     </button>
                                     <button className="button ghost button-sm" type="button"
@@ -354,22 +359,17 @@ export function Resumen({
                             </tr>
                         ) : recent.map((study) => {
                             const state = syncMeta[studySyncState(study)];
-                            const pdfAvailable = study.hasPdf && !isSourceUnavailable(study.driveFileId);
+                            const attachmentAvailable = hasStudyAttachment(study) && !isSourceUnavailable(study.driveFileId);
                             const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
                             return (
                                 <tr key={study.id}>
-                                    <td>
+<td>
                                         <div className="study-cell">
                                             <span className="study-icon"><svg className="icon"><use
                                                 href="#i-file"/></svg></span>
                                             <span className="study-text">
-                          <span className="study-title">{study.title}</span>
-                          <span className="study-types">
-                            {study.types.length ? study.types.slice(0, 2).map((type) => <span className="type-badge"
-                                                                                              key={type}>{type}</span>) :
-                                <span className="type-badge">Sin tipo</span>}
-                          </span>
-                        </span>
+                                <span className="study-title">{study.title}</span>
+                            </span>
                                         </div>
                                     </td>
                                     <td>
@@ -386,10 +386,10 @@ export function Resumen({
                                     </td>
                                     <td>
                                         <div className="row-actions">
-                                            {pdfAvailable && (
+                                            {attachmentAvailable && (
                                                 <a className="icon-button" href={reportUrl(study.driveFileId)}
                                                    target="_blank" rel="noopener noreferrer"
-                                                   aria-label={`Abrir PDF de ${study.title}`}>
+                                                   aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
                                                     <svg className="icon">
                                                         <use href="#i-external"/>
                                                     </svg>
@@ -420,7 +420,7 @@ export function Resumen({
                                                 </svg>
                                             </button>
                                             <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus) || !(study.hasPdf || study.viewer || study.documentIds?.length)}
+                                                    disabled={Boolean(study.syncStatus) || !(hasStudyAttachment(study) || study.viewer || study.documentIds?.length)}
                                                     aria-label={`Compartir ${study.title}`}
                                                     onClick={() => onShare(study)}>
                                                 <svg className="icon">

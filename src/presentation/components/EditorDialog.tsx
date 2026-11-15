@@ -2,11 +2,11 @@
  * **EditorDialog** – Diálogo modal para crear o editar un estudio médico.
  *
  * Funcionalidades clave:
- * - **Adjunto PDF**: input file + validación tamaño/tipo + lectura automática (pdf.js + OCR vía worker).
- * - **Extracción asistida**: sugiere fecha, tipos, médico y título del PDF; usuario acepta/descarta cada campo.
+ * - **Adjunto PDF o imagen**: selector, cámara, validación y lectura en un worker.
+ * - **Extracción asistida**: sugiere fecha, tipos, médico y título del informe.
  * - **Cancelación**: `AbortSignal` cancela worker y evita resultados tardíos.
  * - **Operaciones**: permite crear operación nueva sin perder datos del formulario actual.
- * - **Documentos vinculados**: reusa PDFs de otros estudios sin duplicar.
+ * - **Documentos vinculados**: reusa adjuntos de otros estudios sin duplicar.
  * - **Sesión perdida**: detecta `sessionLost`, muestra botón de reconexión y bloquea guardado.
  *
  * Estado:
@@ -46,7 +46,7 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {portalNames} from '@domain/library';
+import {hasStudyAttachment, portalNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {
     editingStudy,
@@ -165,7 +165,7 @@ export function EditorDialog({
                     <div className="dialog-heading">
                         <div>
                             <h2 id="editor-title">{isEdit ? 'Editar estudio' : 'Agregar estudio'}</h2>
-                            <p>Adjuntá un PDF para sugerir los datos o completalos manualmente.</p>
+                            <p>Adjuntá un informe para recibir sugerencias o completá los datos a mano.</p>
                         </div>
                         <button
                             type="button"
@@ -182,14 +182,19 @@ export function EditorDialog({
 
                     <div className="attachments report-upload">
                         <label>
-                            Informe en PDF <small>Opcional · hasta 20 MB</small>
+                            Informe <small>PDF, JPEG o PNG · hasta 20 MB · opcional</small>
                             <input
                                 ref={reportInputRef}
                                 name="report"
                                 type="file"
-                                accept=".pdf,application/pdf"
+                                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                                 onChange={handleReportChange}
                             />
+                        </label>
+                        <label>
+                            Tomar foto del informe
+                            <input name="camera-report" type="file" accept="image/jpeg,image/png"
+                                   capture="environment" onChange={handleReportChange}/>
                         </label>
                         {selectedReport && <div id="selected-report">
                             <p>{selectedReport.name} · {selectedReport.size.toLocaleString('es-AR')} bytes
@@ -199,7 +204,7 @@ export function EditorDialog({
                             </button>
                         </div>}
                         <p id="detection" className="hint" role="status" data-state="">Buscamos la fecha, los tipos y el
-                            médico en el PDF.</p>
+                            médico en el informe.</p>
                         {Object.keys(candidates).length > 0 &&
                             <section id="extraction-suggestions" aria-label="Sugerencias de lectura">
                                 <p>Estas sugerencias no se guardan hasta que las aceptes.</p>
@@ -224,7 +229,7 @@ export function EditorDialog({
                         {reading && (
                             <div className="analysis-progress" aria-busy="true">
                                 <progress max="100" value={progress ?? undefined}
-                                          aria-label="Progreso de lectura del PDF"/>
+                                          aria-label="Progreso de lectura del informe"/>
                                 <button type="button" className="secondary" data-cancel-analysis
                                         disabled={checkingReport} onClick={cancelAnalysis}>Cancelar lectura
                                 </button>
@@ -236,17 +241,17 @@ export function EditorDialog({
                                 <label className="checkbox">
                                     <input name="removeReport" type="checkbox" checked={removeReport}
                                            onChange={() => setRemoveReport(!removeReport)}/>
-                                    Quitar PDF actual
+                                    {study?.attachmentMime ? 'Quitar imagen actual' : 'Quitar PDF actual'}
                                 </label>
                             </div>
                         )}
                     </div>
 
-                    {(documentIds.length > 0 || studies.value.some((item) => item.hasPdf && item.id !== study?.id)) &&
+                    {(documentIds.length > 0 || studies.value.some((item) => hasStudyAttachment(item) && item.id !== study?.id)) &&
                         <fieldset>
                             <legend>Documentos de otros estudios</legend>
                             <p className="hint">Vinculá documentos existentes sin crear otra copia.</p>
-                            {studies.value.filter((item) => item.hasPdf && item.id !== study?.id).map((item) => <label
+                            {studies.value.filter((item) => hasStudyAttachment(item) && item.id !== study?.id).map((item) => <label
                                 key={item.id}>
                                 <input type="checkbox" name="documentIds" value={item.id}
                                        checked={documentIds.includes(item.id)} onChange={(event) => {
@@ -254,7 +259,7 @@ export function EditorDialog({
                                     setDocumentIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id));
                                 }}/> {item.reportName || item.title} · {item.title}
                             </label>)}
-                            {documentIds.filter((id) => !studies.value.some((item) => item.id === id && item.hasPdf)).map((id) =>
+                            {documentIds.filter((id) => !studies.value.some((item) => item.id === id && hasStudyAttachment(item))).map((id) =>
                                 <label key={id}>
                                     <input type="checkbox" name="documentIds" value={id} checked
                                            onChange={() => setDocumentIds((current) => current.filter((item) => item !== id))}/> Documento

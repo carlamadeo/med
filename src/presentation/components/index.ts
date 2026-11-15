@@ -22,3 +22,4 @@ export * from './StudyListContainer';
 export * from './AccessSection';
 export * from './LibraryIntro';
 export * from './Episodes';
+export * from './FolderPickerDialog';

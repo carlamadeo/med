@@ -6,7 +6,8 @@ import {enqueueOffline} from '../utils/enqueueOffline';
 import {useEffect, useRef, useState, useCallback} from 'preact/hooks';
 import {todayLocal} from '@domain/utils';
 import {getStudyTypes} from '@data/study-types';
-import {validatePdf} from '@data/pdf-analysis';
+import {validateDocument} from '@data/pdf-analysis';
+import {hasStudyAttachment} from '@domain/library';
 import {validateStudyDraft} from '@domain/validation/study';
 import {Outbox} from '@data/outbox';
 import {
@@ -178,7 +179,12 @@ export function LibraryPage() {
                 setSaving(false);
                 return;
             }
-            if (draft.file) await validatePdf(draft.file);
+            if (draft.file) {
+                const type = await validateDocument(draft.file);
+                if (draft.file.type !== type) {
+                    draft.file = new File([draft.file], draft.file.name, {type, lastModified: draft.file.lastModified});
+                }
+            }
             const ownerOk = await verifyEditorOwner();
             if (!ownerOk) {
                 setSaving(false);
@@ -295,15 +301,14 @@ export function LibraryPage() {
     }
 
     function openShare(study: Study): void {
-        const hasShareable = study.hasPdf || study.viewer || study.documentIds?.length;
+        const hasShareable = hasStudyAttachment(study) || study.viewer || study.documentIds?.length;
         if (!hasShareable) return;
         setSharingStudyId(study.id);
     }
 
     return (
         <>
-            <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()} onOpenStudy={openEditor}
-                      onAddStudy={() => openEditor(null)}>
+            <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()}>
                 <main className="wrap" id="main" role="main">
                     <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value}
                                   typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'}/>
@@ -324,6 +329,7 @@ export function LibraryPage() {
                             />
                         ) : (
                             <StudyListContainer
+                                key={isSignedIn.value ? 'signed-in' : 'signed-out'}
                                 onEdit={openEditor}
                                 onDelete={(study: Study) => setDeletingStudyId(study.id)}
                                 onShare={openShare}

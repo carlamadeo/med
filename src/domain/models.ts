@@ -175,6 +175,7 @@ export interface AppointmentDraft {
     cost: number | null;
     coverage: 'all' | 'partial' | 'none' | null;
     reminderMinutes?: 15 | 60 | 1440 | null;
+    studyIds?: string[];
     id?: string;
     createId?: string;
     revision?: string;

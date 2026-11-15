@@ -13,7 +13,7 @@ it('does not publish a portal saved after the account changes', async () => {
         release = resolve;
     }));
     act(() => {
-        $<HTMLButtonElement>('#tab-portales').click();
+        $<HTMLButtonElement>('#nav-portales').click();
     });
     act(() => {
         typeInto('#portal-name', 'Portal anterior');

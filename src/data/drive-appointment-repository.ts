@@ -38,7 +38,7 @@ export class DriveAppointmentRepository {
         if (errors.length) throw new Error(errors[0]);
         const token = await this.client.getAccessToken();
         const owner = await this.client.cacheOwner();
-        const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes} = draft;
+        const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds} = draft;
         const fields = {
             date,
             time,
@@ -47,7 +47,9 @@ export class DriveAppointmentRepository {
             notes,
             status,
             cost,
-            coverage, ...(reminderMinutes ? {reminderMinutes} : {})
+            coverage,
+            ...(reminderMinutes ? {reminderMinutes} : {}),
+            ...(studyIds?.length ? {studyIds: [...new Set(studyIds)]} : {}),
         };
         const description = JSON.stringify(fields);
         let file: DriveFileResponse;

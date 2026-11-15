@@ -10,9 +10,14 @@ import {
     appointments,
     pendingChanges,
     syncMessage,
+    studiesReady,
+    directoriesReady,
+    directoryWarning,
+    categoryTypes,
     isEditorOpen,
     deletingStudyId,
     view,
+    setAppointmentEditorOpen,
     setEditorOpen,
 } from '../state/store';
 import {
@@ -48,9 +53,13 @@ export function useAuth({
     const handleAuthChange = useCallback(
         (signedIn: boolean) => {
             const sequence = ++authSequence.current;
+            studiesReady.value = false;
+            directoriesReady.value = false;
+            directoryWarning.value = false;
             if (!signedIn) {
                 setIsSignedIn(false);
                 view.value = 'cronologia';
+                categoryTypes.value = [];
                 setApprovedFolderId(null);
                 setIntakeCandidates([]);
                 setIntakeError(null);
@@ -60,6 +69,7 @@ export function useAuth({
                 medicalEvents.value = [];
                 episodes.value = [];
                 appointments.value = [];
+                setAppointmentEditorOpen(false);
                 pendingChanges.value = [];
                 syncMessage.value = '';
                 setSessionLost(true);
@@ -87,7 +97,7 @@ export function useAuth({
                         return;
                     }
                     const originalEditorOwner = isEditorOpen.value ? await editorOwner.current : null;
-                    if (sequence !== authSequence.current || (await driveAuth.getAccessToken()) !== token) return;
+                    if ((await driveAuth.getAccessToken()) !== token || sequence !== authSequence.current) return;
                     if (isEditorOpen.value && originalEditorOwner !== owner) {
                         setEditorOpen(false);
                     }
@@ -99,7 +109,9 @@ export function useAuth({
                     // Clear editor error on successful reconnect
                     onEditorReconnect?.();
                     await loadStudies();
+                    if (sequence !== authSequence.current) return;
                     await loadDirectories();
+                    if (sequence !== authSequence.current) return;
                     await prepareOutbox();
                 } catch (err) {
                     if (sequence !== authSequence.current) return;

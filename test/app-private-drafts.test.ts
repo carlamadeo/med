@@ -7,7 +7,7 @@ it('clears unsubmitted appointment and episode drafts after sign-out', async () 
     await mountPage();
     for (const tab of ['turnos', 'episodios']) {
         act(() => {
-            $(`#tab-${tab}`).click();
+            $(`#nav-${tab}`).click();
         });
         const form = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '#appointments-title + form' : '#episode-form')!;
         const notes = form.querySelector<HTMLTextAreaElement>('textarea')!;
@@ -21,7 +21,7 @@ it('clears unsubmitted appointment and episode drafts after sign-out', async () 
         });
         await vi.waitFor(() => expect($('#library').hidden).toBe(false));
         act(() => {
-            $(`#tab-${tab}`).click();
+            $(`#nav-${tab}`).click();
         });
         const restored = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '#appointments-title + form' : '#episode-form')!;
         expect(restored.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('');

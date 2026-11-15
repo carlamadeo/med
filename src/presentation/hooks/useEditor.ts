@@ -3,7 +3,7 @@
  *
  * Responsabilidades:
  * - Estado del formulario (signal reactivo `draft` + setters individuales).
- * - Lectura/extracción de PDF: `handleReportChange` orquesta `validatePdf` + `analyzePdf`
+ * - Lectura de informes: `handleReportChange` orquesta `validateDocument` + `analyzePdf`
  *   (pdf.js + OCR) con `AbortController` + timeout 45s + progreso.
  * - Sugerencias: propone fecha, tipos, médico, título; usuario acepta/descarta (`applySuggestion`/`discardSuggestion`).
  * - Operación nueva: `createOperation` valida, guarda en Drive, actualiza signal `operations`.
@@ -26,7 +26,7 @@
  */
 import {useEffect, useRef, useState, useCallback} from 'preact/hooks';
 import {useSignal} from '@preact/signals';
-import {analyzePdf, validatePdf} from '@data/pdf-analysis';
+import {analyzePdf, validateDocument} from '@data/pdf-analysis';
 import {driveAuth, driveOperationRepo, DriveSessionError} from '@data';
 import {isValidDate} from '@domain/utils';
 import type {Study, StudyDraft} from '@domain/models';
@@ -63,7 +63,6 @@ export function useEditor({
     const analysisCtrl = useRef<AbortController | null>(null);
     const analysisTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const reportFileRef = useRef<File | null>(null);
-    const reportRemoved = useRef(false);
     const suggested = useRef<Map<'date' | 'types' | 'doctor' | 'title', string>>(new Map());
     const editorGeneration = useRef(0);
 
@@ -129,7 +128,6 @@ export function useEditor({
             if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
             if (checkingReport) {
                 reportFileRef.current = null;
-                reportRemoved.current = true;
                 if (reportInputRef.current) reportInputRef.current.value = '';
                 setSelectedReport(null);
                 setCheckingReport(false);
@@ -164,14 +162,16 @@ export function useEditor({
                 setTypes(current?.types ?? []);
                 const candidateFile = (current as (Study & { file?: File }) | null)?.file ?? null;
                 reportFileRef.current = candidateFile;
-                reportRemoved.current = false;
                 setSelectedReport(candidateFile);
                 setCheckingReport(false);
+                setReading(false);
+                setProgress(null);
+                setCandidates({});
                 if (reportInputRef.current) reportInputRef.current.value = '';
                 formRef.current?.querySelector<HTMLInputElement>('[name=types]')?.setCustomValidity('');
                 setRemoveReport(false);
                 setReportName(current?.reportName ?? '');
-                setStatus('Buscamos la fecha, los tipos y el médico en el PDF.');
+                setStatus('Buscamos la fecha, los tipos y el médico en el informe.');
                 setStatusState('');
                 suggested.current = new Map();
                 // Focus the appropriate field (sync, before next paint)
@@ -234,16 +234,21 @@ export function useEditor({
     }, []);
 
     /**
-     * Maneja cambio de archivo PDF adjunto.
+     * Maneja cambio de archivo adjunto desde el selector o la cámara.
      * 1. Aborta análisis previo + limpia sugerencias ya aplicadas.
-     * 2. Valida PDF (`validatePdf`).
+     * 2. Valida el formato y tamaño del adjunto.
      * 3. Lanza `analyzePdf` con AbortSignal + timeout 45s + callbacks de progreso.
      * 4. Extrae candidatos (fecha, tipos, doctor, título) y expone en `candidates`.
      * 5. Usuario acepta/descarta vía `applySuggestion`/`discardSuggestion`.
      * Cancela automáticamente si `sessionLost` o diálogo se cierra.
      */
-    const handleReportChange = useCallback(async (_e: Event) => {
+    const handleReportChange = useCallback(async (event: Event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+        input.value = '';
         analysisCtrl.current?.abort();
+        if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
         setReading(false);
         setProgress(null);
         for (const [name, value] of suggested.current) {
@@ -254,17 +259,9 @@ export function useEditor({
         suggested.current = new Map();
         setCandidates({});
 
-        // Use the ref directly since jsdom's dispatchEvent doesn't propagate e.target.files correctly
-        const file = reportInputRef.current?.files?.[0] ?? null;
-        reportFileRef.current = file;
-        reportRemoved.current = false;
+        reportFileRef.current = null;
         setSelectedReport(file);
-        setCheckingReport(Boolean(file));
-
-        if (!file) {
-            setStatus('Podés adjuntar un PDF o completar la ficha manualmente.');
-            return;
-        }
+        setCheckingReport(true);
 
         const controller = new AbortController();
         analysisCtrl.current = controller;
@@ -276,7 +273,9 @@ export function useEditor({
             if (active()) {
                 controller.abort();
                 setReading(false);
-                setStatus('La lectura tardó demasiado. Podés completar los campos y guardar el PDF.');
+                setCheckingReport(false);
+                if (!reportFileRef.current) setSelectedReport(null);
+                setStatus('La lectura tardó demasiado. Completá los datos y revisá el archivo antes de guardar.');
             }
         }, ANALYSIS_TIMEOUT_MS);
         analysisTimeout.current = timeout;
@@ -287,16 +286,16 @@ export function useEditor({
         setStatus('Leyendo el informe…');
 
         try {
-            await validatePdf(file);
-            if (active()) setCheckingReport(false);
+            await validateDocument(file);
+            if (!active()) return;
+            reportFileRef.current = file;
+            setCheckingReport(false);
         } catch (err) {
             clearTimeout(timeout);
             if (active()) {
-                if (reportInputRef.current) reportInputRef.current.value = '';
-                reportFileRef.current = null;
                 setSelectedReport(null);
                 setCheckingReport(false);
-                setStatus(err instanceof Error ? err.message : 'Elegí un archivo PDF válido.');
+                setStatus(err instanceof Error ? err.message : 'Elegí un PDF, JPEG o PNG válido.');
                 setStatusState('error');
                 setReading(false);
             }
@@ -331,7 +330,7 @@ export function useEditor({
             setStatusState('review');
         } catch {
             if (active()) {
-                setStatus('No pudimos leer el informe. Podés completar los campos y guardar el PDF.');
+                setStatus('No pudimos leer el informe. Podés completar los campos y guardar el archivo.');
             }
         } finally {
             if (analysisCtrl.current === controller) {
@@ -409,14 +408,14 @@ export function useEditor({
     }, [onClose]);
 
     /**
-     * Cancela análisis de PDF en curso (aborta worker + limpia timeout).
+     * Cancela la lectura en curso (aborta worker + limpia timeout).
      * Mantiene archivo seleccionado y campos editados manualmente.
      */
     const cancelAnalysis = useCallback(() => {
         analysisCtrl.current?.abort();
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
         setReading(false);
-        setStatus('Lectura cancelada. Podés completar los campos y guardar el PDF.');
+        setStatus('Lectura cancelada. Podés completar los campos y guardar el archivo.');
     }, []);
 
     /**
@@ -448,8 +447,7 @@ export function useEditor({
 
     /**
      * Resetea formulario a estado inicial (sin archivo, sin sugerencias).
-     * Aborta análisis, limpia refs, setea `removeReport=true` para signalizar borrado de PDF actual.
-     * Se usa al quitar archivo seleccionado o cerrar diálogo sin guardar.
+     * Aborta el análisis y quita el archivo recién seleccionado.
      */
     const resetForm = useCallback(() => {
         analysisCtrl.current?.abort();
@@ -462,25 +460,24 @@ export function useEditor({
         suggested.current = new Map();
         setCandidates({});
         reportFileRef.current = null;
-        reportRemoved.current = true;
         if (reportInputRef.current) reportInputRef.current.value = '';
         setSelectedReport(null);
         setCheckingReport(false);
         setReading(false);
         setProgress(null);
         setStatusState('');
-        setStatus('Archivo retirado. Podés elegir otro PDF.');
+        setStatus('Archivo retirado. Podés elegir otro PDF o imagen.');
     }, [fieldValue, setFieldValue]);
 
     /**
      * Envía formulario: arma StudyDraft y delega a onSave.
-     * Incluye: file (nuevo PDF), removeReport, driveFileId/revision (si edición),
-     * operationId, documentIds. Bloquea si `checkingReport` (validando PDF).
+     * Incluye: file, removeReport, driveFileId/revision (si edición),
+     * operationId, documentIds. Bloquea durante la validación del archivo.
      */
     const handleSubmit = useCallback(async (event: Event) => {
         event.preventDefault();
         if (checkingReport) return;
-        const selectedReport = reportRemoved.current ? undefined : reportInputRef.current?.files?.[0] ?? reportFileRef.current ?? undefined;
+        const selectedReport = reportFileRef.current ?? undefined;
         const currentStudy = editingStudy.value;
         const fields = draft.value;
         await onSave({

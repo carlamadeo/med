@@ -69,6 +69,9 @@ it('renders studies in a table with correct columns', async () => {
         }), root);
     });
     const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+    expect([...root.querySelectorAll('thead th')].map((cell) => cell.textContent)).toEqual([
+        'Estudio', 'Fecha', 'Profesional', 'Institución', 'Acciones',
+    ]);
     expect(rows).toHaveLength(2);
     expect(rows[0]?.textContent).toContain('Uno');
     expect(rows[0]?.textContent).toContain('Dr. Test');
@@ -89,7 +92,28 @@ it('shows empty state when no studies', async () => {
     expect(root.textContent).toContain('No hay estudios para mostrar');
 });
 
-it('shows sync status for each study', async () => {
+it('shows the study date and names its PDF, image and viewer icon links', async () => {
+    const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '', driveModifiedTime: '', revision: '1'};
+    setStudies([
+        {...base, id: 'pdf', driveFileId: 'report', title: 'Informe', hasPdf: true, viewer: 'https://example.com/visor'},
+        {...base, id: 'image', driveFileId: 'photo', title: 'Orden', hasPdf: false, attachmentMime: 'image/png'},
+    ]);
+    await act(() => render(h(StudyList, {
+        onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value,
+    }), root));
+
+    expect(root.querySelector('time')?.dateTime).toBe('2024-01-01');
+    const links = [...root.querySelectorAll('tbody a')];
+    expect(links.map((link) => [link.getAttribute('aria-label'), link.getAttribute('href')])).toEqual([
+        ['Abrir PDF de Informe', 'https://drive.google.com/file/d/report/view'],
+        ['Abrir visor de Informe', 'https://example.com/visor'],
+        ['Abrir imagen de Orden', 'https://drive.google.com/file/d/photo/view'],
+    ]);
+    expect(links.every((link) => !link.textContent?.trim() && link.querySelector('svg'))).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
+});
+
+it('keeps unsynced studies protected from changes without a status column', async () => {
     const base = {
         date: '2024-01-01',
         types: ['Otro'],
@@ -114,7 +138,8 @@ it('shows sync status for each study', async () => {
             studies: visibleStudies.value
         }), root);
     });
-    expect(root.textContent).toContain('Sincronizado');
-    expect(root.textContent).toContain('Pendiente');
-    expect(root.textContent).toContain('Conflicto');
+    expect(root.textContent).not.toMatch(/Sincronizado|Pendiente|Conflicto/);
+    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Synced"]')?.disabled).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Pending"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Conflict"]')?.disabled).toBe(true);
 });

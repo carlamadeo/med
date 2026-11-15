@@ -4,18 +4,57 @@ import {
     exportError,
     setExporting,
     setExportError,
-    visibleStudies,
+    studies,
     operations,
     portals,
     medicalEvents,
     episodes,
     appointments,
     pendingChanges,
-    directoryWarning
+    directoryWarning,
+    directoriesReady,
+    studiesReady,
+    syncing,
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
-import {driveAuth, driveStudyRepo} from '@data';
-import type {Study} from '@domain/models';
+import {driveAuth, driveStudyRepo, DriveSessionError} from '@data';
+import {Outbox} from '@data/outbox';
+
+const outbox = new Outbox();
+const pendingMessage = 'Sincronizá los cambios pendientes antes de exportar.';
+const accountChangedMessage = 'La cuenta cambió durante la exportación. Volvé a intentarlo.';
+
+function getExportBlocker(owner = driveAuth.cachedAccountId()): string | null {
+    if (directoryWarning.value) {
+        return 'No se pudieron cargar todos los registros. Actualizá la página antes de exportar.';
+    }
+    if (!studiesReady.value || !directoriesReady.value) {
+        return 'Esperá a que termine la carga de todos los registros. Si no termina, actualizá la página.';
+    }
+    if (syncing.value || pendingChanges.value.some(entry => entry.owner === owner)) return pendingMessage;
+    return null;
+}
+
+async function assertExportReady(owner: string): Promise<void> {
+    const queued = await outbox.list(owner);
+    const blocker = getExportBlocker(owner);
+    if (blocker || queued.length) throw new Error(blocker ?? pendingMessage);
+}
+
+async function assertExportToken(token: string): Promise<void> {
+    if (await driveAuth.getAccessToken() !== token) throw new Error(accountChangedMessage);
+}
+
+function readExportSnapshot() {
+    return {
+        studies: studies.value,
+        operations: operations.value,
+        portals: portals.value,
+        medicalEvents: medicalEvents.value,
+        episodes: episodes.value,
+        appointments: appointments.value,
+    };
+}
 
 interface ExportDialogProps {
     onReconnect: () => void;
@@ -44,7 +83,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     const isExporting = exporting.value;
     const expError = exportError.value;
 
-    const [includePdfs, setIncludePdfs] = useState(true);
+    const [includeAttachments, setIncludeAttachments] = useState(true);
     const [includeViewerLinks, setIncludeViewerLinks] = useState(true);
     const [filename, setFilename] = useState(`mis-estudios-${formatDateForFilename()}.zip`);
     const [busy, setBusy] = useState(false);
@@ -64,33 +103,14 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         dialogRef.current?.close();
         setExporting(false);
         setExportError(null);
-
-        if (pendingChanges.value.length || directoryWarning.value) {
-            setExportError('Sincronizá los cambios pendientes y cargá todos los registros antes de exportar.');
-            return;
-        }
-    };
-
-    const handleCancel = () => {
-        handleClose();
-    };
-
-    const getStudiesToExport = () => {
-        return visibleStudies.value;
     };
 
     const handleConfirm = async () => {
+        if (sessionLost || !exporting.value) return;
         setExportError(null);
-
-        const studiesToExport = getStudiesToExport();
-        if (studiesToExport.length === 0 && !hasOtherRecords) {
-            setExportError('No hay registros para exportar');
-            return;
-        }
-
-        const selectedStudies = studiesToExport.filter(s => !s.syncStatus);
-        if (selectedStudies.length !== studiesToExport.length) {
-            setExportError('No se pueden exportar estudios con cambios pendientes');
+        const blocker = getExportBlocker();
+        if (blocker) {
+            setExportError(blocker);
             return;
         }
 
@@ -98,23 +118,31 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             setBusy(true);
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
-            const zip = await createExportZip(selectedStudies, includePdfs, includeViewerLinks);
-            if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
-                throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
+            await assertExportReady(owner);
+            await assertExportToken(token);
+            const snapshot = readExportSnapshot();
+            if (!Object.values(snapshot).some(records => records.length > 0)) {
+                throw new Error('No hay registros para exportar.');
             }
+            const zip = await createExportZip(snapshot, includeAttachments, includeViewerLinks, token);
+            await assertExportToken(token);
+            if (await driveAuth.getAccountId() !== owner) throw new Error(accountChangedMessage);
+            await assertExportReady(owner);
+            await assertExportToken(token);
             downloadBlob(zip, filename);
+            handleClose();
         } catch (err) {
             setExportError(err instanceof Error ? err.message : 'Error al crear la exportación');
-            return;
         } finally {
             setBusy(false);
         }
-
-        handleClose();
     };
 
     const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
-    const hasRecords = getStudiesToExport().length > 0 || hasOtherRecords;
+    const studyCount = studies.value.length;
+    const hasRecords = studyCount > 0 || hasOtherRecords;
+    const blocker = isExporting && !sessionLost ? getExportBlocker() : null;
+    const message = error || expError || blocker;
 
     return (
         <dialog
@@ -125,7 +153,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             aria-describedby="export-copy export-summary"
             data-busy={String(busy)}
             onCancel={(event) => {
-                if (busy) event.preventDefault(); else handleCancel();
+                if (busy) event.preventDefault(); else handleClose();
             }}
         >
             <form id="export-form" onSubmit={(event) => {
@@ -139,7 +167,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                         <p id="export-copy" className="export-desc">Descargá una copia portable de tus registros.</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}
-                            onClick={handleCancel}>
+                            onClick={handleClose}>
                         <svg className="icon">
                             <use href="#i-close"/>
                         </svg>
@@ -147,7 +175,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 </div>
 
                 <p className="form-error export-error" id="export-error" role="alert"
-                   hidden={!error && !expError}>{error || expError}</p>
+                   hidden={!message}>{message}</p>
 
                 <button type="button" className="button secondary export-reconnect" hidden={!sessionLost}
                         onClick={onReconnect}>
@@ -157,7 +185,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 <div className="export-summary" id="export-summary">
                     <span className="export-summary-icon"><svg className="icon"><use href="#i-download"/></svg></span>
                     <div>
-                        <strong>{getStudiesToExport().length} {getStudiesToExport().length === 1 ? 'estudio' : 'estudios'}</strong>
+                        <strong>{studyCount} {studyCount === 1 ? 'estudio' : 'estudios'}</strong>
                         <span>{hasOtherRecords ? 'Incluye operaciones, portales, consultas, recetas, episodios y turnos.' : 'Se descargará un archivo ZIP con el manifiesto y los documentos seleccionados.'}</span>
                     </div>
                 </div>
@@ -167,7 +195,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <div className="export-options">
                         <label className="export-option">
                             <input type="radio" name="export-scope" value="all" checked/>
-                            <span>Todos los estudios <small>{visibleStudies.value.length}</small></span>
+                            <span>Todos los estudios <small>{studyCount}</small></span>
                         </label>
                     </div>
                 </fieldset>
@@ -178,12 +206,12 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <legend>Contenido a incluir</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="checkbox" checked={includePdfs}
-                                   onChange={(e) => setIncludePdfs(e.currentTarget.checked)}/>
+                            <input type="checkbox" checked={includeAttachments}
+                                   onChange={(e) => setIncludeAttachments(e.currentTarget.checked)}/>
                             <svg className="icon">
                                 <use href="#i-file"/>
                             </svg>
-                            <span>Archivos PDF</span>
+                            <span>Archivos PDF e imágenes (JPEG y PNG)</span>
                         </label>
                         <label className="export-option">
                             <input type="checkbox" checked={includeViewerLinks}
@@ -204,10 +232,10 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 </label>
 
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={handleCancel}>Cancelar
+                    <button type="button" className="button quiet" disabled={busy} onClick={handleClose}>Cancelar
                     </button>
                     <button type="submit" className="button primary" id="export-confirm"
-                            disabled={busy || sessionLost || !hasRecords}>
+                            disabled={busy || sessionLost || !hasRecords || Boolean(blocker)}>
                         {busy ? 'Exportando…' : 'Exportar'}
                     </button>
                 </div>
@@ -216,7 +244,12 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     );
 }
 
-async function createExportZip(studiesToExport: Study[], includePdfs: boolean, includeViewerLinks: boolean): Promise<Blob> {
+async function createExportZip(
+    snapshot: ReturnType<typeof readExportSnapshot>,
+    includeAttachments: boolean,
+    includeViewerLinks: boolean,
+    token: string,
+): Promise<Blob> {
     const {default: JSZip} = await import('jszip');
     const zip = new JSZip();
 
@@ -224,8 +257,8 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
         version: 1,
         scope: 'all',
         exportedAt: new Date().toISOString(),
-        totalStudies: studiesToExport.length,
-        studies: studiesToExport.map(s => ({
+        totalStudies: snapshot.studies.length,
+        studies: snapshot.studies.map(s => ({
             id: s.id,
             title: s.title,
             date: s.date,
@@ -235,6 +268,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
             viewer: includeViewerLinks ? s.viewer : '',
             reportName: s.reportName,
             hasPdf: s.hasPdf,
+            attachmentMime: s.attachmentMime,
             operationId: s.operationId,
             documentIds: s.documentIds,
         }))
@@ -242,31 +276,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
 
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
-    const pdfsFolder = includePdfs ? zip.folder('pdfs') : null;
-    const viewerLinks: string[] = [];
-
-    for (const study of studiesToExport) {
-        if (includePdfs && study.hasPdf && pdfsFolder) {
-            let pdfFile: File;
-            try {
-                pdfFile = await driveStudyRepo.getPdfFile(study.driveFileId);
-            } catch {
-                throw new Error(`No se pudo incluir el PDF de «${study.title}». Revisá la conexión y volvé a intentar.`);
-            }
-            pdfsFolder.file(`${study.id}.pdf`, await pdfFile.arrayBuffer());
-        }
-
-        if (includeViewerLinks && study.viewer) {
-            viewerLinks.push(`${study.title} (${study.date}): ${study.viewer}`);
-        }
-    }
-
-    if (includeViewerLinks && viewerLinks.length > 0) {
-        zip.file('viewer-links.txt', viewerLinks.join('\n\n'));
-    }
-
-    // Include all related data
-    const operationsList = operations.value.map(op => ({
+    const operationsList = snapshot.operations.map(op => ({
         id: op.id,
         name: op.name,
         date: op.date,
@@ -278,7 +288,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     }));
     zip.file('operations.json', JSON.stringify(operationsList, null, 2));
 
-    const portalsList = portals.value.map(p => ({
+    const portalsList = snapshot.portals.map(p => ({
         id: p.id,
         name: p.name,
         displayName: p.displayName,
@@ -287,7 +297,7 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     }));
     zip.file('portals.json', JSON.stringify(portalsList, null, 2));
 
-    const eventsList = medicalEvents.value.map(e => ({
+    const eventsList = snapshot.medicalEvents.map(e => ({
         id: e.id,
         kind: e.kind,
         date: e.date,
@@ -298,8 +308,36 @@ async function createExportZip(studiesToExport: Study[], includePdfs: boolean, i
     }));
     zip.file('medical-events.json', JSON.stringify(eventsList, null, 2));
 
-    zip.file('episodes.json', JSON.stringify(episodes.value, null, 2));
-    zip.file('appointments.json', JSON.stringify(appointments.value, null, 2));
+    zip.file('episodes.json', JSON.stringify(snapshot.episodes, null, 2));
+    zip.file('appointments.json', JSON.stringify(snapshot.appointments, null, 2));
+
+    if (includeViewerLinks) {
+        const viewerLinks = snapshot.studies.filter(study => study.viewer)
+            .map(study => `${study.title} (${study.date}): ${study.viewer}`);
+        if (viewerLinks.length > 0) zip.file('viewer-links.txt', viewerLinks.join('\n\n'));
+    }
+
+    if (includeAttachments) {
+        zip.folder('pdfs');
+        for (const study of snapshot.studies) {
+            const mime = study.attachmentMime;
+            if (!mime && !study.hasPdf) continue;
+            await assertExportToken(token);
+            try {
+                if (mime) {
+                    const image = await driveStudyRepo.getDocumentFile(study.driveFileId, token);
+                    if (image.type !== mime) throw new Error('Formato de imagen inesperado.');
+                    zip.file(`images/${study.id}.${mime === 'image/png' ? 'png' : 'jpg'}`, await image.arrayBuffer());
+                } else {
+                    const pdf = await driveStudyRepo.getPdfFile(study.driveFileId, token);
+                    zip.file(`pdfs/${study.id}.pdf`, await pdf.arrayBuffer());
+                }
+            } catch (err) {
+                if (err instanceof DriveSessionError) throw err;
+                throw new Error(`No se pudo incluir el archivo de «${study.title}». Revisá la conexión y volvé a intentar.`);
+            }
+        }
+    }
 
     return zip.generateAsync({type: 'blob', compression: 'DEFLATE', compressionOptions: {level: 6}});
 }

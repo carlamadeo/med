@@ -1,4 +1,6 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
+import {hasStudyAttachment} from '@domain/library';
+import type {Study} from '@domain/models';
 import {
     sharingStudyId,
     shareSelection,
@@ -35,13 +37,23 @@ function sanitizeFilename(name: string): string {
     return result.trim();
 }
 
+async function downloadStudyAttachment(study: Study, basename: string, token: string): Promise<File> {
+    const file = study.attachmentMime
+        ? await driveStudyRepo.getDocumentFile(study.driveFileId, token)
+        : await driveStudyRepo.getPdfFile(study.driveFileId, token);
+    const extension = file.type === 'image/jpeg' ? '.jpg' : file.type === 'image/png' ? '.png' : '.pdf';
+    const normalized = basename.toLowerCase();
+    const hasExtension = normalized.endsWith(extension) || (extension === '.jpg' && normalized.endsWith('.jpeg'));
+    return new File([file], hasExtension ? basename : `${basename}${extension}`, {type: file.type});
+}
+
 export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const id = sharingStudyId.value;
     const study = studies.value.find((s) => s.id === id);
     const selection = shareSelection.value;
 
-    const [includePdf, setIncludePdf] = useState(false);
+    const [includeAttachment, setIncludeAttachment] = useState(false);
     const [includeViewer, setIncludeViewer] = useState(false);
     const [documentIds, setDocumentIds] = useState<string[]>([]);
     const [filename, setFilename] = useState('');
@@ -69,15 +81,15 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             if (s) {
                 setDocumentIds([]);
                 setFilenameError('');
-                const pdfAvailable = s.hasPdf && !s.pendingAttachment;
+                const attachmentAvailable = hasStudyAttachment(s) && !s.pendingAttachment;
                 const viewerAvailable = Boolean(s.viewer);
-                setIncludePdf(pdfAvailable);
-                setIncludeViewer(viewerAvailable && !pdfAvailable);
-                const baseName = (pdfAvailable ? s.reportName || s.title : getFileNameFromUrl(s.viewer || '')) || 'estudio';
+                setIncludeAttachment(attachmentAvailable);
+                setIncludeViewer(viewerAvailable && !attachmentAvailable);
+                const baseName = (attachmentAvailable ? s.reportName || s.title : getFileNameFromUrl(s.viewer || '')) || 'estudio';
                 setFilename(sanitizeFilename(baseName));
                 setShareSelection({
-                    includePdf: pdfAvailable,
-                    includeViewer: viewerAvailable && !pdfAvailable,
+                    includeAttachment: attachmentAvailable,
+                    includeViewer: viewerAvailable && !attachmentAvailable,
                     filename: sanitizeFilename(baseName),
                 });
             }
@@ -88,14 +100,15 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
 
     useEffect(() => {
         if (selection) {
-            setIncludePdf(selection.includePdf);
+            setIncludeAttachment(selection.includeAttachment);
             setIncludeViewer(selection.includeViewer);
             setFilename(selection.filename);
         }
     }, [selection]);
 
-    const associatedDocuments = (study?.documentIds ?? []).map(docId => studies.value.find(item => item.id === docId && item.hasPdf && !item.pendingAttachment)).filter(item => item !== undefined);
-    const hasShareableContent = Boolean((study?.hasPdf && !study.pendingAttachment) || study?.viewer || associatedDocuments.length);
+    const associatedDocuments = (study?.documentIds ?? []).map(docId => studies.value.find(item => item.id === docId && hasStudyAttachment(item) && !item.pendingAttachment)).filter(item => item !== undefined);
+    const attachmentAvailable = Boolean(study && hasStudyAttachment(study) && !study.pendingAttachment);
+    const hasShareableContent = Boolean(attachmentAvailable || study?.viewer || associatedDocuments.length);
 
     const handleClose = () => {
         generation.current += 1;
@@ -111,7 +124,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
 
     const handleConfirm = async () => {
         if (!id || !study) return;
-        if (!includePdf && !includeViewer && !documentIds.length) {
+        if (!includeAttachment && !includeViewer && !documentIds.length) {
             setFilenameError('Seleccioná al menos una fuente para compartir');
             return;
         }
@@ -120,7 +133,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             setFilenameError('Ingresá un nombre para el archivo');
             return;
         }
-        const selection = {includePdf, includeViewer, filename: safeFilename};
+        const selection = {includeAttachment, includeViewer, filename: safeFilename};
 
         const files: File[] = [];
         const urls: string[] = [];
@@ -130,27 +143,23 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             setFilenameError('Un documento seleccionado ya no está disponible.');
             return;
         }
-        if ((selection.includePdf && study.hasPdf && !study.pendingAttachment) || selectedDocuments.length) {
+        if ((selection.includeAttachment && attachmentAvailable) || selectedDocuments.length) {
             const currentGeneration = ++generation.current;
             setPreparing(true);
             try {
                 const token = await driveAuth.getAccessToken();
-                if (selection.includePdf && study.hasPdf && !study.pendingAttachment) {
-                    const file = await driveStudyRepo.getPdfFile(study.driveFileId);
-                    const name = /\.pdf$/i.test(selection.filename) ? selection.filename : `${selection.filename}.pdf`;
-                    files.push(new File([file], name, {type: 'application/pdf'}));
+                if (selection.includeAttachment && attachmentAvailable) {
+                    files.push(await downloadStudyAttachment(study, selection.filename, token));
                 }
                 for (const document of selectedDocuments) {
-                    const file = await driveStudyRepo.getPdfFile(document.driveFileId);
                     const base = sanitizeFilename(document.reportName || document.title) || 'documento';
-                    const name = /\.pdf$/i.test(base) ? base : `${base}.pdf`;
-                    files.push(new File([file], `${document.id}-${name}`, {type: 'application/pdf'}));
+                    files.push(await downloadStudyAttachment(document, `${document.id}-${base}`, token));
                 }
                 if (currentGeneration !== generation.current || await driveAuth.getAccessToken() !== token) return;
             } catch {
                 if (currentGeneration !== generation.current) return;
                 markSourceUnavailable(study.id);
-                setFilenameError('No se pudo descargar el PDF. Revisá la conexión y la sesión.');
+                setFilenameError('No se pudo descargar el archivo. Revisá la conexión y la sesión.');
                 return;
             } finally {
                 if (currentGeneration === generation.current) setPreparing(false);
@@ -206,7 +215,6 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
         URL.revokeObjectURL(url);
     };
 
-    const pdfAvailable = study?.hasPdf && !study?.pendingAttachment;
     const viewerAvailable = Boolean(study?.viewer);
 
     return (
@@ -238,24 +246,24 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 <fieldset disabled={busy || sessionLost || preparing || Boolean(prepared)}>
                     <legend>Qué compartir</legend>
                     <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                        {pdfAvailable && (
+                        {attachmentAvailable && (
                             <label style={{display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px'}}>
                                 <input
                                     type="checkbox"
-                                    checked={includePdf}
+                                    checked={includeAttachment}
                                     onChange={(e) => {
-                                        setIncludePdf(e.currentTarget.checked);
+                                        setIncludeAttachment(e.currentTarget.checked);
                                         setFilenameError('');
                                     }}
-                                    disabled={!pdfAvailable}
+                                    disabled={!attachmentAvailable}
                                 />
                                 <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
                                     <use href="#i-file"/>
                                 </svg>
-                                <span>Informe PDF ({study?.reportName || study?.title})</span>
+                                <span>{study?.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({study?.reportName || study?.title})</span>
                             </label>
                         )}
-                        {!pdfAvailable && study?.hasPdf && study?.pendingAttachment && (
+                        {!attachmentAvailable && study?.pendingAttachment && (
                             <label style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -267,7 +275,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                 <svg className="icon" style={{width: 20, height: 20, flex: 'none'}}>
                                     <use href="#i-file"/>
                                 </svg>
-                                <span>Informe PDF (pendiente de sincronización)</span>
+                                <span>Informe pendiente de sincronización</span>
                             </label>
                         )}
                         {viewerAvailable && (
@@ -292,7 +300,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                        setDocumentIds(event.currentTarget.checked ? [...documentIds, document.id] : documentIds.filter(id => id !== document.id));
                                        setFilenameError('');
                                    }}/>
-                            PDF asociado · {document.reportName || document.title}
+                            {document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {document.reportName || document.title}
                         </label>)}
                         {!hasShareableContent && (
                             <span style={{color: 'var(--muted)', fontSize: '0.9rem'}}>Este estudio no tiene archivos ni enlaces para compartir</span>
@@ -312,13 +320,13 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                         maxLength={120}
                         disabled={busy || sessionLost || preparing || Boolean(prepared)}
                     />
-                    <p className="hint">El nombre se usará para el PDF compartido. No cambia el archivo original.</p>
+                    <p className="hint">El nombre se usará para la copia que compartís.</p>
                 </label>
                 <div className="dialog-actions">
                     <button type="button" className="button quiet" disabled={busy || preparing}
                             onClick={handleCancel}>Cancelar
                     </button>
-                    {!prepared && !includePdf && !documentIds.length && includeViewer && study?.viewer && <>
+                    {!prepared && !includeAttachment && !documentIds.length && includeViewer && study?.viewer && <>
                         <a href={`https://wa.me/?text=${encodeURIComponent(study.viewer)}`} target="_blank"
                            rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
                         <a href={`mailto:?body=${encodeURIComponent(study.viewer)}`}>Abrir correo con enlace</a>
@@ -339,7 +347,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                         </button>
                     </> : <button type="submit" className="button primary" id="share-confirm"
                                   disabled={busy || preparing || sessionLost || !hasShareableContent}>
-                        {preparing ? 'Preparando…' : includePdf || documentIds.length ? 'Preparar archivo' : 'Compartir'}
+                        {preparing ? 'Preparando…' : includeAttachment || documentIds.length ? 'Preparar archivo' : 'Compartir'}
                     </button>}
                 </div>
             </form>

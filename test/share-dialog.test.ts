@@ -129,6 +129,39 @@ it('prepares only associated documents explicitly selected by the user', async (
     });
     await vi.waitFor(() => expect(root.textContent).toContain('Listo para compartir'));
     expect(getPdf).toHaveBeenCalledTimes(1);
-    expect(getPdf).toHaveBeenCalledWith('two');
+    expect(getPdf).toHaveBeenCalledWith('two', 'token');
     expect(root.textContent).toContain('elegido.pdf');
+});
+
+it('shares a photo under its original image format', async () => {
+    setStudies([{
+        id: 'foto', driveFileId: 'foto', title: 'Informe fotografiado', date: '2024-03-18',
+        types: ['Ecografía'], doctor: '', portal: '', viewer: '', reportName: 'informe.png',
+        hasPdf: false, attachmentMime: 'image/png', driveModifiedTime: '', revision: '1',
+    }]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    const image = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'archivo.png', {type: 'image/png'});
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(image);
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', {configurable: true, value: share});
+    Object.defineProperty(navigator, 'canShare', {configurable: true, value: () => true});
+    document.body.append(root);
+    await act(() => {
+        render(h(ShareDialog, {
+            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+        }), root);
+        setSharingStudyId('foto');
+    });
+
+    expect(root.querySelector<HTMLButtonElement>('#share-confirm')?.disabled).toBe(false);
+    await act(async () => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await vi.waitFor(() => expect(root.textContent).toContain('Listo para compartir'));
+    await act(async () => root.querySelector<HTMLButtonElement>('#share-send')!.click());
+
+    const shared = share.mock.calls[0]![0].files[0] as File;
+    expect(shared.name).toBe('informe.png');
+    expect(shared.type).toBe('image/png');
+    expect(await shared.arrayBuffer()).toEqual(await image.arrayBuffer());
 });

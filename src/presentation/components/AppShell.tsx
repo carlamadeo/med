@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
 import type {ComponentChildren} from 'preact';
 import {appointmentStatus} from '@domain/appointments';
-import type {Study, ViewMode} from '@domain/models';
+import type {ViewMode} from '@domain/models';
 import {
     pendingChanges,
     portals,
@@ -13,13 +13,11 @@ import {
     visibleStudies,
 } from '../state/store';
 import {ThemeToggle} from './ThemeToggle';
-import {CommandPalette} from './CommandPalette';
+import {FolderPickerDialog} from './FolderPickerDialog';
 
 interface AppShellProps {
     isSignedIn: boolean;
     onSignOut: () => void;
-    onOpenStudy: (study: Study) => void;
-    onAddStudy: () => void;
     children: ComponentChildren;
 }
 
@@ -45,9 +43,8 @@ const labels: Record<ViewMode, string> = {
     intake: 'Intake asistido',
 };
 
-export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, children}: AppShellProps) {
+export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
-    const [paletteOpen, setPaletteOpen] = useState(false);
     const menuRef = useRef<HTMLButtonElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const wasOpen = useRef(false);
@@ -87,21 +84,6 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
         };
     }, [open]);
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-                const target = event.target as HTMLElement | null;
-                const tag = target?.tagName;
-                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
-                if (document.querySelector('dialog[open]') && !paletteOpen) return;
-                event.preventDefault();
-                setPaletteOpen((value) => !value);
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [paletteOpen]);
-
     const groups: { label: string; items: NavItem[] }[] = [
         {
             label: 'General',
@@ -135,7 +117,6 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
         {
             label: 'Archivo',
             items: [
-                {label: 'Búsquedas', icon: 'i-search', action: 'search'},
                 {label: 'Intake asistido', icon: 'i-scan', view: 'intake'},
                 {label: 'Exportar historia', icon: 'i-download', action: 'export'},
             ],
@@ -146,11 +127,6 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
         setOpen(false);
         if (item.action === 'export') {
             setExporting(true);
-            return;
-        }
-        if (item.action === 'search') {
-            view.value = 'cronologia';
-            window.setTimeout(() => document.getElementById('search')?.focus(), 0);
             return;
         }
         if (item.view) view.value = item.view;
@@ -205,6 +181,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
                 </nav>
 
                 <div className="sidebar-foot">
+                    <FolderPickerDialog/>
                     <p className="privacy-note">
                         <svg className="icon">
                             <use href="#i-lock"/>
@@ -253,16 +230,6 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
                         </nav>
                     )}
 
-                    <button className="global-search" id="global-search-trigger" type="button"
-                            aria-label="Abrir búsqueda global" hidden={!isSignedIn}
-                            onClick={() => setPaletteOpen(true)}>
-                        <svg className="icon">
-                            <use href="#i-search"/>
-                        </svg>
-                        <span>Buscar en el archivo…</span>
-                        <kbd className="kbd">⌘K</kbd>
-                    </button>
-
                     <div className="topbar-actions">
                         <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Privado</span>
                         <button className="icon-button optional" id="export-history" type="button"
@@ -288,16 +255,6 @@ export function AppShell({isSignedIn, onSignOut, onOpenStudy, onAddStudy, childr
 
                 {children}
             </div>
-
-            <CommandPalette
-                open={paletteOpen}
-                onClose={() => setPaletteOpen(false)}
-                onOpenStudy={onOpenStudy}
-                onAddStudy={onAddStudy}
-                onNavigate={(next) => {
-                    view.value = next;
-                }}
-            />
         </div>
     );
 }

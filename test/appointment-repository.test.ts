@@ -32,3 +32,12 @@ it('persists and removes a reminder while preserving the appointment', async () 
     const updated = await driveAppointmentRepo.save({...created, reminderMinutes: null});
     expect(updated.reminderMinutes).toBeUndefined();
 });
+
+it('round-trips the chosen studies in Drive and removes them when cleared', async () => {
+    const created = await driveAppointmentRepo.save({...draft, studyIds: ['study-1', 'study-2']});
+    const [loaded] = await driveAppointmentRepo.list();
+    expect(loaded?.studyIds).toEqual(['study-1', 'study-2']);
+
+    await driveAppointmentRepo.save({...created, studyIds: []});
+    expect((await driveAppointmentRepo.get(created.id)).studyIds ?? []).toEqual([]);
+});
