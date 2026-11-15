@@ -1,5 +1,5 @@
 import {useRef, useState} from 'preact/hooks';
-import {filterStudiesByQuery} from '@domain/library';
+import {filterStudiesByQuery, formatStudyDate} from '@domain/library';
 import {visibleStudies, loading, error, view, categoryTypes} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
@@ -41,8 +41,10 @@ export function StudyListContainer({
                                      }: StudyListContainerProps) {
     const [query, setQuery] = useState('');
     const searchInput = useRef<HTMLInputElement>(null);
-    const studiesList = filterStudiesByQuery(visibleStudies.value, query);
+    const studiesList = [...filterStudiesByQuery(visibleStudies.value, query)]
+        .sort((a, b) => b.date.localeCompare(a.date));
     const hasFilters = Boolean(query.trim() || categoryTypes.value.length);
+    const recent = [...visibleStudies.value].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -65,6 +67,20 @@ export function StudyListContainer({
             )}
             {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
                 <>
+                    {!isLoading && !loadError && !hasFilters && recent.length > 0 && (
+                        <section className="library-recent" aria-labelledby="library-recent-title">
+                            <div className="library-recent-heading">
+                                <h2 id="library-recent-title">Tus estudios recientes</h2>
+                                <a href="#library-title">Ver todo</a>
+                            </div>
+                            <ul>
+                                {recent.map((study) => <li key={study.id}>
+                                    <span>{study.title}</span>
+                                    <time dateTime={study.date}>{formatStudyDate(study.date)}</time>
+                                </li>)}
+                            </ul>
+                        </section>
+                    )}
                     <div className="section-head library-search-head">
                         <div className="section-title">
                             <h2 id="library-title">Estudios guardados</h2>
@@ -83,6 +99,9 @@ export function StudyListContainer({
                         </div>
                     </div>
                     <LibraryTabs availableTypes={availableTypes}/>
+                    {categoryTypes.value.length === 1 && !isLoading && !loadError && (
+                        <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
+                    )}
 
                     {isLoading ? (
                         <>

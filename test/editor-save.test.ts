@@ -2,7 +2,7 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {EditorDialog} from '@presentation/components/EditorDialog';
-import {setEditingStudy, setEditorOpen} from '@presentation/state/store';
+import {setEditingStudy, setEditorOpen, setStudies} from '@presentation/state/store';
 
 it('submits a new study with its selected type', async () => {
     const root = document.createElement('div');
@@ -73,4 +73,30 @@ it('submits an intake candidate as a new study with its selected file', async ()
     expect(save).toHaveBeenCalledWith(expect.objectContaining({file, driveFileId: undefined}));
     render(null, root);
     root.remove();
+});
+
+
+it('shows other studies of the same type in date order while editing', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const base = {doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const current = {...base, id: 'current', driveFileId: 'current', title: 'Actual', date: '2024-01-01', types: ['Laboratorio']};
+    setStudies([current,
+        {...base, id: 'old', driveFileId: 'old', title: 'Anterior', date: '2020-01-01', types: ['Laboratorio']},
+        {...base, id: 'new', driveFileId: 'new', title: 'Reciente', date: '2023-01-01', types: ['Laboratorio']},
+        {...base, id: 'other', driveFileId: 'other', title: 'Otro', date: '2022-01-01', types: ['Ecografía']},
+    ]);
+    await act(() => render(h(EditorDialog, {onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio', 'Ecografía']}), root));
+    await act(() => setEditingStudy(current));
+    const related = root.querySelector('[aria-label="Estudios relacionados"]');
+    expect(related?.textContent).toContain('Otros estudios de Laboratorio');
+    expect(related?.textContent).toContain('2 estudios');
+    expect([...related!.querySelectorAll('li')].map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Reciente'), expect.stringContaining('Anterior'),
+    ]);
+    render(null, root);
+    root.remove();
+    setStudies([]);
+    setEditingStudy(null);
 });

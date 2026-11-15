@@ -1,3 +1,5 @@
+import {useState} from 'preact/hooks';
+import {StudyPrintDialog} from './StudyPrintDialog';
 import {formatStudyDate, hasStudyAttachment, portalNames, reportUrl, studyAttachmentLabel} from '@domain/library';
 import {
     latestStudy,
@@ -55,6 +57,7 @@ export function Resumen({
                             onNavigate,
                             onRetryLoad,
                         }: ResumenProps) {
+    const [printing, setPrinting] = useState<Study | null>(null);
     const all = visibleStudies.value;
     const latest = latestStudy(all);
     const activity = monthlyStudyActivity(all, 6);
@@ -115,6 +118,7 @@ export function Resumen({
 
     return (
         <div className="resumen" id="resumen">
+            <p className="resumen-opening">Tu historia, en perspectiva.</p>
             <div className="kpi-grid">
                 <article className="card kpi-card">
                     <div className="kpi-top">
@@ -159,19 +163,151 @@ export function Resumen({
                     <div className="kpi-foot">
             <span className="delta" data-tone={pending.length ? 'warning' : 'neutral'}>
               <svg className="icon"><use href={conflicts ? '#i-alert' : '#i-clock'}/></svg>
-                {conflicts ? `${conflicts} ${conflicts === 1 ? 'conflicto' : 'conflictos'}` : failed ? `${failed} con error` : 'todo al día'}
+                {conflicts ? `${conflicts} ${conflicts === 1 ? 'conflicto' : 'conflictos'}` : failed ? `${failed} con error` : pending.length ? 'pendiente' : 'todo al día'}
             </span>
                         <span className="kpi-note">{offline.value ? 'sin conexión' : 'Google Drive'}</span>
                     </div>
                 </article>
             </div>
 
+            <section className="card recent-card" aria-labelledby="recent-title">
+                <div className="recent-head">
+                    <div>
+                        <h2 className="card-title" id="recent-title">Estudios recientes</h2>
+                        <p className="card-desc">Los últimos cinco del archivo</p>
+                    </div>
+                    <div className="recent-actions">
+                        <span className="count-badge">{total}</span>
+                        <button className="button secondary button-sm" type="button"
+                                onClick={() => onNavigate('cronologia')}>Ver biblioteca
+                        </button>
+                    </div>
+                </div>
+
+                <div className="summary-table-scroll">
+                    <table>
+                        <caption className="sr-only">Últimos estudios guardados en el archivo</caption>
+                        <thead>
+                        <tr>
+                            <th scope="col">Estudio</th>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Profesional</th>
+                            <th scope="col">Portal</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col"><span className="sr-only">Acciones</span></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {recent.length === 0 ? (
+                            <tr>
+                                <td colSpan={6}>
+                                    <div className="table-empty">
+                                        <p>Tu archivo empieza acá.</p>
+                                        <button className="button secondary button-sm" type="button"
+                                                onClick={onAddStudy} disabled={!typesReady}>
+                                            <svg className="icon">
+                                                <use href="#i-plus"/>
+                                            </svg>
+                                            Agregar estudio
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : recent.map((study) => {
+                            const state = syncMeta[studySyncState(study)];
+                            const attachmentAvailable = hasStudyAttachment(study) && !isSourceUnavailable(study.driveFileId);
+                            const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
+                            return (
+                                <tr key={study.id}>
+<td>
+                                        <div className="study-cell">
+                                            <span className="study-icon"><svg className="icon"><use
+                                                href="#i-file"/></svg></span>
+                                            <span className="study-text">
+                                <span className="study-title">{study.title}</span>
+                            </span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <time className="date-cell"
+                                              dateTime={study.date}>{formatStudyDate(study.date)}</time>
+                                    </td>
+                                    <td className="person-cell">{study.doctor || '—'}</td>
+                                    <td className="portal-cell">{study.portal || '—'}</td>
+                                    <td>
+                      <span className="status-pill" data-tone={state.tone}>
+                        <svg className="icon"><use href={`#${state.icon}`}/></svg>
+                          {state.label}
+                      </span>
+                                    </td>
+                                    <td>
+                                        <div className="row-actions">
+                                            {attachmentAvailable && (
+                                                <a className="icon-button" href={reportUrl(study.driveFileId)}
+                                                   target="_blank" rel="noopener noreferrer"
+                                                   aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
+                                                    <svg className="icon">
+                                                        <use href="#i-external"/>
+                                                    </svg>
+                                                </a>
+                                            )}
+                                            {viewerAvailable && (
+                                                <a className="icon-button" href={study.viewer} target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   aria-label={`Abrir visor de ${study.title}`}>
+                                                    <svg className="icon">
+                                                        <use href="#i-eye"/>
+                                                    </svg>
+                                                </a>
+                                            )}
+                                            <button className="icon-button" type="button"
+                                                    disabled={Boolean(study.syncStatus)}
+                                                    aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
+                                                <svg className="icon">
+                                                    <use href="#i-edit"/>
+                                                </svg>
+                                            </button>
+                                            <button className="icon-button" type="button"
+                                                    disabled={Boolean(study.syncStatus)}
+                                                    aria-label={`Eliminar ${study.title}`}
+                                                    onClick={() => onDelete(study)}>
+                                                <svg className="icon">
+                                                    <use href="#i-trash"/>
+                                                </svg>
+                                            </button>
+                                            <button className="icon-button" type="button" title="Imprimir"
+                                                    aria-label={`Imprimir ${study.title}`} onClick={() => setPrinting(study)}>
+                                                <svg className="icon"><use href="#i-print"/></svg>
+                                            </button>
+                                            <button className="icon-button" type="button"
+                                                    disabled={Boolean(study.syncStatus) || !(hasStudyAttachment(study) || study.viewer || study.documentIds?.length)}
+                                                    aria-label={`Compartir ${study.title}`}
+                                                    onClick={() => onShare(study)}>
+                                                <svg className="icon">
+                                                    <use href="#i-share"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="recent-foot">
+                    <span>Mostrando {recent.length} de {total} estudios</span>
+                    <span className="recent-hint">Datos privados de este dispositivo</span>
+                </div>
+            </section>
+
             <div className="resumen-grid">
                 <section className="card chart-card" aria-labelledby="activity-title">
                     <div className="chart-head">
                         <div>
                             <h2 className="card-title" id="activity-title">Actividad del archivo</h2>
-                            <p className="card-desc">Estudios agregados por mes</p>
+                            <p className="card-desc">Estudios por mes de realización</p>
                             <div className="chart-headline">
                                 <span className="chart-total">{total.toLocaleString('es-AR')}</span>
                                 <span className="chart-delta"><svg className="icon"><use
@@ -195,7 +331,7 @@ export function Resumen({
                             <dd>{average.toLocaleString('es-AR', {maximumFractionDigits: 1})} por mes</dd>
                         </div>
                         <div>
-                            <dt>Mejor mes</dt>
+                            <dt>Mes con más estudios</dt>
                             <dd>{best.count ? `${best.label} · ${best.count}` : '—'}</dd>
                         </div>
                     </dl>
@@ -313,134 +449,7 @@ export function Resumen({
                     </section>
                 </div>
             </div>
-
-            <section className="card recent-card" aria-labelledby="recent-title">
-                <div className="recent-head">
-                    <div>
-                        <h2 className="card-title" id="recent-title">Estudios recientes</h2>
-                        <p className="card-desc">Los últimos cinco del archivo</p>
-                    </div>
-                    <div className="recent-actions">
-                        <span className="count-badge">{total}</span>
-                        <button className="button secondary button-sm" type="button"
-                                onClick={() => onNavigate('cronologia')}>Ver biblioteca
-                        </button>
-                    </div>
-                </div>
-
-                <div className="summary-table-scroll">
-                    <table>
-                        <caption className="sr-only">Últimos estudios guardados en el archivo</caption>
-                        <thead>
-                        <tr>
-                            <th scope="col">Estudio</th>
-                            <th scope="col">Fecha</th>
-                            <th scope="col">Profesional</th>
-                            <th scope="col">Portal</th>
-                            <th scope="col">Estado</th>
-                            <th scope="col"><span className="sr-only">Acciones</span></th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {recent.length === 0 ? (
-                            <tr>
-                                <td colSpan={6}>
-                                    <div className="table-empty">
-                                        <p>Tu archivo empieza acá.</p>
-                                        <button className="button secondary button-sm" type="button"
-                                                onClick={onAddStudy} disabled={!typesReady}>
-                                            <svg className="icon">
-                                                <use href="#i-plus"/>
-                                            </svg>
-                                            Agregar estudio
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : recent.map((study) => {
-                            const state = syncMeta[studySyncState(study)];
-                            const attachmentAvailable = hasStudyAttachment(study) && !isSourceUnavailable(study.driveFileId);
-                            const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
-                            return (
-                                <tr key={study.id}>
-<td>
-                                        <div className="study-cell">
-                                            <span className="study-icon"><svg className="icon"><use
-                                                href="#i-file"/></svg></span>
-                                            <span className="study-text">
-                                <span className="study-title">{study.title}</span>
-                            </span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <time className="date-cell"
-                                              dateTime={study.date}>{formatStudyDate(study.date)}</time>
-                                    </td>
-                                    <td className="person-cell">{study.doctor || '—'}</td>
-                                    <td className="portal-cell">{study.portal || '—'}</td>
-                                    <td>
-                      <span className="status-pill" data-tone={state.tone}>
-                        <svg className="icon"><use href={`#${state.icon}`}/></svg>
-                          {state.label}
-                      </span>
-                                    </td>
-                                    <td>
-                                        <div className="row-actions">
-                                            {attachmentAvailable && (
-                                                <a className="icon-button" href={reportUrl(study.driveFileId)}
-                                                   target="_blank" rel="noopener noreferrer"
-                                                   aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
-                                                    <svg className="icon">
-                                                        <use href="#i-external"/>
-                                                    </svg>
-                                                </a>
-                                            )}
-                                            {viewerAvailable && (
-                                                <a className="icon-button" href={study.viewer} target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   aria-label={`Abrir visor de ${study.title}`}>
-                                                    <svg className="icon">
-                                                        <use href="#i-eye"/>
-                                                    </svg>
-                                                </a>
-                                            )}
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus)}
-                                                    aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-edit"/>
-                                                </svg>
-                                            </button>
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus)}
-                                                    aria-label={`Eliminar ${study.title}`}
-                                                    onClick={() => onDelete(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-trash"/>
-                                                </svg>
-                                            </button>
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus) || !(hasStudyAttachment(study) || study.viewer || study.documentIds?.length)}
-                                                    aria-label={`Compartir ${study.title}`}
-                                                    onClick={() => onShare(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-share"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="recent-foot">
-                    <span>Mostrando {recent.length} de {total} estudios</span>
-                    <span className="recent-hint">Datos privados de este dispositivo</span>
-                </div>
-            </section>
+            <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
         </div>
     );
 }

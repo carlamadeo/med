@@ -178,7 +178,7 @@
 }
 
 .skeleton {
-    background: linear-gradient(90deg, var(--color-surface-hover) 25%, var(--color-border) 50%, var(--color-surface-hover) 75%);
+    background: var(--color-surface-hover);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: var(--radius-md);

@@ -1,6 +1,7 @@
 .library-search-head {
     flex-flow: row wrap;
     align-items: center;
+    margin-block: var(--space-8) var(--space-4);
 }
 
 .library-search {
@@ -9,6 +10,7 @@
 
 #categories.library-types button {
     min-height: 2.75rem;
+    border-radius: var(--radius-md);
     overflow-wrap: anywhere;
 }
 
@@ -20,6 +22,7 @@
     max-width: none;
     overflow-wrap: anywhere;
     white-space: normal;
+    font-size: var(--text-base);
 }
 
 .library-table .row-actions {
@@ -96,4 +99,314 @@
     .library-table .row-actions {
         display: none;
     }
+}
+
+/* A quiet archive: hierarchy comes from type, spacing and rules. */
+.intro {
+    padding-block: var(--space-10) var(--space-8);
+}
+
+.intro h1 {
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    letter-spacing: -0.025em;
+}
+
+.intro:has(+ .library-resumen) h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+}
+
+.eyebrow, .nav-label, .brand-tag {
+    letter-spacing: 0.04em;
+    text-transform: none;
+}
+
+.sidebar, .topbar {
+    background: var(--color-surface);
+    backdrop-filter: none;
+}
+
+.nav-item {
+    min-height: 2.75rem;
+}
+
+.topbar-actions .private, .nav-count, .count, .tag, .status-pill,
+.type-badge, .record-status, .chart-delta {
+    border-radius: var(--radius-sm);
+}
+
+.topbar-actions .private {
+    border: 0;
+    background: transparent;
+}
+
+.resumen {
+    gap: var(--space-8);
+}
+
+.kpi-grid {
+    gap: 0;
+    border-block: 1px solid var(--color-border);
+}
+
+.kpi-card {
+    padding: var(--space-4);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.kpi-card + .kpi-card {
+    border-inline-start: 1px solid var(--color-border);
+}
+
+.kpi-card::after {
+    content: none;
+}
+
+.kpi-note, .study-title {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.card {
+    box-shadow: none;
+}
+
+.card-title, .section-title h2 {
+    font-size: 1.25rem;
+}
+
+.library-table .row-actions .icon-button,
+.record-actions .icon-button,
+.topbar .theme-toggle {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+}
+
+.record {
+    padding: var(--space-4);
+    box-shadow: none;
+}
+
+.record:hover {
+    transform: none;
+}
+
+.record-doctor, .record-portal {
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+}
+
+.dialog.editor {
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+}
+
+.dialog.editor .attachments {
+    padding: var(--space-4);
+    background: var(--color-surface-hover);
+}
+
+.dialog.editor .report-upload {
+    background: var(--color-brand-light);
+}
+
+@media (max-width: 720px) {
+    .intro {
+        padding-block: var(--space-8) var(--space-6);
+    }
+
+    .kpi-card + .kpi-card {
+        border-inline-start: 0;
+    }
+
+    .dialog.editor {
+        padding: var(--space-4);
+    }
+}
+
+.library-recent {
+    padding-block: var(--space-6);
+    border-block: 1px solid var(--color-border);
+}
+
+.library-recent-heading, .library-recent li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+}
+
+.library-recent-heading h2 {
+    font-size: 1.25rem;
+}
+
+.library-recent ul {
+    padding: 0;
+    margin: var(--space-4) 0 0;
+    list-style: none;
+}
+
+.library-recent li {
+    padding-block: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    overflow-wrap: anywhere;
+}
+
+.library-recent time {
+    color: var(--color-text-secondary);
+}
+
+.study-print-dialog {
+    width: min(40rem, calc(100vw - 2rem));
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: var(--space-6);
+}
+
+.study-print-record {
+    padding: var(--space-6);
+    margin-block: var(--space-4);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.study-print-kicker, .study-print-generated, .study-print-note {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.study-print-record h2 {
+    margin-block: var(--space-3) var(--space-4);
+    overflow-wrap: anywhere;
+}
+
+.study-print-record dl {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.study-print-record dt {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.study-print-record dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+@media print {
+    body:has(.study-print-dialog[open]) * {
+        visibility: hidden;
+    }
+
+    body:has(.study-print-dialog[open]) .study-print-dialog,
+    body:has(.study-print-dialog[open]) .study-print-record,
+    body:has(.study-print-dialog[open]) .study-print-record * {
+        visibility: visible;
+    }
+
+    .study-print-dialog[open] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        max-width: none;
+        max-height: none;
+        padding: 0;
+        border: 0;
+        background: white;
+        color: black;
+        box-shadow: none;
+    }
+
+    .study-print-record {
+        padding: 0;
+        border: 0;
+        color: black;
+        background: white;
+    }
+
+    .study-print-record dt, .study-print-generated, .study-print-kicker {
+        color: #333;
+    }
+}
+
+.related-heading {
+    margin-block: var(--space-4);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.editor-advanced {
+    margin-block: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.editor-advanced summary {
+    min-height: 2.75rem;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.editor-advanced[open] > * + * {
+    margin-top: var(--space-3);
+}
+
+.resumen-opening {
+    max-width: 24ch;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+}
+
+.editor-related {
+    display: grid;
+    gap: var(--space-4);
+    padding-block: var(--space-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.editor-related h3 {
+    font-size: var(--text-base);
+}
+
+.editor-related p, .editor-related time {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.editor-related ul {
+    padding: 0;
+    margin: var(--space-2) 0 0;
+    list-style: none;
+}
+
+.editor-related li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+    border-top: 1px solid var(--color-border);
+    overflow-wrap: anywhere;
+}
+
+.study-print-dialog .dialog-actions {
+    position: sticky;
+    bottom: calc(-1 * var(--space-6));
+    padding-block: var(--space-4);
+    background: var(--color-surface);
 }

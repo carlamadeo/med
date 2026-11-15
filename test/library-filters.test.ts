@@ -29,6 +29,8 @@ it('shows study type filters directly and filters the library', async () => {
     await act(() => filter?.click());
     expect(visibleStudies.value.map((study) => study.title)).toEqual(['Uno']);
     expect(filter?.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('.related-heading')?.textContent).toContain('Estudios de Radiografía');
+    expect(root.querySelector('.related-heading')?.textContent).toContain('1 estudio');
     await act(() => filter?.click());
     expect(visibleStudies.value).toHaveLength(2);
 });

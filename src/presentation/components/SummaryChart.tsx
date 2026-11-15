@@ -61,13 +61,7 @@ export function SummaryChart({data}: SummaryChartProps) {
             aria-labelledby="activity-chart-title activity-chart-desc"
         >
             <title id="activity-chart-title">Actividad del archivo</title>
-            <desc id="activity-chart-desc">Estudios agregados por mes. {description}.</desc>
-            <defs>
-                <linearGradient id="activity-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-brand)" stopOpacity="0.2"/>
-                    <stop offset="100%" stopColor="var(--color-brand)" stopOpacity="0"/>
-                </linearGradient>
-            </defs>
+            <desc id="activity-chart-desc">Estudios por mes de realización. {description}.</desc>
 
             {[0, 1, 2, 3, 4].map((index) => {
                 const y = PAD.top + (plotHeight * index) / 4;

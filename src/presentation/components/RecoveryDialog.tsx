@@ -89,7 +89,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
         if (recoveringId && !element.open) {
             void loadDeletedItems();
             element.showModal();
-            element.querySelector<HTMLButtonElement>('.quiet')?.focus();
+            element.querySelector<HTMLElement>('#recovery-title')?.focus();
         } else if (!recoveringId && element.open) element.close();
     }, [recoveringId]);
 
@@ -252,7 +252,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 event.preventDefault();
             }}>
                 <div className="dialog-heading">
-                    <div><h2 id="recovery-title">Recuperar elementos eliminados</h2>
+                    <div><h2 id="recovery-title" tabIndex={-1}>Recuperar elementos eliminados</h2>
                         <p id="recovery-copy">Recuperá estudios, episodios, operaciones, portales, consultas, recetas y
                             turnos eliminados durante los últimos 30 días. Sin conexión se usa la última lista
                             consultada.</p>
