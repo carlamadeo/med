@@ -9,8 +9,6 @@ it('clears library search and filters when another account signs in', async () =
     const search = 'input[aria-label="Buscar estudios"]';
     await act(() => {
         typeInto(search, 'Informe privado');
-        // Switch to categoria view to access category filters
-        $('#tab-categoria')?.click();
         $('#categories button')?.click();
     });
 

@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 it('shows study type filters directly and filters the library', async () => {
-    view.value = 'categoria';
+    view.value = 'cronologia';
     const base = {date: '2024-01-01', doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
     setStudies([
         {...base, id: '1', driveFileId: '1', title: 'Uno', types: ['Radiografía']},
@@ -23,7 +23,7 @@ it('shows study type filters directly and filters the library', async () => {
         onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Radiografía', 'Análisis'],
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
-    expect(root.querySelector('.library-views')).not.toBeNull();
+    expect(root.querySelector('.library-views')).toBeNull();
     const filter = [...root.querySelectorAll('button')].find((button) => button.textContent === 'Radiografía');
     expect(filter).toBeDefined();
     await act(() => filter?.click());
@@ -34,7 +34,7 @@ it('shows study type filters directly and filters the library', async () => {
 });
 
 it('combines accent-insensitive study search with multiple selected types', async () => {
-    view.value = 'categoria';
+    view.value = 'cronologia';
     const base = {date: '2024-01-01', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
     setStudies([
         {...base, id: '1', driveFileId: '1', title: 'Radiografía de tórax', doctor: 'Dra. Núñez', portal: 'Clínica Sur', types: ['Radiografía']},
