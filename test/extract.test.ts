@@ -38,6 +38,14 @@ describe('extractFields: study types and date', () => {
         expect(extractFields('Fecha: 18/03/2024').date).toBe('2024-03-18');
     });
 
+    it('reads a two-digit year in a labeled report date', () => {
+        expect(extractFields('Documento: 123  Centro médico  Fecha: 02/03/18 09:44').date).toBe('2018-03-02');
+        expect(extractFields('Documento: 123  Centro médico Fecha: 02/03/18 09:44').date).toBe('2018-03-02');
+        expect(extractFields('Fecha: 02/03/98').date).toBe('1998-03-02');
+        expect(extractFields('Fecha nacimiento: 02/03/18').date).toBeUndefined();
+        expect(extractFields('Fecha: 31/02/18').date).toBeUndefined();
+    });
+
     it('a single modality and an explicit study type keep their existing priority', () => {
         expect(extractFields('MAMOGRAFIA BILATERAL').types).toEqual(['Mamografía']);
         expect(extractFields('ECOGRAFÍA MAMARIA').types).toEqual(['Ecografía']);

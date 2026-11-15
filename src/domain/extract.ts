@@ -24,10 +24,10 @@ const shortMonth: Record<string, number> = Object.fromEntries(
 );
 shortMonth.setiembre = shortMonth.set = 9;
 const dateToken =
-    /\b(?:(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})|(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})|(\d{1,2})(?:\s+de\s+|[-/ ]+)([a-z]+)\.?(?:\s+de(?:l)?\s+|[-/ ]+)(\d{4}))\b/g;
+    /\b(?:(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})|(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})|(\d{1,2})(?:\s+de\s+|[-/ ]+)([a-z]+)\.?(?:\s+de(?:l)?\s+|[-/ ]+)(\d{4}))\b/g;
 
 const dateLabel =
-    /(?:\bfecha(?:\s+(?:(?:de|del)\s+)?(?:estudio|realizacion|procedimiento|extraccion|toma(?:\s+de\s+muestra)?|adquisicion|examen|prestacion|practica))\b|\bfecha\s+en\s+que\s+se\s+realizo\b|^\s*fecha\s*[:=-])/;
+    /(?:\bfecha(?:\s+(?:(?:de|del)\s+)?(?:estudio|realizacion|procedimiento|extraccion|toma(?:\s+de\s+muestra)?|adquisicion|examen|prestacion|practica))\b|\bfecha\s+en\s+que\s+se\s+realizo\b|\bfecha\s*[:=-])/;
 const orderDate = /^fecha\s+y\s+orden\s*[:=-]/;
 const unrelatedDate = /\b(?:nacimiento|nac\.?|emision|impresion|validacion|generacion|informe|turno|solicitud|recepcion)\b/;
 const strongTypeLabel = /^(?:tipo(?:\s+de\s+estudio)?|estudio(?:\s+realizado)?|procedimiento|examen|practica)\s*[:=-]\s*/;
@@ -63,7 +63,13 @@ function dates(line: string): string[] {
         const [, y1, m1, d1, d2, m2, y2, d3, m3, y3] = match;
         const month = m1 || m2 || shortMonth[m3 ?? ''];
         if (!month) return '';
-        return [y1 || y2 || y3, String(month).padStart(2, '0'), (d1 || d2 || d3 || '').padStart(2, '0')].join('-');
+        let year = y1 || y2 || y3 || '';
+        if (year.length === 2) {
+            const currentYear = new Date().getFullYear();
+            const century = Number(year) <= currentYear % 100 ? 2000 : 1900;
+            year = String(century + Number(year));
+        }
+        return [year, String(month).padStart(2, '0'), (d1 || d2 || d3 || '').padStart(2, '0')].join('-');
     }).filter(isValidDate);
 }
 
@@ -122,13 +128,14 @@ export function extractFields(text: string): ExtractedFields {
             const cells = folded.split(/\s{2,}|\t+/);
             for (const [column, cell] of cells.entries()) {
                 if (unrelatedDate.test(cell) || !(dateLabel.test(cell) || orderDate.test(cell))) continue;
-                const found = dates(cell);
+                const dateStart = cell.search(dateLabel);
+                const found = dates(dateStart >= 0 ? cell.slice(dateStart) : cell);
                 if (!found.length) {
                     const next = cells[column + 1] || (cells.length === 1 ? normalize(lines[index + 1] || '') : '');
                     const nextDates = dates(next);
                     if (/^\d/.test(next) && !unrelatedDate.test(next) && nextDates.length === 1) found.push(...nextDates);
                 }
-                const score = /^fecha\s*[:=-]/.test(cell) ? 1 : orderDate.test(cell) ? 2 : 3;
+                const score = /\bfecha\s*[:=-]/.test(cell) ? 1 : orderDate.test(cell) ? 2 : 3;
                 for (const value of found) candidates.date.push({value, score});
             }
 

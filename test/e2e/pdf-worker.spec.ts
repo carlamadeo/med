@@ -15,7 +15,7 @@ function pdf(objects: string[]) {
     return Buffer.from(content, 'latin1').toString('base64');
 }
 
-const text = 'BT /F1 16 Tf 50 750 Td (Estudio: Ecografia) Tj 0 -30 Td (Fecha: 18/03/2024) Tj 0 -30 Td (Medico: Dra. Ana Perez) Tj 0 -30 Td (Informe de control con resultados normales. Documento sintetico para pruebas de lectura.) Tj ET';
+const text = 'BT /F1 16 Tf 50 750 Td (Estudio: Ecografia) Tj 0 -30 Td (Fecha: 18/03/24) Tj 0 -30 Td (Medico: Dra. Ana Perez) Tj 0 -30 Td (Informe de control con resultados normales. Documento sintetico para pruebas de lectura.) Tj ET';
 const report = pdf([
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
