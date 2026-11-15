@@ -390,7 +390,7 @@ export class DriveClient {
                 fields: 'files(id)',
                 orderBy: 'createdTime',
                 pageSize: '1',
-            })
+            }), {}, token
         ).then((r) => r.json() as Promise<DriveFileResponse>);
 
         const existing = response.files?.[0];
@@ -407,7 +407,7 @@ export class DriveClient {
                 name: 'Mis estudios',
                 mimeType: 'application/vnd.google-apps.folder',
                 appProperties: {[TAG]: FOLDER_MARKER},
-            })
+            }), token
         ).then((r) => r.json() as Promise<DriveFileResponse>);
 
         await this.assertSession(token);

@@ -90,8 +90,8 @@ export class DriveStudyRepository implements StudyRepository {
         return this.fetchFile(id);
     }
 
-    async reserveId(): Promise<string> {
-        return this.client.reserveId();
+    async reserveId(expectedToken?: string): Promise<string> {
+        return this.client.reserveId(expectedToken);
     }
 
     private async checkDocumentDependencies(existingId: string): Promise<void> {
@@ -103,10 +103,11 @@ export class DriveStudyRepository implements StudyRepository {
         }
     }
 
-    async save(draft: StudyDraft): Promise<Study> {
+    async save(draft: StudyDraft, expectedToken?: string): Promise<Study> {
         const validationErrors = validateStudyDraft(draft);
         if (validationErrors.length) throw new Error(validationErrors[0]);
         const token = await this.client.getAccessToken();
+        if (expectedToken !== undefined) await this.client.assertSession(expectedToken);
         const owner = await this.cacheOwner();
         const isUpdate = Boolean(draft.driveFileId);
         // On edit we must start from what Drive has now, not from what the form remembers.
@@ -163,7 +164,7 @@ export class DriveStudyRepository implements StudyRepository {
             const metadata: Record<string, unknown> = {name: fileName, description, mimeType: mediaType};
             if (!isUpdate) {
                 metadata.id = id;
-                metadata.parents = [await this.client.getFolderId()];
+                metadata.parents = [await this.client.getFolderId(token)];
                 metadata.appProperties = {misEstudios: 'estudio-v1'};
             }
             await this.client.assertSession(token);
@@ -181,7 +182,7 @@ export class DriveStudyRepository implements StudyRepository {
                 }
                 if (draft.file) {
                     if (response.mimeType !== documentMime) throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.');
-                    const remoteFile = await this.getDocumentFile(id);
+                    const remoteFile = await this.getDocumentFile(id, token);
                     const [localDigest, remoteDigest] = await Promise.all([
                         draft.file.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
                         remoteFile.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
