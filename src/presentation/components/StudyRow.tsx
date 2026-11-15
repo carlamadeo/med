@@ -1,6 +1,8 @@
 /**
  * Fila individual de un estudio en la lista virtualizada.
  */
+import {useState} from 'preact/hooks';
+import {StudyPrintDialog} from './StudyPrintDialog';
 import type {Study} from '@domain/models';
 import {formatStudyDate, reportUrl} from '@domain/library';
 import {studies, isSourceUnavailable, offline} from '../state/store';
@@ -37,6 +39,7 @@ export function StudyRow({
                              measure,
                              monthLabel
                          }: StudyRowProps) {
+    const [printing, setPrinting] = useState(false);
     const pdfUnavailable = study.hasPdf && isSourceUnavailable(study.driveFileId);
     const viewerUnavailable = study.viewer && isSourceUnavailable(study.viewer);
     const isOffline = offline.value;
@@ -150,7 +153,7 @@ export function StudyRow({
                             type="button"
                             aria-label={`Imprimir ${study.title}`}
                             title={`Imprimir ${study.title}`}
-                            onClick={() => window.print()}
+                            onClick={() => setPrinting(true)}
                         >
                             <svg className="icon">
                                 <use href="#i-print"/>
@@ -172,6 +175,7 @@ export function StudyRow({
                     )}
                 </div>
             </div>
+            <StudyPrintDialog study={printing ? study : null} onClose={() => setPrinting(false)}/>
         </li>
     );
 }

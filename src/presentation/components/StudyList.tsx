@@ -1,4 +1,6 @@
 /** Lista de estudios en formato tabla. */
+import {useState} from 'preact/hooks';
+import {StudyPrintDialog} from './StudyPrintDialog';
 import {formatStudyDate, reportUrl, studyAttachmentLabel} from '@domain/library';
 import {isSourceUnavailable} from '../state/store';
 import type {Study} from '@domain/models';
@@ -17,7 +19,9 @@ export function StudyList({
     },
                                studies: studiesList
                            }: StudyListProps) {
+    const [printing, setPrinting] = useState<Study | null>(null);
     return (
+        <>
         <div className="summary-table-scroll library-table">
             <table role="table">
                 <caption className="sr-only">Estudios guardados en el archivo</caption>
@@ -53,6 +57,7 @@ export function StudyList({
                                     <div className="study-cell">
                                         <span className="study-text">
                                             <span className="study-title">{study.title}</span>
+                                            {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
                                             <span className="study-types">
                                                 {study.types.length ? study.types.slice(0, 2).map((type) => <span className="type-badge"
                                                                                                            key={type}>{type}</span>) :
@@ -89,15 +94,19 @@ export function StudyList({
                                                 <svg className="icon" aria-hidden="true"><use href="#i-eye"/></svg>
                                             </a>
                                         )}
-                                        <button className="icon-button" type="button" disabled={pending}
+                                        <button className="icon-button" type="button" title="Editar" disabled={pending}
                                                 aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-edit"/></svg>
                                         </button>
-                                        <button className="icon-button" type="button" disabled={pending}
+                                        <button className="icon-button" type="button" title="Eliminar" disabled={pending}
                                                 aria-label={`Eliminar ${study.title}`} onClick={() => onDelete(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-trash"/></svg>
                                         </button>
-                                        <button className="icon-button" type="button" disabled={pending || !canShare}
+                                        <button className="icon-button" type="button" title="Imprimir" aria-label={`Imprimir ${study.title}`}
+                                                onClick={() => setPrinting(study)}>
+                                            <svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>
+                                        </button>
+                                        <button className="icon-button" type="button" title="Compartir" disabled={pending || !canShare}
                                                 aria-label={`Compartir ${study.title}`} onClick={() => onShare?.(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-share"/></svg>
                                         </button>
@@ -109,5 +118,7 @@ export function StudyList({
                 </tbody>
             </table>
         </div>
+        <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
+        </>
     );
 }

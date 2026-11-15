@@ -94,7 +94,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 });
             }
             element.showModal();
-            element.querySelector<HTMLButtonElement>('.quiet')?.focus();
+            element.querySelector<HTMLElement>('#share-title')?.focus();
         } else if (!id && element.open) element.close();
     }, [id]);
 
@@ -228,7 +228,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 if (id && !busy && !preparing) void handleConfirm();
             }}>
                 <div className="dialog-heading">
-                    <div><h2 id="share-title">Compartir estudio</h2>
+                    <div><h2 id="share-title" tabIndex={-1}>Compartir estudio</h2>
                         <p id="share-copy">{study ? `«${study.title}»` : ''}</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}

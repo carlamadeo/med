@@ -46,7 +46,7 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {hasStudyAttachment, portalNames} from '@domain/library';
+import {formatStudyDate, hasStudyAttachment, portalNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect} from 'preact/hooks';
@@ -89,6 +89,11 @@ export function EditorDialog({
                              }: EditorDialogProps) {
     const study = editingStudy.value;
     const isEdit = !!study;
+    const relatedGroups = study ? study.types.map((type) => ({
+        type,
+        items: studies.value.filter((item) => item.id !== study.id && item.types.includes(type))
+            .sort((a, b) => b.date.localeCompare(a.date)),
+    })).filter((group) => group.items.length > 0) : [];
 
     const {
         dialogRef,
@@ -251,26 +256,6 @@ export function EditorDialog({
                         )}
                     </div>
 
-                    {(documentIds.length > 0 || studies.value.some((item) => hasStudyAttachment(item) && item.id !== study?.id)) &&
-                        <fieldset>
-                            <legend>Documentos de otros estudios</legend>
-                            <p className="hint">Vinculá documentos existentes sin crear otra copia.</p>
-                            {studies.value.filter((item) => hasStudyAttachment(item) && item.id !== study?.id).map((item) => <label
-                                key={item.id}>
-                                <input type="checkbox" name="documentIds" value={item.id}
-                                       checked={documentIds.includes(item.id)} onChange={(event) => {
-                                    const checked = event.currentTarget.checked;
-                                    setDocumentIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id));
-                                }}/> {item.reportName || item.title} · {item.title}
-                            </label>)}
-                            {documentIds.filter((id) => !studies.value.some((item) => item.id === id && hasStudyAttachment(item))).map((id) =>
-                                <label key={id}>
-                                    <input type="checkbox" name="documentIds" value={id} checked
-                                           onChange={() => setDocumentIds((current) => current.filter((item) => item !== id))}/> Documento
-                                    no disponible
-                                </label>)}
-                        </fieldset>}
-
                     <label>
                         Nombre del estudio
                         <input
@@ -357,6 +342,38 @@ export function EditorDialog({
                     </div>
                     <p className="hint" id="portal-hint">Podés elegir una institución que ya usaste o escribir una
                         nueva. Se recuerda al guardar el estudio.</p>
+                    {relatedGroups.length > 0 && <section className="editor-related" aria-label="Estudios relacionados">
+                        {relatedGroups.map(({type, items}) => <div key={type}>
+                            <h3>Otros estudios de {type}</h3>
+                            <p>{items.length} {items.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
+                            <ul>{items.map((item) => <li key={item.id}>
+                                <span>{item.title}{item.syncStatus && ` · ${item.syncStatus === 'conflict' ? 'Requiere revisión' : item.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}`}</span>
+                                <time dateTime={item.date}>{formatStudyDate(item.date)}</time>
+                            </li>)}</ul>
+                        </div>)}
+                    </section>}
+                    <details className="editor-advanced">
+                        <summary>Documentos y operaciones relacionadas</summary>
+                    {(documentIds.length > 0 || studies.value.some((item) => hasStudyAttachment(item) && item.id !== study?.id)) &&
+                        <fieldset>
+                            <legend>Documentos de otros estudios</legend>
+                            <p className="hint">Vinculá documentos existentes sin crear otra copia.</p>
+                            {studies.value.filter((item) => hasStudyAttachment(item) && item.id !== study?.id).map((item) => <label
+                                key={item.id}>
+                                <input type="checkbox" name="documentIds" value={item.id}
+                                       checked={documentIds.includes(item.id)} onChange={(event) => {
+                                    const checked = event.currentTarget.checked;
+                                    setDocumentIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id));
+                                }}/> {item.reportName || item.title} · {item.title}
+                            </label>)}
+                            {documentIds.filter((id) => !studies.value.some((item) => item.id === id && hasStudyAttachment(item))).map((id) =>
+                                <label key={id}>
+                                    <input type="checkbox" name="documentIds" value={id} checked
+                                           onChange={() => setDocumentIds((current) => current.filter((item) => item !== id))}/> Documento
+                                    no disponible
+                                </label>)}
+                        </fieldset>}
+
                     <label>Operación <small>Opcional</small>
                         <select id="operation-id" name="operationId" value={operationId}
                                 onChange={(event) => setOperationId(event.currentTarget.value)}>
@@ -382,6 +399,7 @@ export function EditorDialog({
                                 onClick={() => void createOperation()}>{operationBusy ? 'Guardando…' : 'Guardar operación'}</button>
                         <button type="button" onClick={() => setCreatingOperation(false)}>Cancelar</button>
                     </fieldset>}
+                    </details>
                     <div className="attachments">
                         <label>
                             Enlace al visor <small>Opcional</small>

@@ -9,7 +9,7 @@ it('clears unsubmitted appointment and episode drafts after sign-out', async () 
         act(() => {
             $(`#nav-${tab}`).click();
         });
-        const form = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '#appointments-title + form' : '#episode-form')!;
+        const form = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '.appointments-form' : '#episode-form')!;
         const notes = form.querySelector<HTMLTextAreaElement>('textarea')!;
         notes.value = 'Información privada';
         notes.dispatchEvent(new Event('input', {bubbles: true}));
@@ -23,7 +23,7 @@ it('clears unsubmitted appointment and episode drafts after sign-out', async () 
         act(() => {
             $(`#nav-${tab}`).click();
         });
-        const restored = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '#appointments-title + form' : '#episode-form')!;
+        const restored = document.querySelector<HTMLFormElement>(tab === 'turnos' ? '.appointments-form' : '#episode-form')!;
         expect(restored.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('');
     }
 });

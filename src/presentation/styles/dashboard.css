@@ -15,7 +15,7 @@
 }
 
 .app-main > .wrap {
-    width: min(100% - 3rem, 87.5rem);
+    width: min(100% - 3rem, 72rem);
     margin-inline: auto;
 }
 
@@ -57,9 +57,8 @@
     height: 2.125rem;
     flex: none;
     border-radius: var(--radius-md);
-    background: linear-gradient(150deg, var(--color-brand), color-mix(in srgb, var(--color-brand) 62%, #1b1145));
-    color: #fff;
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--color-brand) 60%, transparent);
+    background: var(--color-brand);
+    color: var(--color-text-inverse);
 }
 
 .brand-mark .icon {
@@ -452,7 +451,7 @@
     width: 8rem;
     height: 8rem;
     border-radius: var(--radius-full);
-    background: radial-gradient(circle, color-mix(in srgb, var(--color-brand) 7%, transparent), transparent 65%);
+    background: transparent;
     content: '';
     pointer-events: none;
 }
@@ -644,7 +643,7 @@
 }
 
 .activity-area {
-    fill: url("#activity-fill");
+    fill: var(--color-brand-light);
 }
 
 .activity-line {

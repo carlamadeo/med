@@ -31,7 +31,7 @@ const files = [
         description: JSON.stringify({
             title: 'Resonancia de rodilla',
             date: '2026-11-03',
-            types: ['Resonancia'],
+            types: ['Resonancia', 'Mamografía'],
             doctor: 'Dr. Gómez',
             portal: 'Clínica Santa María',
             viewer: 'https://example.com/visor',
@@ -113,6 +113,7 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
 test('abre el menú móvil y navega a Resumen', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
     await expect(page.locator('#sidebar')).toBeHidden();
     await page.locator('#menuBtn').click();
     await expect(page.locator('#sidebar')).toBeVisible();
@@ -124,6 +125,7 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
 test('busca en la Biblioteca móvil y muestra la fecha y los iconos de acceso', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
 
     const library = page.getByRole('region', {name: 'Biblioteca'});
@@ -155,4 +157,140 @@ test('busca en la Biblioteca móvil y muestra la fecha y los iconos de acceso', 
     await library.getByRole('button', {name: 'Limpiar filtros'}).click();
     await expect(search).toBeFocused();
     await expect(rows).toHaveCount(3);
+});
+
+
+test('revisa estudios relacionados e impresión con teclado y conserva el tema', async ({page}) => {
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const library = page.getByRole('region', {name: 'Biblioteca'});
+    const edit = library.getByRole('button', {name: 'Editar Mamografía bilateral'});
+    await edit.focus();
+    await page.keyboard.press('Enter');
+    const editor = page.getByRole('dialog', {name: 'Editar estudio'});
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole('region', {name: 'Estudios relacionados'})).toContainText('Resonancia de rodilla');
+    await expect(editor.getByText('Otros estudios de Mamografía')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
+    await expect(edit).toBeFocused();
+
+    const print = library.getByRole('button', {name: 'Imprimir Mamografía bilateral'});
+    await print.focus();
+    await page.keyboard.press('Enter');
+    const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText('Mamografía bilateral');
+    await expect(preview).toContainText('archivos adjuntos se imprimen por separado');
+    await page.emulateMedia({media: 'print'});
+    await expect(preview.locator('.study-print-record')).toBeVisible();
+    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeHidden();
+    await page.emulateMedia({media: 'screen'});
+    await page.keyboard.press('Escape');
+    await expect(print).toBeFocused();
+
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    const toggle = page.getByRole('button', {name: /Cambiar a modo/});
+    const before = await page.locator('html').getAttribute('data-theme');
+    await toggle.click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', before!);
+    await expect(library.getByText('Mamografía bilateral').first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+
+test('mantiene Biblioteca utilizable en un ancho de 320 píxeles', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await expect(page.getByRole('searchbox', {name: 'Buscar estudios'})).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Compartir Mamografía bilateral'})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('mantiene las secciones secundarias legibles en ambos temas', async ({page}) => {
+    test.setTimeout(90_000);
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    const sections = [
+        ['resumen', '#resumen'], ['portales', '#portals-title'], ['operaciones', '#operations-title'],
+        ['eventos', '#events-title'], ['episodios', '#episodes-title'], ['turnos', '#appointments-title'],
+        ['intake', '#intake-title'],
+    ];
+    for (const theme of ['light', 'dark']) {
+        const html = page.locator('html');
+        if (await html.getAttribute('data-theme') !== theme) await page.getByRole('button', {name: /Cambiar a modo/}).click();
+        await expect(html).toHaveAttribute('data-theme', theme);
+        for (const [view, selector] of sections) {
+            await navigateTo(page, view!);
+            await expect(page.locator(selector!)).toBeVisible();
+            if (await page.locator('#menuBtn').isVisible()) await expect(page.locator('#sidebar')).toBeHidden();
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        }
+    }
+});
+
+test('abre y cierra formularios y acciones del archivo', async ({page}) => {
+    test.setTimeout(60_000);
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    const forms = [
+        ['portales', '.portals-head button', '#portal-dialog'],
+        ['operaciones', '.operations-head button', '#operation-dialog'],
+        ['eventos', '.events-head button', '#event-dialog'],
+        ['episodios', '.episodes-head button', '#episode-dialog'],
+    ];
+    for (const [view, trigger, dialog] of forms) {
+        await navigateTo(page, view!);
+        await page.locator(trigger!).click();
+        await expect(page.locator(dialog!)).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(page.locator(dialog!)).toBeHidden();
+    }
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Compartir Mamografía bilateral'}).click();
+    await expect(page.locator('#share')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await navigateTo(page, 'export');
+    await expect(page.locator('#export')).toBeVisible();
+    await expect(page.locator('#export-title')).toBeInViewport();
+    await expect(page.locator('#export-title')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', {name: 'Recuperar informe'}).click();
+    await expect(page.locator('#recovery')).toBeVisible();
+    await page.keyboard.press('Escape');
+});
+
+test('muestra registros largos completos en las secciones secundarias', async ({page}) => {
+    test.setTimeout(60_000);
+    const name = 'Institución de atención integral y seguimiento clínico especializado';
+    const entries: Record<string, object> = {
+        'portal-v1': {name, displayName: name, url: 'https://example.com', notes: 'Información de acceso para consultas.'},
+        'operacion-v1': {name, date: '2024-01-01', surgeon: 'Dra. Pérez', institution: name, type: 'Procedimiento', notes: 'Seguimiento posterior.'},
+        'evento-medico-v1': {kind: 'consultation', date: '2024-01-01', doctor: name, notes: 'Indicaciones para el seguimiento.', studyIds: ['study-1'], documentIds: []},
+        'episodio-v1': {illness: name, observations: [], medications: [], closed: true},
+    };
+    await page.route('https://www.googleapis.com/drive/v3/files?**', async (route) => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        const type = Object.keys(entries).find((key) => query.includes(key));
+        if (!type) return route.fallback();
+        await route.fulfill({json: {files: [{id: 'sample-' + type, version: '1', trashed: false,
+            modifiedTime: '2024-01-01T00:00:00Z', mimeType: 'application/json',
+            appProperties: {misEstudios: type}, description: JSON.stringify(entries[type])}]}});
+    });
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    for (const [view, selector] of [['portales', '.portal-card-title h3'], ['operaciones', '.operation-title h3'],
+        ['eventos', '.event-title'], ['episodios', '.episode-title h3']]) {
+        await navigateTo(page, view!);
+        const title = page.locator(selector!);
+        await expect(title).toHaveText(name);
+        await expect(title).toBeVisible();
+        expect(await title.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe('ellipsis');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
 });

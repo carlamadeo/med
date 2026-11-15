@@ -96,7 +96,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         if (!element) return;
         if (isExporting && !element.open) {
             element.showModal();
-            element.querySelector<HTMLButtonElement>('.quiet')?.focus();
+            element.querySelector<HTMLElement>('#export-title')?.focus();
         } else if (!isExporting && element.open) element.close();
     }, [isExporting]);
 
@@ -177,7 +177,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 <div className="dialog-heading">
                     <div>
                         <p className="eyebrow">Archivo</p>
-                        <h2 id="export-title">Exportar historia</h2>
+                        <h2 id="export-title" tabIndex={-1}>Exportar historia</h2>
                         <p id="export-copy" className="export-desc">Descargá una copia portable de tus registros.</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}

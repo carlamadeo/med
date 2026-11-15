@@ -84,6 +84,7 @@ export function Appointments() {
         <div className="appointments-head">
             <div>
                 <p className="eyebrow">Seguimiento</p>
+                <h2 id="appointments-title">Turnos médicos</h2>
                 <p className="appointments-desc">Turnos médicos, profesionales y costos en un solo lugar.</p>
             </div>
             <div className="appointments-head-actions">
@@ -96,7 +97,6 @@ export function Appointments() {
             </div>
         </div>
 
-        <h2 id="appointments-title">Turnos médicos</h2>
         <form key={editing?.id ?? 'new'} className="appointments-form" onSubmit={(event) => {
             event.preventDefault();
             void save(event.currentTarget);

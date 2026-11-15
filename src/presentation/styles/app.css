@@ -44,7 +44,7 @@ a {
 }
 
 :focus-visible {
-    outline: 3px solid #9c78e4;
+    outline: 3px solid var(--color-border-focus);
     outline-offset: 3px;
 }
 
@@ -83,9 +83,9 @@ h1, h2, h3, p {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #544968;
+    color: var(--color-text-secondary);
     border: 1px solid var(--edge);
-    background: #faf8fe;
+    background: var(--color-surface);
     padding: 5px 10px;
     border-radius: 20px;
     font-size: .76rem;
@@ -145,7 +145,7 @@ h1 {
 .primary {
     background: var(--brand);
     color: var(--color-text-inverse);
-    box-shadow: 0 2px 4px #4e2c9026;
+    box-shadow: var(--shadow-xs);
 }
 
 .primary:hover {
@@ -170,12 +170,12 @@ h1 {
 }
 
 .danger {
-    background: #9c2646;
-    color: #fff;
+    background: var(--color-error);
+    color: var(--color-text-inverse);
 }
 
 .danger:hover {
-    background: #7c1935;
+    background: color-mix(in srgb, var(--color-error) 85%, var(--color-text-primary));
 }
 
 .library {
@@ -318,7 +318,7 @@ label input, label select {
     border: 1px dashed var(--color-border-strong);
     border-radius: 14px;
     margin-top: 17px;
-    background: linear-gradient(150deg, var(--color-surface-hover), var(--color-surface) 80%);
+    background: var(--color-surface);
 }
 
 .empty h3 {
@@ -506,11 +506,11 @@ dialog {
     border: 1px solid var(--edge);
     border-radius: 18px;
     padding: 22px;
-    box-shadow: 0 16px 80px #20123f46;
+    box-shadow: var(--shadow-xl);
 }
 
 dialog::backdrop {
-    background: #23183980;
+    background: var(--color-scrim);
 }
 
 dialog form, .attachments {
@@ -749,7 +749,7 @@ input::file-selector-button {
 }
 
 #detection[data-state="error"] {
-    color: #8e2340;
+    color: var(--color-error);
 }
 
 .reconnect {
@@ -778,7 +778,7 @@ input::file-selector-button {
     padding: 8px 14px;
     border-radius: 8px;
     background: var(--brand);
-    color: #fff;
+    color: var(--color-text-inverse);
     font-weight: 700;
 }
 

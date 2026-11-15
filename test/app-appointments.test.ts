@@ -7,7 +7,7 @@ it('creates a turn and preserves a zero cost', async () => {
     act(() => {
         $('#nav-turnos').click();
     });
-    const form = document.querySelector<HTMLFormElement>('#appointments-title + form')!;
+    const form = document.querySelector<HTMLFormElement>('.appointments-form')!;
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-20';
     (form.elements.namedItem('time') as HTMLInputElement).value = '10:30';
     (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';
@@ -15,5 +15,5 @@ it('creates a turn and preserves a zero cost', async () => {
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    await vi.waitFor(() => expect(document.querySelector('#appointments-title')?.parentElement?.textContent).toContain('Importe: 0'));
+    await vi.waitFor(() => expect(document.querySelector('.appointments')?.textContent).toContain('Importe: 0'));
 });

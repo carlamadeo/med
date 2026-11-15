@@ -231,7 +231,7 @@ export function AppShell({isSignedIn, onSignOut, children}: AppShellProps) {
                     )}
 
                     <div className="topbar-actions">
-                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Privado</span>
+                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Cuenta privada verificada</span>
                         <button className="icon-button optional" id="export-history" type="button"
                                 title="Exportar historia" aria-label="Exportar historia" hidden={!isSignedIn}
                                 onClick={() => setExporting(true)}>

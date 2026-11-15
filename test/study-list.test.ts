@@ -138,8 +138,23 @@ it('keeps unsynced studies protected without a status column', async () => {
             studies: visibleStudies.value
         }), root);
     });
-    expect(root.querySelector('.status-pill')).toBeNull();
+    expect(root.textContent).toContain('Pendiente de sincronización');
+    expect(root.textContent).toContain('Requiere revisión');
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Synced"]')?.disabled).toBe(false);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Pending"]')?.disabled).toBe(true);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Conflict"]')?.disabled).toBe(true);
+});
+
+it('offers a named print action for each study', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+    setStudies([{id: 'one', driveFileId: 'one', title: 'Informe', date: '2024-01-01', types: [],
+        doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]);
+    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    await act(() => root.querySelector<HTMLButtonElement>('button[aria-label="Imprimir Informe"]')?.click());
+    expect(print).not.toHaveBeenCalled();
+    const dialog = root.querySelector<HTMLDialogElement>('dialog[open]');
+    expect(dialog?.textContent).toContain('Informe');
+    expect(dialog?.textContent).toContain('archivos adjuntos');
+    await act(() => [...(dialog?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Imprimir')?.click());
+    expect(print).toHaveBeenCalledOnce();
 });
