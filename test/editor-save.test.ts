@@ -22,9 +22,13 @@ it('submits a new study with its selected type', async () => {
     const date = form.elements.namedItem('date') as HTMLInputElement;
     date.value = '2024-01-01';
     date.dispatchEvent(new Event('input', {bubbles: true}));
-    const type = form.querySelector<HTMLInputElement>('[name="types"]')!;
-    type.checked = true;
-    type.dispatchEvent(new Event('input', {bubbles: true}));
+    // Open combobox and select type
+    const trigger = form.querySelector<HTMLButtonElement>('[role="combobox"]')!;
+    trigger.click();
+    await act(async () => {});
+    const option = root.querySelector<HTMLLIElement>('[role="option"]')!;
+    option.click();
+    await act(async () => {});
     await act(() => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });

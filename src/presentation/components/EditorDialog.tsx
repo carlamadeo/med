@@ -48,6 +48,8 @@ import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {hasStudyAttachment, portalNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
+import {MultiSelectCombobox} from './MultiSelectCombobox';
+import {useEffect} from 'preact/hooks';
 import {
     editingStudy,
     studies,
@@ -57,17 +59,13 @@ import {
 
 import type {StudyDraft} from '@domain/models';
 
-/**
- * Props del EditorDialog.
- * @property onClose - Cierra el diálogo y resetea formulario.
- * @property error - Error global a mostrar (p.ej. conflicto de revisión).
- * @property busy - Indica guardado en curso (deshabilita submit).
- * @property availableTypes - Lista de tipos de estudio permitidos (catálogo).
- * @property onSave - Callback de persistencia (recibe StudyDraft listo).
- * @property verifyOwner - Verifica que la cuenta actual es dueña del borrador.
- * @property sessionLost - True si la sesión expiró/cambió de cuenta.
- * @property onReconnect - Inicia flujo OAuth de reconexión.
- */
+// Test-only: allow setting types programmatically for e2e tests
+let _testOnlySetTypes: ((types: string[]) => void) | null = null;
+export const __testOnlySetTypes = (callback: (setTypes: (types: string[]) => void) => void) => {
+    if (_testOnlySetTypes) callback(_testOnlySetTypes);
+};
+export const __testOnlyClearTypes = () => { _testOnlySetTypes = null; };
+
 interface EditorDialogProps {
     onClose: () => void;
     error: string | null;
@@ -107,6 +105,7 @@ export function EditorDialog({
         viewer,
         setViewer,
         types,
+        setTypes,
         reading,
         progress,
         removeReport,
@@ -125,7 +124,6 @@ export function EditorDialog({
         operationError,
         setOperationError,
         handleReportChange,
-        handleTypeChange,
         createOperation,
         handleClose,
         cancelAnalysis,
@@ -140,6 +138,12 @@ export function EditorDialog({
         sessionLost,
         onClose,
     });
+
+    // Test-only: expose setTypes for e2e tests
+    useEffect(() => {
+        _testOnlySetTypes = setTypes;
+        return () => { _testOnlySetTypes = null; };
+    }, [setTypes]);
 
     useFocusTrap(dialogRef, isEditorOpen.value);
 
@@ -299,20 +303,14 @@ export function EditorDialog({
                     <fieldset id="study-types" className="study-types" aria-describedby="types-hint">
                         <legend>Tipos de estudio</legend>
                         <p className="hint" id="types-hint">Elegí uno o varios.</p>
-                        <div className="type-options">
-                            {availableTypes.map(t => (
-                                <label key={t} className="type-option">
-                                    <input
-                                        type="checkbox"
-                                        name="types"
-                                        value={t}
-                                        checked={types.includes(t)}
-                                        onInput={handleTypeChange}
-                                    />
-                                    <span>{t}</span>
-                                </label>
-                            ))}
-                        </div>
+                        <MultiSelectCombobox
+                            options={availableTypes}
+                            value={types}
+                            onChange={setTypes}
+                            placeholder="Elegí tipos…"
+                            required
+                            ariaDescribedBy="types-hint"
+                        />
                     </fieldset>
                     <div className="two">
                         <label>

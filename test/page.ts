@@ -39,7 +39,7 @@ export async function mountPage({
             await driveAuth.signIn();
         });
         await vi.waitFor(() => expect($('#library').hidden).toBe(false));
-        if (!types) await vi.waitFor(() => expect(document.querySelectorAll('#study-types input')).toHaveLength(TYPES.length));
+        if (!types) await vi.waitFor(() => expect(document.querySelector('#study-types [role="combobox"]')).toBeTruthy());
     }
 }
 

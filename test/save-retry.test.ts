@@ -4,6 +4,16 @@ import {expect, it, vi} from 'vitest';
 import {fakeDriveFile} from './fake-drive';
 import {$, mountPage} from './page';
 import {server} from './server';
+import {__testOnlySetTypes, __testOnlyClearTypes} from '@presentation/components/EditorDialog';
+
+async function setTypesInEditor(types: string[]) {
+    await act(async () => {
+        __testOnlySetTypes((fn) => {
+            if (fn) fn(types);
+        });
+    });
+    await new Promise(r => setTimeout(r, 50));
+}
 
 it('reuses the reserved ID after a failed upload', async () => {
     await mountPage();
@@ -17,16 +27,14 @@ it('reuses the reserved ID after a failed upload', async () => {
         $<HTMLButtonElement>('[data-add]').click();
     });
     const form = $<HTMLFormElement>('#editor-form');
-    await act(() => {
+    await act(async () => {
         const title = form.elements.namedItem('title') as HTMLInputElement;
         const date = form.elements.namedItem('date') as HTMLInputElement;
         title.value = 'Con reintento';
         title.dispatchEvent(new Event('input', {bubbles: true}));
         date.value = '2024-01-01';
         date.dispatchEvent(new Event('input', {bubbles: true}));
-        const type = form.querySelector<HTMLInputElement>('[name="types"][value="Otro"]')!;
-        type.checked = true;
-        type.dispatchEvent(new Event('input', {bubbles: true}));
+        await setTypesInEditor(['Otro']);
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect($('#form-error').hidden).toBe(false));
@@ -35,6 +43,7 @@ it('reuses the reserved ID after a failed upload', async () => {
     });
     await vi.waitFor(() => expect(fakeDriveFile('generated-1')).toBeDefined());
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('generateIds'))).toHaveLength(1);
+    __testOnlyClearTypes();
 });
 
 it('does not save a draft after the session changes during ID reservation', async () => {
@@ -50,16 +59,14 @@ it('does not save a draft after the session changes during ID reservation', asyn
         $<HTMLButtonElement>('[data-add]').click();
     });
     const form = $<HTMLFormElement>('#editor-form');
-    await act(() => {
+    await act(async () => {
         const title = form.elements.namedItem('title') as HTMLInputElement;
         const date = form.elements.namedItem('date') as HTMLInputElement;
         title.value = 'Borrador';
         title.dispatchEvent(new Event('input', {bubbles: true}));
         date.value = '2024-01-01';
         date.dispatchEvent(new Event('input', {bubbles: true}));
-        const type = form.querySelector<HTMLInputElement>('[name="types"][value="Otro"]')!;
-        type.checked = true;
-        type.dispatchEvent(new Event('input', {bubbles: true}));
+        await setTypesInEditor(['Otro']);
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect(reserve).toHaveBeenCalledOnce());
@@ -74,4 +81,5 @@ it('does not save a draft after the session changes during ID reservation', asyn
         release('reserved-id');
     });
     expect(save).not.toHaveBeenCalled();
+    __testOnlyClearTypes();
 });
