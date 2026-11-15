@@ -81,6 +81,10 @@ describe('extractFields: study types and date', () => {
 });
 
 describe('extractFields: doctor', () => {
+    it('extracts the ordering doctor before the membership number and page', () => {
+        const report = 'Médico : GARCIA DANIEL HERNAN N° carnet: 0124900010015 Página 1 de 2\nFirmado por: Dra. Julia Ejemplo';
+        expect(extractFields(report).doctor).toBe('GARCIA DANIEL HERNAN');
+    });
     it('OCR of a signature supplies the professional, without accepting other footer text', () => {
         expect(extractSignatureDoctor('Dra. Ana Ejemplo\nM.N. 123456 M.P. 654321')).toBe('Dra. Ana Ejemplo');
         expect(extractSignatureDoctor('El presente informe fue realizado por el médico\nPágina 1')).toBeUndefined();
