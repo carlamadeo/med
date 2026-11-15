@@ -142,12 +142,13 @@ describe('filterStudies', () => {
     it.each([
         ['date-asc', ['c', 'a', 'b']],
         ['title', ['b', 'a', 'c']],
+        ['doctor', ['a', 'c', 'b']],
         ['type', ['a', 'c', 'b']],
     ] as const)('sorts the results by %s', (order, expectedIds) => {
         const studies = [
-            study('a', {date: '2024-02-01', title: 'Biopsia', types: []}),
-            study('b', {date: '2024-03-01', title: 'Análisis', types: ['Mamografía']}),
-            study('c', {date: '2024-01-01', title: 'Consulta', types: ['Ecografía']}),
+            study('a', {date: '2024-02-01', title: 'Biopsia', doctor: 'Dr. Álvarez', types: []}),
+            study('b', {date: '2024-03-01', title: 'Análisis', doctor: 'Dra. Zapata', types: ['Mamografía']}),
+            study('c', {date: '2024-01-01', title: 'Consulta', doctor: 'Dr. Gómez', types: ['Ecografía']}),
         ];
 
         expect(filterStudies(studies, none, [], order).matches.map((study) => study.id)).toEqual(expectedIds);

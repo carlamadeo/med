@@ -1,5 +1,5 @@
 import {useRef, useState} from 'preact/hooks';
-import {filterStudiesByQuery} from '@domain/library';
+import {filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
 import {visibleStudies, loading, error, view, categoryTypes} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
@@ -40,10 +40,10 @@ export function StudyListContainer({
                                          pendingChangesCount
                                      }: StudyListContainerProps) {
     const [query, setQuery] = useState('');
+    const [sortOrder, setSortOrder] = useState<StudySortOrder>('date-desc');
     const searchInput = useRef<HTMLInputElement>(null);
-    const studiesList = [...filterStudiesByQuery(visibleStudies.value, query)]
-        .sort((a, b) => b.date.localeCompare(a.date));
-    const hasFilters = Boolean(query.trim() || categoryTypes.value.length);
+    const studiesList = sortStudies(filterStudiesByQuery(visibleStudies.value, query), sortOrder);
+    const hasFilters = Boolean(query.trim() || categoryTypes.value.length || sortOrder !== 'date-desc');
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -71,16 +71,33 @@ export function StudyListContainer({
                             <h2 id="library-title">Estudios guardados</h2>
                             <span id="count" className="count">{studiesList.length}</span>
                         </div>
-                        <div className="search library-search">
-                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                            <input
-                                ref={searchInput}
-                                type="search"
-                                aria-label="Buscar estudios"
-                                placeholder="Nombre, profesional o institución"
-                                value={query}
-                                onInput={(event) => setQuery(event.currentTarget.value)}
-                            />
+                        <div className="library-toolbar">
+                            <div className="search library-search">
+                                <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                                <input
+                                    ref={searchInput}
+                                    type="search"
+                                    aria-label="Buscar estudios"
+                                    placeholder="Nombre, profesional o institución"
+                                    value={query}
+                                    onInput={(event) => setQuery(event.currentTarget.value)}
+                                />
+                            </div>
+                            <div className="sort-control">
+                                <label htmlFor="library-sort" className="sr-only">Ordenar por</label>
+                                <select
+                                    id="library-sort"
+                                    className="sort-select"
+                                    aria-label="Ordenar estudios"
+                                    value={sortOrder}
+                                    onChange={(event) => setSortOrder(event.currentTarget.value as StudySortOrder)}
+                                >
+                                    <option value="date-desc">Más recientes</option>
+                                    <option value="date-asc">Más antiguos</option>
+                                    <option value="title">Título (A-Z)</option>
+                                    <option value="doctor">Profesional (A-Z)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <LibraryTabs availableTypes={availableTypes}/>
@@ -134,6 +151,7 @@ export function StudyListContainer({
                                     type="button"
                                     onClick={() => {
                                         setQuery('');
+                                        setSortOrder('date-desc');
                                         categoryTypes.value = [];
                                         searchInput.current?.focus();
                                     }}

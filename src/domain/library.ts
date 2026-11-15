@@ -5,7 +5,7 @@
 import type {Filters, Study} from './models';
 import {normalize} from './utils';
 
-export type StudySortOrder = 'date-desc' | 'date-asc' | 'title' | 'type';
+export type StudySortOrder = 'date-desc' | 'date-asc' | 'title' | 'doctor' | 'type';
 
 interface ListResult {
     matches: Study[];
@@ -59,6 +59,18 @@ export function filterStudiesByQuery(studies: Study[], query: string): Study[] {
     return normalizedQuery ? studies.filter((study) => studyMatchesQuery(study, normalizedQuery)) : studies;
 }
 
+export function sortStudies(studies: readonly Study[], sortOrder: StudySortOrder = 'date-desc'): Study[] {
+    const list = [...studies];
+    list.sort((a, b) => {
+        if (sortOrder === 'date-asc') return a.date.localeCompare(b.date);
+        if (sortOrder === 'title') return a.title.localeCompare(b.title, 'es') || b.date.localeCompare(a.date);
+        if (sortOrder === 'doctor') return (a.doctor || '').localeCompare(b.doctor || '', 'es') || b.date.localeCompare(a.date);
+        if (sortOrder === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || b.date.localeCompare(a.date);
+        return b.date.localeCompare(a.date);
+    });
+    return list;
+}
+
 export function filterStudies(
     studies: readonly Study[],
     filters: Filters,
@@ -88,6 +100,7 @@ export function filterStudies(
     matches.sort((a, b) => {
         if (sortOrder === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);
         if (sortOrder === 'title') return a.title.localeCompare(b.title, 'es') || compareStudies(a, b);
+        if (sortOrder === 'doctor') return (a.doctor || '').localeCompare(b.doctor || '', 'es') || compareStudies(a, b);
         if (sortOrder === 'type') return (a.types[0] ?? '').localeCompare(b.types[0] ?? '', 'es') || compareStudies(a, b);
         return compareStudies(a, b);
     });

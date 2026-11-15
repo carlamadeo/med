@@ -100,3 +100,68 @@ it('shows other studies of the same type in date order while editing', async () 
     setStudies([]);
     setEditingStudy(null);
 });
+
+it('rejects files larger than 20 MB immediately on drop or select', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio']
+    }), root));
+    await act(() => setEditingStudy(null));
+
+    const dropzone = root.querySelector('.dropzone')!;
+    const bigFile = new File(['x'.repeat(100)], 'enorme.pdf', {type: 'application/pdf'});
+    Object.defineProperty(bigFile, 'size', {value: 21 * 1024 * 1024});
+
+    const dropEvent = new Event('drop', {bubbles: true, cancelable: true}) as unknown as DragEvent;
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+        value: {files: [bigFile]}
+    });
+
+    await act(async () => {
+        dropzone.dispatchEvent(dropEvent as unknown as Event);
+    });
+
+    const detection = root.querySelector('#detection')!;
+    expect(detection.textContent).toContain('El archivo supera el límite de 20 MB.');
+    expect(root.querySelector('#selected-report')).toBeNull();
+
+    render(null, root);
+    root.remove();
+});
+
+it('handles drag and drop of valid files onto the dropzone', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio']
+    }), root));
+    await act(() => setEditingStudy(null));
+
+    const dropzone = root.querySelector('.dropzone')!;
+    const validFile = new File(['%PDF-1.4'], 'estudio.pdf', {type: 'application/pdf'});
+
+    const dragEnterEvent = new Event('dragenter', {bubbles: true, cancelable: true});
+    await act(() => {
+        dropzone.dispatchEvent(dragEnterEvent);
+    });
+    expect(dropzone.classList.contains('is-dragover')).toBe(true);
+
+    const dropEvent = new Event('drop', {bubbles: true, cancelable: true}) as unknown as DragEvent;
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+        value: {files: [validFile]}
+    });
+
+    await act(async () => {
+        dropzone.dispatchEvent(dropEvent as unknown as Event);
+    });
+
+    expect(dropzone.classList.contains('is-dragover')).toBe(false);
+    expect(root.querySelector('#selected-report')).not.toBeNull();
+    expect(root.querySelector('#selected-report')!.textContent).toContain('estudio.pdf');
+
+    render(null, root);
+    root.remove();
+});

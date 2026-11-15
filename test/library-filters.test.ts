@@ -80,3 +80,46 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     await act(() => setStudies([]));
     expect(root.textContent).toContain('Tu archivo empieza acá');
 });
+
+it('allows changing sort order in the study list', async () => {
+    view.value = 'cronologia';
+    const base = {driveFileId: 'drive-id', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    setStudies([
+        {...base, id: '1', date: '2024-01-01', title: 'Radiografía', doctor: 'Dr. Zorrilla', portal: 'Centro A', types: ['Radiografía']},
+        {...base, id: '2', date: '2024-03-01', title: 'Análisis', doctor: 'Dr. Álvarez', portal: 'Centro B', types: ['Análisis']},
+        {...base, id: '3', date: '2023-01-01', title: 'Ecografía', doctor: 'Dr. Méndez', portal: 'Centro C', types: ['Ecografía']},
+    ]);
+    await act(() => render(h(StudyListContainer, {
+        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
+        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Radiografía', 'Análisis', 'Ecografía'],
+        offline: false, directoryWarning: false, pendingChangesCount: 0,
+    }), root));
+
+    const sortSelect = root.querySelector<HTMLSelectElement>('#library-sort');
+    expect(sortSelect).not.toBeNull();
+    const titles = () => [...root.querySelectorAll('.study-title')].map((t) => t.textContent);
+
+    // Default: date-desc
+    expect(titles()).toEqual(['Análisis', 'Radiografía', 'Ecografía']);
+
+    // Change to date-asc
+    await act(() => {
+        sortSelect!.value = 'date-asc';
+        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    expect(titles()).toEqual(['Ecografía', 'Radiografía', 'Análisis']);
+
+    // Change to title (A-Z)
+    await act(() => {
+        sortSelect!.value = 'title';
+        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    expect(titles()).toEqual(['Análisis', 'Ecografía', 'Radiografía']);
+
+    // Change to doctor (A-Z)
+    await act(() => {
+        sortSelect!.value = 'doctor';
+        sortSelect!.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    expect(titles()).toEqual(['Análisis', 'Ecografía', 'Radiografía']);
+});

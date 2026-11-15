@@ -106,6 +106,7 @@ export function useEditor({
     const [progress, setProgress] = useState<number | null>(null);
     const [reportName, setReportName] = useState(study?.reportName ?? '');
     const [selectedReport, setSelectedReport] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [checkingReport, setCheckingReport] = useState(false);
     const [candidates, setCandidates] = useState<Partial<Record<'date' | 'types' | 'doctor' | 'title', string | string[]>>>({});
     const [creatingOperation, setCreatingOperation] = useState(false);
@@ -120,6 +121,42 @@ export function useEditor({
         const el = formRef.current?.querySelector<HTMLElement>('#detection');
         if (el) el.dataset.state = value;
     };
+
+    useEffect(() => {
+        if (!selectedReport) {
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+                setPreviewUrl(null);
+            }
+            return;
+        }
+        if (selectedReport.type.startsWith('image/')) {
+            try {
+                if (typeof URL.createObjectURL === 'function') {
+                    const url = URL.createObjectURL(selectedReport);
+                    setPreviewUrl(url);
+                    return () => {
+                        try {
+                            URL.revokeObjectURL(url);
+                        } catch {
+                            // Silencioso en entornos de prueba
+                        }
+                    };
+                }
+            } catch {
+                setPreviewUrl(null);
+            }
+        } else {
+            if (previewUrl) {
+                try {
+                    URL.revokeObjectURL(previewUrl);
+                } catch {
+                    // Silencioso en entornos de prueba
+                }
+                setPreviewUrl(null);
+            }
+        }
+    }, [selectedReport]);
 
     useEffect(() => {
         if (sessionLost) {
@@ -234,19 +271,13 @@ export function useEditor({
     }, []);
 
     /**
-     * Maneja cambio de archivo adjunto desde el selector o la cámara.
+     * Procesa un archivo adjunto (desde input, cámara o dropzone).
      * 1. Aborta análisis previo + limpia sugerencias ya aplicadas.
-     * 2. Valida el formato y tamaño del adjunto.
+     * 2. Valida formato y tamaño del adjunto (límite 20 MB).
      * 3. Lanza `analyzePdf` con AbortSignal + timeout 45s + callbacks de progreso.
      * 4. Extrae candidatos (fecha, tipos, doctor, título) y expone en `candidates`.
-     * 5. Usuario acepta/descarta vía `applySuggestion`/`discardSuggestion`.
-     * Cancela automáticamente si `sessionLost` o diálogo se cierra.
      */
-    const handleReportChange = useCallback(async (event: Event) => {
-        const input = event.currentTarget as HTMLInputElement;
-        const file = input.files?.[0];
-        if (!file) return;
-        input.value = '';
+    const processFile = useCallback(async (file: File) => {
         analysisCtrl.current?.abort();
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
         setReading(false);
@@ -258,6 +289,16 @@ export function useEditor({
         }
         suggested.current = new Map();
         setCandidates({});
+
+        if (file.size > 20 * 1024 * 1024) {
+            reportFileRef.current = null;
+            if (reportInputRef.current) reportInputRef.current.value = '';
+            setSelectedReport(null);
+            setCheckingReport(false);
+            setStatus('El archivo supera el límite de 20 MB.');
+            setStatusState('error');
+            return;
+        }
 
         reportFileRef.current = null;
         setSelectedReport(file);
@@ -339,6 +380,18 @@ export function useEditor({
             }
         }
     }, [fieldValue, setFieldValue]);
+
+    const handleReportChange = useCallback(async (event: Event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+        input.value = '';
+        await processFile(file);
+    }, [processFile]);
+
+    const handleFileDrop = useCallback(async (file: File) => {
+        await processFile(file);
+    }, [processFile]);
 
     const handleTypeChange = useCallback(() => {
         const selected = [...(formRef.current?.querySelectorAll<HTMLInputElement>('[name="types"]:checked') ?? [])].map(input => input.value);
@@ -520,6 +573,7 @@ export function useEditor({
         reportName,
         setReportName,
         selectedReport,
+        previewUrl,
         checkingReport,
         candidates,
         operationId,
@@ -532,6 +586,7 @@ export function useEditor({
         operationError,
         setOperationError,
         handleReportChange,
+        handleFileDrop,
         handleTypeChange,
         createOperation,
         handleClose,

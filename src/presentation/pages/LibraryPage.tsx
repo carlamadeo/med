@@ -17,6 +17,9 @@ import {
 } from '@data';
 import {
     isSignedIn,
+    isLocalDemo,
+    setIsSignedIn,
+    setIsLocalDemo,
     view,
     studies,
     error,
@@ -121,6 +124,44 @@ export function LibraryPage() {
         return () => document.removeEventListener('keydown', handleShortcut);
     }, [typesReady]);
 
+    // Demo local mode (sin cuenta Drive)
+    const enterDemoMode = useCallback(() => {
+        setIsLocalDemo(true);
+        setIsSignedIn(true);
+        if (studies.value.length === 0) {
+            setStudies([
+                {
+                    id: 'demo-1',
+                    driveFileId: '',
+                    title: 'Ecografía abdominal completa',
+                    date: '2024-03-15',
+                    doctor: 'Dra. Mariana López',
+                    portal: 'Centro Médico Belgrano',
+                    types: ['Ecografía'],
+                    viewer: '',
+                    reportName: '',
+                    hasPdf: false,
+                    driveModifiedTime: '',
+                    revision: '1',
+                },
+                {
+                    id: 'demo-2',
+                    driveFileId: '',
+                    title: 'Hemograma y perfil lipídico',
+                    date: '2024-01-20',
+                    doctor: 'Dr. Santiago Méndez',
+                    portal: 'Laboratorio Central',
+                    types: ['Laboratorio'],
+                    viewer: '',
+                    reportName: '',
+                    hasPdf: false,
+                    driveModifiedTime: '',
+                    revision: '1',
+                },
+            ]);
+        }
+    }, []);
+
     // --- Editor ---
     function openEditor(studyOrDraft: Study | null | (Partial<StudyDraft> & {
         _candidateId: string;
@@ -158,6 +199,9 @@ export function LibraryPage() {
     }
 
     async function verifyEditorOwner(): Promise<boolean> {
+        if (isLocalDemo.value || !driveAuth.configured) {
+            return true;
+        }
         const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
         const original = await editorOwner.current;
         if (!original || original !== owner) {
@@ -172,13 +216,39 @@ export function LibraryPage() {
         setSaving(true);
         setEditorError(null);
         try {
-            const token = await driveAuth.getAccessToken();
             const validationErrors = validateStudyDraft(draft);
             if (validationErrors.length) {
                 setEditorError(validationErrors[0] ?? 'Error de validación');
                 setSaving(false);
                 return;
             }
+
+            if (isLocalDemo.value || !driveAuth.configured) {
+                const existing = draft.id ? studies.value.find((s) => s.id === draft.id) : null;
+                const hasPdf = draft.file ? true : (draft.removeReport ? false : Boolean(existing?.hasPdf));
+                const reportName = draft.file ? draft.file.name : (draft.removeReport ? '' : (draft.reportName || existing?.reportName || ''));
+
+                const saved: Study = {
+                    id: draft.id || `demo-${Date.now()}`,
+                    driveFileId: '',
+                    title: draft.title,
+                    date: draft.date,
+                    doctor: draft.doctor || '',
+                    portal: draft.portal || '',
+                    types: [...draft.types],
+                    viewer: draft.viewer || '',
+                    reportName,
+                    hasPdf,
+                    driveModifiedTime: new Date().toISOString(),
+                    revision: '1',
+                    operationId: draft.operationId || '',
+                };
+                setStudies([...studies.value.filter((item) => item.id !== saved.id), saved]);
+                setEditorOpen(false);
+                return;
+            }
+
+            const token = await driveAuth.getAccessToken();
             if (draft.file) {
                 const type = await validateDocument(draft.file);
                 if (draft.file.type !== type) {
@@ -256,6 +326,13 @@ export function LibraryPage() {
         setDeleting(true);
         setError(null);
         try {
+            if (isLocalDemo.value || !driveAuth.configured) {
+                setStudies(studies.value.filter((s) => s.id !== studyId));
+                setDeletingStudyId(null);
+                setDeleting(false);
+                return;
+            }
+
             const token = await driveAuth.getAccessToken();
             const pendingOwner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (pendingOwner && (await outbox.list(pendingOwner)).some((item) => item.studyId === studyId)) {
@@ -308,8 +385,23 @@ export function LibraryPage() {
 
     return (
         <>
-            <AppShell isSignedIn={isSignedIn.value} onSignOut={() => void driveAuth.signOut()}>
+            <AppShell
+                isSignedIn={isSignedIn.value}
+                onSignOut={() => {
+                    if (isLocalDemo.value) {
+                        setIsLocalDemo(false);
+                        setIsSignedIn(false);
+                    } else {
+                        void driveAuth.signOut();
+                    }
+                }}
+            >
                 <main className="wrap" id="main" role="main">
+                    {isLocalDemo.value && (
+                        <aside className="demo-notice" role="status" aria-label="Modo de prueba local">
+                            <strong>Modo local de prueba:</strong> Estás probando la app sin conexión a Google Drive. Podés crear, ver, ordenar y filtrar estudios libremente.
+                        </aside>
+                    )}
                     <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value}
                                   typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'}/>
                     <section id="library" aria-label="Biblioteca"
@@ -348,6 +440,7 @@ export function LibraryPage() {
                              hidden={isSignedIn.value}>
                         <AccessSection
                             onConnect={() => void connectDrive()}
+                            onEnterDemo={enterDemoMode}
                             error={error.value}
                             bootFailed={bootFailed}
                             configured={driveAuth.configured}
