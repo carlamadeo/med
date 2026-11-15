@@ -35,7 +35,7 @@ test('reads a real PDF through the worker and reports page progress', async ({pa
         }, (event: unknown) => progress.push(event));
         return {fields, progress};
     }, report);
-    expect(result.fields).toEqual({date: '2024-03-18', types: ['Ecografía'], doctor: 'Dra. Ana Perez'});
+    expect(result.fields).toEqual({date: '2024-03-18', types: ['Ecografía'], doctor: 'Ana Perez'});
     expect(result.progress).toContainEqual({stage: 'text', page: 1, total: 1, progress: 0});
 });
 

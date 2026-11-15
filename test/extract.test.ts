@@ -26,7 +26,7 @@ describe('extractFields: study types and date', () => {
             ].join('\n')
         );
 
-        expect(found).toEqual({date: '2024-03-18', types: ['Mamografía', 'Ecografía'], doctor: 'PEREZ ANA'});
+        expect(found).toEqual({date: '2024-03-18', types: ['Mamografía', 'Ecografía'], doctor: 'Perez Ana'});
         expect(found.types?.every((type) => catalogue.includes(type))).toBe(true);
     });
 
@@ -83,10 +83,15 @@ describe('extractFields: study types and date', () => {
 describe('extractFields: doctor', () => {
     it('extracts the ordering doctor before the membership number and page', () => {
         const report = 'Médico : GARCIA DANIEL HERNAN N° carnet: 0124900010015 Página 1 de 2\nFirmado por: Dra. Julia Ejemplo';
-        expect(extractFields(report).doctor).toBe('GARCIA DANIEL HERNAN');
+        expect(extractFields(report).doctor).toBe('Garcia Daniel Hernan');
     });
+    it('capitalizes accented and hyphenated detected names', () => {
+        expect(extractFields('Médico: DRA. MARÍA PÉREZ-NUÑEZ').doctor).toBe('María Pérez-Nuñez');
+        expect(extractSignatureDoctor('DR. JOSÉ GÓMEZ\nM.N. 123456')).toBe('José Gómez');
+    });
+
     it('OCR of a signature supplies the professional, without accepting other footer text', () => {
-        expect(extractSignatureDoctor('Dra. Ana Ejemplo\nM.N. 123456 M.P. 654321')).toBe('Dra. Ana Ejemplo');
+        expect(extractSignatureDoctor('Dra. Ana Ejemplo\nM.N. 123456 M.P. 654321')).toBe('Ana Ejemplo');
         expect(extractSignatureDoctor('El presente informe fue realizado por el médico\nPágina 1')).toBeUndefined();
         expect(extractSignatureDoctor('Dra. Ana Ejemplo\nDr. Juan Prueba')).toBeUndefined();
     });
@@ -101,14 +106,14 @@ describe('extractFields: doctor', () => {
             'Profesional tratante: PEREZ ANA',
         ]) {
             const text = [header, 'Fecha: 18/03/2024', 'Firmado por: Dra. Julia Ejemplo', 'M.N. 123456'].join('\n');
-            expect(extractFields(text).doctor, header).toBe('PEREZ ANA');
+            expect(extractFields(text).doctor, header).toBe('Perez Ana');
         }
-        expect(extractFields('Dra. Ana Pérez\nFirmado por: Dra. Julia Ejemplo').doctor).toBe('Dra. Ana Pérez');
+        expect(extractFields('Dra. Ana Pérez\nFirmado por: Dra. Julia Ejemplo').doctor).toBe('Ana Pérez');
     });
 
     it('a signature remains a fallback when the header does not name a doctor', () => {
-        expect(extractFields('Fecha: 18/03/2024\nFirmado por: Dra. Julia Ejemplo').doctor).toBe('Dra. Julia Ejemplo');
-        expect(extractFields('Dra. Julia Ejemplo\nM.N. 123456').doctor).toBe('Dra. Julia Ejemplo');
+        expect(extractFields('Fecha: 18/03/2024\nFirmado por: Dra. Julia Ejemplo').doctor).toBe('Julia Ejemplo');
+        expect(extractFields('Dra. Julia Ejemplo\nM.N. 123456').doctor).toBe('Julia Ejemplo');
         expect(extractFields('Dr./a\nFecha: 18/03/2024').doctor).toBeUndefined();
         expect(extractFields('Médico:\nEcografía abdominal').doctor).toBeUndefined();
     });

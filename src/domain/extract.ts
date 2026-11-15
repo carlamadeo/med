@@ -94,7 +94,9 @@ function doctorName(text: string): string | undefined {
         /^[\p{L}.'’-]+(?:\s+[\p{L}.'’-]+){1,8}$/u.test(name) &&
         !/\b(?:paciente|sin firma|no disponible|solicitante|derivante|servicio|especialidad)\b/.test(normalize(name))
     ) {
-        return value;
+        return name.toLocaleLowerCase('es').replace(/(^|[\s.'’-])(\p{L})/gu, (_, separator: string, letter: string) =>
+            separator + letter.toLocaleUpperCase('es')
+        );
     }
     return undefined;
 }
