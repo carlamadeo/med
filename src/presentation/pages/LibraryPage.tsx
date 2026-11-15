@@ -57,6 +57,7 @@ import {
 } from '../components';
 import {handleDriveError} from '../utils/driveErrorHandler';
 import {checkAppointmentReminders} from '../utils/appointmentReminders';
+import {StudyImportDialog} from '../components/StudyImportDialog';
 
 const outbox = new Outbox();
 
@@ -71,6 +72,8 @@ export function LibraryPage() {
     const [sessionLost, setSessionLost] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
+    const [importGeneration, setImportGeneration] = useState(0);
 
     const clearEditorError = useCallback(() => setEditorError(null), []);
 
@@ -397,6 +400,8 @@ export function LibraryPage() {
                 isSignedIn={isSignedIn.value}
                 onOpenSearch={() => setPaletteOpen(true)}
                 onSignOut={() => {
+                    setImportOpen(false);
+                    setImportGeneration(value => value + 1);
                     if (isLocalDemo.value) {
                         setIsLocalDemo(false);
                         setIsSignedIn(false);
@@ -413,6 +418,7 @@ export function LibraryPage() {
                     )}
                     <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value}
                                   typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'}/>
+                    {isSignedIn.value && !isLocalDemo.value && <button type="button" className="button secondary" onClick={() => setImportOpen(true)}>Importar estudios</button>}
                     <section id="library" aria-label="Biblioteca"
                              className={view.value === 'resumen' ? 'library library-resumen' : 'library'}
                              hidden={!isSignedIn.value}>
@@ -463,6 +469,7 @@ export function LibraryPage() {
                 </main>
             </AppShell>
             <AppointmentDialog/>
+            <StudyImportDialog key={importGeneration} open={importOpen} onClose={() => setImportOpen(false)} studies={studies.value} onSaved={study => setStudies([...studies.value.filter(item => item.id !== study.id), study])}/>
             <EditorDialog
                 onClose={() => setEditorOpen(false)}
                 error={editorError}

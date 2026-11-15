@@ -1,0 +1,146 @@
+import {h, render} from 'preact';
+import {act} from 'preact/test-utils';
+import {afterEach, expect, it, vi} from 'vitest';
+import {driveAuth, driveStudyRepo} from '@data';
+import * as analysis from '@data/pdf-analysis';
+import {StudyImportDialog} from '@presentation/components/StudyImportDialog';
+
+const root = document.createElement('div');
+afterEach(() => { render(null, root); root.remove(); vi.restoreAllMocks(); });
+
+it('saves a ready study and leaves a study without a date pending', async () => {
+    document.body.append(root);
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('account');
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockImplementation(async file => ({types: ['Laboratorio'], ...(file.name === 'uno.pdf' ? {date: '2020-01-01'} : {})}));
+    vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
+    const save = vi.spyOn(driveStudyRepo, 'save').mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const first = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
+    const second = new File(['b'], 'dos.pdf', {type: 'application/pdf'});
+    Object.defineProperty(first, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
+    Object.defineProperty(second, 'arrayBuffer', {value: async () => new Uint8Array([2]).buffer});
+    const onSaved = vi.fn();
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: [first, second]});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos para guardar'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await act(async () => { button.click(); });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(root.textContent).toContain('dos.pdf');
+});
+
+it('retries an uncertain save using the same ID and unchanged draft', async () => {
+    document.body.append(root);
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('account');
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
+    const reserve = vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
+    const save = vi.spyOn(driveStudyRepo, 'save').mockRejectedValueOnce(new Error('response lost')).mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const file = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
+    Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
+    const onSaved = vi.fn();
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: [file]});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await act(async () => { button.click(); });
+    await vi.waitFor(() => expect(root.textContent).toContain('No se pudo confirmar el guardado'));
+    await act(async () => { button.click(); });
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[0]?.[0]).toEqual(save.mock.calls[1]?.[0]);
+});
+
+it('does not expose a late save to a different account', async () => {
+    document.body.append(root);
+    let account = 'account';
+    vi.spyOn(driveAuth, 'cachedAccountId').mockImplementation(() => account);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
+    vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
+    let complete!: (value: Awaited<ReturnType<typeof driveStudyRepo.save>>) => void;
+    vi.spyOn(driveStudyRepo, 'save').mockImplementation(draft => new Promise(resolve => {
+        complete = () => resolve({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true});
+    }));
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const file = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
+    Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
+    const onSaved = vi.fn();
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: [file]});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await act(async () => { button.click(); });
+    await vi.waitFor(() => expect(complete).toBeDefined());
+    account = 'another-account';
+    await act(async () => { complete({} as Awaited<ReturnType<typeof driveStudyRepo.save>>); });
+    expect(onSaved).not.toHaveBeenCalled();
+});
+
+it('selects only ready rows and requires confirmation for normalized library matches', async () => {
+    document.body.append(root);
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('account');
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockImplementation(async file => ({types: ['Laboratorio'], ...(file.name !== 'incompleto.pdf' ? {date: '2020-01-01'} : {})}));
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const files = ['eco.pdf', 'igual.pdf', 'incompleto.pdf'].map((name, index) => {
+        const file = new File(['data'], name, {type: 'application/pdf'});
+        Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([index === 1 ? 1 : index + 1]).buffer});
+        return file;
+    });
+    const existing = {id: 'existing', driveFileId: 'existing', title: ' ÉCO ', date: '2020-01-01', types: ['Laboratorio'], doctor: '', portal: '', viewer: '', reportName: 'otro.pdf', hasPdf: true, driveModifiedTime: '', revision: '1'};
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [existing], onSaved: vi.fn()}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: files});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('Archivo idéntico'));
+    expect(root.textContent).toContain('Posible duplicado de');
+    const confirmation = [...root.querySelectorAll('label')].find(label => label.textContent?.includes('Posible duplicado'))!.querySelector('input')!;
+    await act(() => { confirmation.click(); });
+    const select = [...root.querySelectorAll('button')].find(button => button.textContent === 'Seleccionar listas')!;
+    await act(() => { select.click(); });
+    const sections = [...root.querySelectorAll('section.form-section')];
+    expect(sections.map(section => section.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked)).toEqual([true, false, false]);
+});
+
+it('hides a batch on disconnect and restores it only for the same account', async () => {
+    document.body.append(root);
+    let notify!: (signedIn: boolean) => void;
+    let account = 'account';
+    vi.spyOn(driveAuth, 'onAuthChange').mockImplementation(callback => { notify = callback; return () => {}; });
+    vi.spyOn(driveAuth, 'cachedAccountId').mockImplementation(() => account);
+    vi.spyOn(driveAuth, 'getAccountId').mockImplementation(async () => account);
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const file = new File(['a'], 'privado.pdf', {type: 'application/pdf'});
+    Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved: vi.fn()}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: [file]});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
+    await act(() => notify(false));
+    expect(root.textContent).not.toContain('privado.pdf');
+    await act(async () => { notify(true); });
+    await vi.waitFor(() => expect(root.textContent).toContain('privado.pdf'));
+    await act(() => notify(false));
+    account = 'other';
+    await act(async () => { notify(true); });
+    await vi.waitFor(() => expect(root.textContent).toContain('Elegí los PDF'));
+    expect(root.textContent).not.toContain('privado.pdf');
+});

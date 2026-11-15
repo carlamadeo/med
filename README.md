@@ -17,6 +17,11 @@ estudios guardados. Las sugerencias se ordenan alfabéticamente y no repiten nom
 tildes o espacios. Un nombre nuevo aparece después de guardar el estudio; al conectar Drive en otro dispositivo, también
 estará disponible allí.
 
+Para incorporar estudios anteriores, elegí **Importar estudios** y seleccioná varios PDF. Prepará un archivo por
+estudio, con todas las páginas del informe. La aplicación lee cada PDF y muestra una ficha para revisar y corregir.
+Podés asignar una institución a varias fichas seleccionadas y guardar juntas las que tengan nombre, fecha y tipo.
+Las fichas pendientes permanecen disponibles mientras la página siga abierta.
+
 Las vistas de **Operaciones** y **Portales** permiten guardar fichas independientes en la misma carpeta de Drive. Una
 operación puede agrupar estudios mediante el selector de su ficha; para eliminarla primero hay que desvincularlos. Desde
 cada portal se pueden consultar los estudios que coinciden con el nombre de la institución. Las fichas de operaciones y
