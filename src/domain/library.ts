@@ -15,7 +15,15 @@ interface ListResult {
     invalidRange: boolean;
 }
 
-/** Link that opens the stored PDF in Google Drive's own viewer. */
+export function hasStudyAttachment(study: Study): boolean {
+    return Boolean(study.hasPdf || study.attachmentMime);
+}
+
+export function studyAttachmentLabel(study: Study): string {
+    return study.attachmentMime ? 'Abrir imagen' : 'Abrir PDF';
+}
+
+/** Link that opens the stored report in Google Drive's own viewer. */
 export function reportUrl(driveFileId: string): string {
     return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
 }
@@ -38,6 +46,17 @@ export function formatStudyDate(date: string): string {
 /** Newest first; same-day studies in alphabetical order (Argentine Spanish collation). */
 function compareStudies(a: Study, b: Study): number {
     return b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR');
+}
+
+function studyMatchesQuery(study: Study, normalizedQuery: string): boolean {
+    return [study.title, study.doctor, study.portal, study.reportName, ...study.types].some(
+        (value) => normalize(value).includes(normalizedQuery),
+    );
+}
+
+export function filterStudiesByQuery(studies: Study[], query: string): Study[] {
+    const normalizedQuery = normalize(query);
+    return normalizedQuery ? studies.filter((study) => studyMatchesQuery(study, normalizedQuery)) : studies;
 }
 
 export function filterStudies(
@@ -64,9 +83,7 @@ export function filterStudies(
         if (onlyViewer && !study.viewer) return false;
         if (type && !study.types.some((value) => normalize(value) === normalizedType)) return false;
         if (categories.size && !study.types.some((value) => categories.has(normalize(value)))) return false;
-        return !query || [study.title, study.doctor, study.portal, study.reportName, ...study.types].some(
-            (value) => normalize(value).includes(query),
-        );
+        return !query || studyMatchesQuery(study, query);
     });
     matches.sort((a, b) => {
         if (sortOrder === 'date-asc') return a.date.localeCompare(b.date) || compareStudies(a, b);

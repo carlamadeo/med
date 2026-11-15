@@ -48,6 +48,7 @@ import {DriveAppointmentRepository} from './drive-appointment-repository';
 import {DriveIntakeRepository} from './drive-intake-repository';
 
 const driveClient = new DriveClient();
+export {driveClient};
 export const driveAuth = new DriveAuthRepository(driveClient);
 export const driveStudyRepo = new DriveStudyRepository(driveClient);
 export const driveOperationRepo = new DriveOperationRepository(driveClient);

@@ -9,13 +9,15 @@ import type {Appointment, Study} from '@domain/models';
 // ------------------------------------------------------------------
 
 export const loading = signal(false);
+export const studiesReady = signal(false);
+export const directoriesReady = signal(false);
 export const error = signal<string | null>(null);
 export const editingStudy = signal<Study | null>(null);
 export const isEditorOpen = signal(false);
 export const deletingStudyId = signal<string | null>(null);
 
 export const sharingStudyId = signal<string | null>(null);
-export const shareSelection = signal<{ includePdf: boolean; includeViewer: boolean; filename: string } | null>(null);
+export const shareSelection = signal<{ includeAttachment: boolean; includeViewer: boolean; filename: string } | null>(null);
 
 export const exporting = signal(false);
 export const exportScope = signal<'all' | 'filtered'>('all');
@@ -63,7 +65,7 @@ export function setSharingStudyId(id: string | null): void {
 }
 
 export function setShareSelection(selection: {
-    includePdf: boolean;
+    includeAttachment: boolean;
     includeViewer: boolean;
     filename: string
 } | null): void {

@@ -12,6 +12,10 @@ export function validateAppointment(appointment: AppointmentDraft): string[] {
     }
     if (appointment.cost !== null && (!Number.isFinite(appointment.cost) || appointment.cost < 0)) errors.push('Ingresá un importe válido.');
     if (appointment.reminderMinutes != null && ![15, 60, 1440].includes(appointment.reminderMinutes)) errors.push('Elegí un recordatorio válido.');
+    if (appointment.studyIds !== undefined && (!Array.isArray(appointment.studyIds) ||
+        appointment.studyIds.some(id => typeof id !== 'string' || !/^[\w-]+$/.test(id)))) {
+        errors.push('Revisá los estudios vinculados al turno.');
+    }
     return errors;
 }
 

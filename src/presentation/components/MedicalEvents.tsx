@@ -3,13 +3,14 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate, reportUrl} from '@domain/library';
+import {formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {medicalEvents, visibleMedicalEvents, studies} from '../state/store';
 
 const outbox = new Outbox();
 
 export function MedicalEvents() {
+    const studyAttachments = studies.value.filter(hasStudyAttachment);
     const [editing, setEditing] = useState<MedicalEvent | null>(null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
@@ -226,7 +227,7 @@ export function MedicalEvents() {
                                     </span>;
                                 })}
                                 {documentIds.map((id) => {
-                                    const source = studies.value.find((item) => item.id === id && item.hasPdf);
+                                    const source = studyAttachments.find((item) => item.id === id);
                                     return source
                                         ? <a className="event-doc" href={reportUrl(id)} target="_blank"
                                              rel="noopener noreferrer" key={`doc-${id}`}>
@@ -316,12 +317,12 @@ export function MedicalEvents() {
 
                     <fieldset className="event-related">
                         <legend>Documentos relacionados</legend>
-                        {studies.value.filter((study) => study.hasPdf).length ? studies.value.filter((study) => study.hasPdf).map((study) =>
+                        {studyAttachments.length ? studyAttachments.map((study) =>
                             <label key={study.id}>
                                 <input type="checkbox" name="documentId" value={study.id}
                                        defaultChecked={editing?.documentIds.includes(study.id)}/>{study.reportName || study.title}
-                            </label>) : <p className="event-related-empty">No hay PDFs para vincular.</p>}
-                        {editing?.documentIds.filter((id) => !studies.value.some((study) => study.id === id && study.hasPdf)).map((id) =>
+                            </label>) : <p className="event-related-empty">No hay documentos para vincular.</p>}
+                        {editing?.documentIds.filter((id) => !studyAttachments.some((study) => study.id === id)).map((id) =>
                             <label key={id}><input type="checkbox" name="documentId" value={id}
                                                    defaultChecked/> Documento no disponible</label>)}
                     </fieldset>

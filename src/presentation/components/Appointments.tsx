@@ -4,6 +4,7 @@ import {normalize} from '@domain/utils';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {visibleAppointments} from '../state/store';
 import {deleteAppointment as removeAppointment, saveAppointment} from '../utils/appointmentEditor';
+import {AppointmentStudyList, AppointmentStudyPicker} from './AppointmentStudies';
 
 
 export function Appointments() {
@@ -28,6 +29,7 @@ export function Appointments() {
             cost: rawCost ? Number(rawCost) : null,
             coverage: (String(data.get('coverage') ?? '') || null) as AppointmentDraft['coverage'],
             reminderMinutes: (Number(data.get('reminderMinutes')) || null) as AppointmentDraft['reminderMinutes'],
+            studyIds: data.getAll('studyId').map(String),
         };
         setBusy(true);
         setMessage('');
@@ -37,11 +39,8 @@ export function Appointments() {
                 setMessage(result.error);
                 return;
             }
-            if (result.message) {
-                setMessage(result.message);
-            } else {
-                form.reset();
-            }
+            if (result.message) setMessage(result.message);
+            form.reset();
             setEditing(null);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'No se pudo guardar el turno.');
@@ -135,6 +134,7 @@ export function Appointments() {
                         <option value="none">Sin cobertura</option>
                     </select></label>
                 </div>
+                <AppointmentStudyPicker studyIds={editing?.studyIds}/>
                 <p className="appointment-note">Los avisos requieren la aplicación abierta, una sesión activa y el turno
                     sincronizado.
                     Permiso: {permission === 'granted' ? 'concedido' : permission === 'denied' ? 'denegado' : permission === 'unavailable' ? 'no disponible' : 'pendiente'}.</p>
@@ -188,6 +188,7 @@ export function Appointments() {
                             </div>
                             <p className="appointment-card-meta">{item.time} · {item.timeZone}</p>
                             {item.notes && <p className="appointment-notes">{item.notes}</p>}
+                            <AppointmentStudyList studyIds={item.studyIds}/>
                             <div className="appointment-tags">
                                 <span className="tag">Importe: {item.cost === null ? 'Desconocido' : item.cost}</span>
                                 <span

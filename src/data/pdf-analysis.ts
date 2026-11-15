@@ -6,20 +6,15 @@ import type {OcrWorkerApi} from '@workers/ocr.worker';
 
 export {signatureImages} from '@domain/pdf-signatures';
 export type {AnalysisProgress} from '@workers/protocol';
-export const MAX_PDF_BYTES = 20 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 
 export async function validateDocument(file: Blob): Promise<'application/pdf' | 'image/jpeg' | 'image/png'> {
-    if (file.size > MAX_PDF_BYTES) throw new Error('El informe supera el límite de 20 MB.');
+    if (file.size > MAX_DOCUMENT_BYTES) throw new Error('El informe supera el límite de 20 MB.');
     const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
     if ([37, 80, 68, 70, 45].every((value, index) => bytes[index] === value)) return 'application/pdf';
     if ([255, 216, 255].every((value, index) => bytes[index] === value)) return 'image/jpeg';
     if ([137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)) return 'image/png';
     throw new Error('Elegí un archivo PDF, JPEG o PNG válido.');
-}
-
-export async function validatePdf(file: Blob): Promise<void> {
-    if (file.size > MAX_PDF_BYTES) throw new Error('El informe supera el límite de 20 MB.');
-    if ((await file.slice(0, 5).text()) !== '%PDF-') throw new Error('Elegí un archivo PDF válido.');
 }
 
 export async function analyzePdf(

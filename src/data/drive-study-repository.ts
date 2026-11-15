@@ -312,17 +312,23 @@ export class DriveStudyRepository implements StudyRepository {
         return study;
     }
 
-    async getPdfFile(fileId: string): Promise<File> {
+    async getPdfFile(fileId: string, expectedToken?: string): Promise<File> {
         const response = await this.client.request(
-            this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(fileId)}`, {alt: 'media'})
+            this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(fileId)}`, {alt: 'media'}),
+            {}, expectedToken,
         );
         const blob = await response.blob();
+        if (expectedToken !== undefined) await this.client.assertSession(expectedToken);
         return new File([blob], 'informe.pdf', {type: 'application/pdf'});
     }
 
-    async getDocumentFile(fileId: string): Promise<File> {
-        const response = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(fileId)}`, {alt: 'media'}));
+    async getDocumentFile(fileId: string, expectedToken?: string): Promise<File> {
+        const response = await this.client.request(
+            this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(fileId)}`, {alt: 'media'}),
+            {}, expectedToken,
+        );
         const blob = await response.blob();
+        if (expectedToken !== undefined) await this.client.assertSession(expectedToken);
         const type = blob.type.split(';')[0] ?? '';
         if (!['application/pdf', 'image/jpeg', 'image/png'].includes(type)) throw new Error('El archivo de Drive tiene un formato no compatible.');
         return new File([blob], type === 'image/png' ? 'informe.png' : type === 'image/jpeg' ? 'informe.jpg' : 'informe.pdf', {type});

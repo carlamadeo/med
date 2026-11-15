@@ -4,6 +4,7 @@ import type {Appointment, AppointmentDraft} from '@domain/models';
 import {driveAuth} from '@data';
 import {editingAppointment, isAppointmentEditorOpen, setAppointmentEditorOpen} from '../state/store';
 import {deleteAppointment, saveAppointment} from '../utils/appointmentEditor';
+import {AppointmentStudyPicker} from './AppointmentStudies';
 
 function parseCost(value: FormDataEntryValue | null): number | null {
     const raw = typeof value === 'string' ? value.trim().replace(',', '.') : '';
@@ -27,8 +28,11 @@ export function AppointmentDialog() {
     const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
 
     useEffect(() => {
-        if (!open) return;
         const dialog = dialogRef.current;
+        if (!open) {
+            if (dialog?.open) dialog.close();
+            return;
+        }
         if (dialog && !dialog.open) dialog.showModal();
         setMessage('');
         setError(null);
@@ -65,6 +69,7 @@ export function AppointmentDialog() {
             cost: parseCost(data.get('cost')),
             coverage: (data.get('coverage') as Appointment['coverage'] | '') || null,
             reminderMinutes: parseReminder(data.get('reminder')),
+            studyIds: data.getAll('studyId').map(String),
         };
         const validation = validateAppointment(draft);
         if (validation.length) {
@@ -76,6 +81,7 @@ export function AppointmentDialog() {
         setError(null);
         try {
             const result = await saveAppointment(draft, appointment);
+            if (!form.isConnected) return;
             if (result.error) {
                 setError(result.error);
                 return;
@@ -86,20 +92,22 @@ export function AppointmentDialog() {
             }
             close();
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
+            if (form.isConnected) setError(cause instanceof Error ? cause.message : String(cause));
         } finally {
-            setBusy(false);
+            if (form.isConnected) setBusy(false);
         }
     };
 
     const remove = async () => {
-        if (!appointment) return;
+        const form = dialogRef.current?.querySelector('form');
+        if (!appointment || !form) return;
         if (!window.confirm(`¿Borrar el turno de ${appointment.professional || 'este profesional'}?`)) return;
         setBusy(true);
         setMessage('');
         setError(null);
         try {
             const result = await deleteAppointment(appointment);
+            if (!form.isConnected) return;
             if (result.error) {
                 setError(result.error);
                 return;
@@ -110,9 +118,9 @@ export function AppointmentDialog() {
             }
             close();
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
+            if (form.isConnected) setError(cause instanceof Error ? cause.message : String(cause));
         } finally {
-            setBusy(false);
+            if (form.isConnected) setBusy(false);
         }
     };
 
@@ -135,7 +143,7 @@ export function AppointmentDialog() {
                 if (busy) event.preventDefault();
             }}
         >
-            <form id="appointment-form" key={appointment?.id ?? 'new'} onSubmit={submit}>
+            {open && <form id="appointment-form" key={appointment?.id ?? 'new'} onSubmit={submit}>
                 <div className="dialog-heading">
                     <div>
                         <p className="eyebrow">Seguimiento</p>
@@ -223,6 +231,8 @@ export function AppointmentDialog() {
                     </label>
                 </div>
 
+                <AppointmentStudyPicker studyIds={appointment?.studyIds} disabled={busy}/>
+
                 {permission !== 'unsupported' && permission !== 'granted' && (
                     <button className="button secondary" type="button" onClick={enableNotifications} disabled={busy}>
                         Activar recordatorios del navegador
@@ -250,7 +260,7 @@ export function AppointmentDialog() {
                         {busy ? 'Guardando…' : 'Guardar turno'}
                     </button>
                 </div>
-            </form>
+            </form>}
         </dialog>
     );
 }

@@ -1,4 +1,5 @@
 import type {OutboxEntry} from '@data/outbox';
+import {hasStudyAttachment} from '@domain/library';
 import {
     pendingChanges,
     syncMessage,
@@ -14,6 +15,7 @@ import type {AppointmentDraft} from '@domain/models';
 function AppointmentDetails({value}: { value: AppointmentDraft }) {
     const statuses = {scheduled: 'Programado', completed: 'Realizado', cancelled: 'Cancelado', absent: 'No asistí'};
     const coverages = {all: 'Total', partial: 'Parcial', none: 'Sin cobertura'};
+    const titles = value.studyIds?.map(id => studies.value.find(study => study.id === id)?.title ?? 'Estudio no disponible');
     return <>
         <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
         <p>Profesional: {value.professional || '—'}</p>
@@ -22,6 +24,7 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
         <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} ·
             Cobertura: {value.coverage ? coverages[value.coverage] : 'Desconocida'}</p>
         <p>Recordatorio: {value.reminderMinutes ? `${value.reminderMinutes} minutos antes` : 'Sin recordatorio'}</p>
+        <p>Estudios para llevar: {titles?.length ? titles.join(', ') : 'Ninguno'}</p>
     </>;
 }
 
@@ -146,8 +149,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 {'types' in remote && <p>Tipos en Drive: {remote.types.join(', ') || '—'}</p>}
                                 {'portal' in remote && <p>Portal en Drive: {remote.portal || '—'}</p>}
                                 {'viewer' in remote && <p>Visor en Drive: {remote.viewer || '—'}</p>}
-                                {'hasPdf' in remote && <p>PDF en
-                                    Drive: {remote.hasPdf ? remote.reportName || 'Disponible' : 'Sin PDF'}</p>}
+                                {'hasPdf' in remote && <p>Informe en
+                                    Drive: {hasStudyAttachment(remote) ? remote.reportName || 'Disponible' : 'Sin informe'}</p>}
                                 {'surgeon' in remote && <p>Cirujano en Drive: {remote.surgeon || '—'}</p>}
                                 {'institution' in remote && <p>Institución en Drive: {remote.institution || '—'}</p>}
                                 {'type' in remote && <p>Intervención en Drive: {remote.type || '—'}</p>}

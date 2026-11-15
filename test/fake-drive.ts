@@ -120,15 +120,13 @@ function publicView(file: FakeFile) {
 }
 
 /** Parses the body produced by DriveClient.upload(): JSON metadata part + media part. */
-function parseMultipart(body: string, contentType: string): { metadata: Record<string, unknown>; content: string } {
+function parseMultipart(body: ArrayBuffer, contentType: string): { metadata: Record<string, unknown>; content: string } {
     const boundary = /boundary=(.+)$/.exec(contentType)?.[1];
     if (!boundary) throw new Error('multipart boundary missing');
-    const parts = body
-        .split(`--${boundary}`)
-        .map((part) => part.trim())
-        .filter((part) => part && part !== '--');
-    const payload = (part: string | undefined) => (part ?? '').split('\r\n\r\n').slice(1).join('\r\n\r\n');
-    return {metadata: JSON.parse(payload(parts[0])), content: payload(parts[1])};
+    const [, metadataPart, mediaPart] = Buffer.from(body).toString('latin1').split(`--${boundary}`);
+    if (!metadataPart || !mediaPart) throw new Error('multipart parts missing');
+    const payload = (part: string) => part.slice(part.indexOf('\r\n\r\n') + 4, -2);
+    return {metadata: JSON.parse(Buffer.from(payload(metadataPart), 'latin1').toString('utf8')), content: payload(mediaPart)};
 }
 
 export const driveHandlers = [
@@ -154,7 +152,8 @@ export const driveHandlers = [
         const file = files.get(String(params.id));
         if (!file) return new HttpResponse(null, {status: 404});
         if (new URL(request.url).searchParams.get('alt') === 'media') {
-            return new HttpResponse(file.content, {headers: {'content-type': file.mimeType}});
+            const bytes = Uint8Array.from(Buffer.from(file.content, 'latin1'));
+            return new HttpResponse(bytes.buffer, {headers: {'content-type': file.mimeType}});
         }
         return HttpResponse.json(publicView(file));
     }),
@@ -168,14 +167,14 @@ export const driveHandlers = [
 
     http.post(`${API}/upload/drive/v3/files`, async ({request}) => {
         if (isResumable(request)) return startResumable(await request.json());
-        const {metadata, content} = parseMultipart(await request.text(), request.headers.get('content-type') ?? '');
+        const {metadata, content} = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
         return createFile(metadata, content);
     }),
 
     http.patch(`${API}/upload/drive/v3/files/:id`, async ({params, request}) => {
         const id = String(params.id);
         if (isResumable(request)) return startResumable(await request.json(), id);
-        const {metadata, content} = parseMultipart(await request.text(), request.headers.get('content-type') ?? '');
+        const {metadata, content} = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
         return updateFile(id, metadata, content);
     }),
 
@@ -184,7 +183,7 @@ export const driveHandlers = [
         const session = sessions.get(String(params.session));
         if (!session) return new HttpResponse(null, {status: 404});
         sessions.delete(String(params.session));
-        const content = await request.text();
+        const content = Buffer.from(await request.arrayBuffer()).toString('latin1');
         return session.fileId ? updateFile(session.fileId, session.metadata, content) : createFile(session.metadata, content);
     }),
 ];

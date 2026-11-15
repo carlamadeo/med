@@ -5,7 +5,7 @@ import {$, mountPage} from './page';
 it('creates a turn and preserves a zero cost', async () => {
     await mountPage();
     act(() => {
-        $('#tab-turnos').click();
+        $('#nav-turnos').click();
     });
     const form = document.querySelector<HTMLFormElement>('#appointments-title + form')!;
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-20';

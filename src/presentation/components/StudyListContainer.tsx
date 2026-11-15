@@ -1,4 +1,6 @@
-import {visibleStudies, loading, error, view} from '../state/store';
+import {useRef, useState} from 'preact/hooks';
+import {filterStudiesByQuery} from '@domain/library';
+import {visibleStudies, loading, error, view, categoryTypes} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
@@ -25,19 +27,22 @@ interface StudyListContainerProps {
 }
 
 export function StudyListContainer({
-                                        onEdit,
-                                        onDelete,
-                                        onShare,
-                                        onRetryLoad,
-                                        onAddStudy,
-                                        onOpenCandidate,
-                                        typesReady,
-                                        availableTypes,
-                                        offline,
-                                        directoryWarning,
-                                        pendingChangesCount
-                                    }: StudyListContainerProps) {
-    const studiesList = visibleStudies.value;
+                                         onEdit,
+                                         onDelete,
+                                         onShare,
+                                         onRetryLoad,
+                                         onAddStudy,
+                                         onOpenCandidate,
+                                         typesReady,
+                                         availableTypes,
+                                         offline,
+                                         directoryWarning,
+                                         pendingChangesCount
+                                     }: StudyListContainerProps) {
+    const [query, setQuery] = useState('');
+    const searchInput = useRef<HTMLInputElement>(null);
+    const studiesList = filterStudiesByQuery(visibleStudies.value, query);
+    const hasFilters = Boolean(query.trim() || categoryTypes.value.length);
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -50,7 +55,6 @@ export function StudyListContainer({
             {directoryWarning && (
                 <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volvera a intentar al recuperar la conexion.</p>
             )}
-            <LibraryTabs availableTypes={availableTypes}/>
             {view.value === 'operaciones' && <Operations/>}
             {view.value === 'eventos' && <MedicalEvents/>}
             {view.value === 'episodios' && <Episodes/>}
@@ -61,12 +65,24 @@ export function StudyListContainer({
             )}
             {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
                 <>
-                    <div className="section-head">
+                    <div className="section-head library-search-head">
                         <div className="section-title">
                             <h2 id="library-title">Estudios guardados</h2>
                             <span id="count" className="count">{studiesList.length}</span>
                         </div>
+                        <div className="search library-search">
+                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                            <input
+                                ref={searchInput}
+                                type="search"
+                                aria-label="Buscar estudios"
+                                placeholder="Nombre, profesional o institución"
+                                value={query}
+                                onInput={(event) => setQuery(event.currentTarget.value)}
+                            />
+                        </div>
                     </div>
+                    <LibraryTabs availableTypes={availableTypes}/>
 
                     {isLoading ? (
                         <>
@@ -103,13 +119,32 @@ export function StudyListContainer({
                                 Reintentar
                             </button>
                         </div>
+                    ) : studiesList.length === 0 && hasFilters ? (
+                        <EmptyState
+                            variant="no-results"
+                            title="No hay resultados"
+                            description="Probá con otro término o cambiá los tipos seleccionados."
+                            action={
+                                <button
+                                    className="button secondary"
+                                    type="button"
+                                    onClick={() => {
+                                        setQuery('');
+                                        categoryTypes.value = [];
+                                        searchInput.current?.focus();
+                                    }}
+                                >
+                                    Limpiar filtros
+                                </button>
+                            }
+                        />
                     ) : studiesList.length === 0 ? (
                         <EmptyState
                             variant="no-studies"
                             title={pendingChangesCount > 0 ? 'Tu estudio está pendiente' : 'Tu archivo empieza acá'}
                             description={pendingChangesCount > 0
                                 ? 'Aparecerá en la biblioteca cuando se sincronice con Drive.'
-                                : 'Agregá tu primer estudio con su informe en PDF, el enlace al visor o ambos.'}
+                                : 'Agregá tu primer estudio con un PDF, una imagen o el enlace al visor.'}
                             action={
                                 <button
                                     className="button secondary"

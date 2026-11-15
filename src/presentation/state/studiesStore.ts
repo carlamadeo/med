@@ -57,16 +57,19 @@ export const intakeError = signal<string | null>(null);
 
 export const visibleStudies = computed<Study[]>(() => {
     const result = [...studies.value];
+    const selectedTypes = categoryTypes.value;
     for (const entry of pendingChanges.value) {
         if (entry.kind !== 'save' || !entry.draft || entry.id === undefined) continue;
         const draft = entry.draft;
         const index = result.findIndex((study) => study.id === draft.driveFileId);
         const previous = index >= 0 ? result[index] : undefined;
+        const keepAttachment = !draft.removeReport && !entry.attachment;
         const local: Study = {
             id: previous?.id ?? `pending-${entry.id}`,
             title: draft.title, date: draft.date, types: draft.types, doctor: draft.doctor,
             portal: draft.portal, viewer: draft.viewer, reportName: draft.reportName,
-            hasPdf: Boolean(previous?.hasPdf && !draft.removeReport && !entry.attachment),
+            hasPdf: Boolean(keepAttachment && previous?.hasPdf),
+            attachmentMime: keepAttachment ? previous?.attachmentMime : undefined,
             driveFileId: previous?.driveFileId ?? '',
             driveModifiedTime: previous?.driveModifiedTime ?? '', revision: draft.revision ?? '',
             operationId: draft.operationId, documentIds: draft.documentIds ?? previous?.documentIds,
@@ -74,6 +77,10 @@ export const visibleStudies = computed<Study[]>(() => {
         };
         if (index >= 0) result[index] = local;
         else result.push(local);
+    }
+    // Filter by selected category types
+    if (selectedTypes.length > 0) {
+        return result.filter((study) => study.types.some((type) => selectedTypes.includes(type)));
     }
     return result;
 });
