@@ -67,23 +67,23 @@ export function StudyListContainer({
             {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
                 <>
                     <div className="section-head library-search-head">
-                        <div className="section-title">
-                            <h2 id="library-title">Estudios guardados</h2>
-                            <span id="count" className="count">{studiesList.length}</span>
-                        </div>
-                        <div className="library-toolbar">
-                            <div className="search library-search">
-                                <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                                <input
-                                    ref={searchInput}
-                                    type="search"
-                                    aria-label="Buscar estudios"
-                                    placeholder="Nombre, profesional o institución"
-                                    value={query}
-                                    onInput={(event) => setQuery(event.currentTarget.value)}
-                                />
+                        <div className="library-head-main">
+                            <div className="section-title">
+                                <h2 id="library-title">Estudios guardados</h2>
+                                <span id="count" className="count">{studiesList.length}</span>
                             </div>
                             <LibraryTabs availableTypes={availableTypes}/>
+                        </div>
+                        <div className="search library-search">
+                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                            <input
+                                ref={searchInput}
+                                type="search"
+                                aria-label="Buscar estudios"
+                                placeholder="Nombre, profesional o institución"
+                                value={query}
+                                onInput={(event) => setQuery(event.currentTarget.value)}
+                            />
                         </div>
                     </div>
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (

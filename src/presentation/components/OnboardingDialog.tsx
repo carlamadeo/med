@@ -27,7 +27,7 @@ export function OnboardingDialog() {
         }}>
             <div className="dialog-heading">
                 <div>
-                    <p className="eyebrow">EMPEZÁ EN TRES PASOS</p>
+                    <p className="eyebrow">Empezá en tres pasos</p>
                     <h2 id="onboarding-title">Tu archivo médico, ordenado</h2>
                 </div>
                 <button className="icon-button" type="button" aria-label="Cerrar introducción" onClick={close}>

@@ -10,6 +10,7 @@ import {
     setIntakeLoading,
     setIntakeError,
     updateCandidateStatus,
+    setFolderPickerOpen,
     isEditorOpen
 } from '../state/store';
 import type {StudyDraft} from '@domain/models';
@@ -128,10 +129,17 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     </div>
                 </div>
                 <div className="intake-empty">
-                    <span className="intake-empty-icon"><svg className="icon"><use href="#i-scan"/></svg></span>
+                    <span className="intake-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-scan"/></svg></span>
                     <h3>Intake asistido no configurado</h3>
                     <p>Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de
                         incorporarlos.</p>
+                    <button
+                        type="button"
+                        className="button secondary button-sm"
+                        onClick={() => setFolderPickerOpen(true)}
+                    >
+                        Configurar carpeta
+                    </button>
                 </div>
             </section>
         );

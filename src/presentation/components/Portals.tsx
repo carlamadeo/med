@@ -34,6 +34,7 @@ import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
 import {portals, studies, view} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
+import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
@@ -43,6 +44,7 @@ export function Portals() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [query, setQuery] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<Portal | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -135,14 +137,20 @@ export function Portals() {
     }
 
     /**
+     * Abre el diálogo de confirmación antes de eliminar un portal.
+     */
+    function remove(portal: Portal) {
+        setPendingDelete(portal);
+    }
+
+    /**
      * Elimina un portal tras confirmación.
      * Verifica cuenta, comprueba cola pendiente, decide online/offline.
      * Online: `drivePortalRepo.delete` + filtro optimista en `portals` signal.
      * Offline: `enqueueOffline` → `outbox.enqueuePortalDelete` + evento.
      * Verifica token antes y después.
      */
-    async function remove(portal: Portal) {
-        if (!window.confirm(`¿Eliminar el portal ${portal.displayName}?`)) return;
+    async function executeRemove(portal: Portal) {
         setBusy(true);
         setMessage('');
         try {
@@ -178,6 +186,7 @@ export function Portals() {
             setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el portal.');
         } finally {
             setBusy(false);
+            setPendingDelete(null);
         }
     }
 
@@ -312,6 +321,18 @@ export function Portals() {
                     </fieldset>
                 </form>
             </dialog>
+
+            <ConfirmActionDialog
+                open={Boolean(pendingDelete)}
+                title="Eliminar portal"
+                message={pendingDelete ? `¿Eliminar el portal ${pendingDelete.displayName}?` : ''}
+                confirmLabel="Eliminar portal"
+                busy={busy}
+                onConfirm={() => {
+                    if (pendingDelete) void executeRemove(pendingDelete);
+                }}
+                onCancel={() => setPendingDelete(null)}
+            />
         </section>
     );
 }

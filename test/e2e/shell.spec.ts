@@ -130,7 +130,7 @@ test('busca en la Biblioteca móvil y muestra la fecha y los iconos de acceso', 
 
     const library = page.getByRole('region', {name: 'Biblioteca'});
     const table = library.getByRole('table');
-    const rows = table.locator('tbody tr');
+    const rows = table.locator('tbody tr:not(.year-divider-row)');
     const search = library.getByRole('searchbox', {name: 'Buscar estudios'});
     await expect(rows).toHaveCount(3);
     await expect(table.getByRole('columnheader', {name: 'Estado'})).toHaveCount(0);
@@ -146,8 +146,9 @@ test('busca en la Biblioteca móvil y muestra la fecha y los iconos de acceso', 
     await expect(table.getByText('Dr. Gómez', {exact: false})).toBeVisible();
     expect(await table.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
-    await library.getByRole('button', {name: 'Mamografía', exact: true}).click();
-    await library.getByRole('button', {name: 'Resonancia', exact: true}).click();
+    await library.getByRole('combobox', {name: 'Filtrar por tipo de estudio'}).click();
+    await library.getByRole('option', {name: /^Mamografía\b/}).click();
+    await library.getByRole('option', {name: /^Resonancia\b/}).click();
     await search.fill('CLINICA SANTA MARIA');
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('Resonancia de rodilla');

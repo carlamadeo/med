@@ -111,6 +111,42 @@
     --shadow-xl: 0 24px 64px -16px rgb(0 0 0 / 80%), 0 0 0 1px rgb(255 255 255 / 6%);
 }
 
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        color-scheme: dark;
+        --color-bg: #151b1d;
+        --color-surface: #1d2527;
+        --color-surface-hover: #263133;
+        --color-surface-active: #354244;
+        --color-text-primary: #f3f4ef;
+        --color-text-secondary: #cad3d1;
+        --color-text-tertiary: #b8c2c0;
+        --color-text-inverse: #151b1d;
+
+        --color-brand: #78b9b2;
+        --color-brand-hover: #9accc6;
+        --color-brand-active: #9accc6;
+        --color-brand-light: #203c3c;
+        --color-border: #354244;
+        --color-border-strong: #536563;
+        --color-border-focus: #78b9b2;
+
+        --color-success: #92c8a8;
+        --color-success-light: #12251a;
+        --color-warning: #e2a078;
+        --color-warning-light: #2a2009;
+        --color-error: #f1a0a0;
+        --color-error-light: #2a1214;
+        --color-scrim: rgb(0 0 0 / 65%);
+
+        --shadow-xs: 0 1px 2px rgb(0 0 0 / 40%);
+        --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 35%);
+        --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 50%), 0 2px 4px -2px rgb(0 0 0 / 40%);
+        --shadow-lg: 0 16px 40px -12px rgb(0 0 0 / 70%);
+        --shadow-xl: 0 24px 64px -16px rgb(0 0 0 / 80%), 0 0 0 1px rgb(255 255 255 / 6%);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     :root {
         --transition-fast: 0ms;

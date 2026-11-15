@@ -5,6 +5,7 @@ import {driveAuth} from '@data';
 import {editingAppointment, isAppointmentEditorOpen, setAppointmentEditorOpen} from '../state/store';
 import {deleteAppointment, saveAppointment} from '../utils/appointmentEditor';
 import {AppointmentStudyPicker} from './AppointmentStudies';
+import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 function parseCost(value: FormDataEntryValue | null): number | null {
     const raw = typeof value === 'string' ? value.trim().replace(',', '.') : '';
@@ -26,6 +27,7 @@ export function AppointmentDialog() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -98,10 +100,18 @@ export function AppointmentDialog() {
         }
     };
 
-    const remove = async () => {
+    const remove = () => {
         const form = dialogRef.current?.querySelector('form');
         if (!appointment || !form) return;
-        if (!window.confirm(`¿Borrar el turno de ${appointment.professional || 'este profesional'}?`)) return;
+        setConfirmingDelete(true);
+    };
+
+    const executeRemove = async () => {
+        const form = dialogRef.current?.querySelector('form');
+        if (!appointment || !form) {
+            setConfirmingDelete(false);
+            return;
+        }
         setBusy(true);
         setMessage('');
         setError(null);
@@ -120,7 +130,10 @@ export function AppointmentDialog() {
         } catch (cause) {
             if (form.isConnected) setError(cause instanceof Error ? cause.message : String(cause));
         } finally {
-            if (form.isConnected) setBusy(false);
+            if (form.isConnected) {
+                setBusy(false);
+                setConfirmingDelete(false);
+            }
         }
     };
 
@@ -134,15 +147,16 @@ export function AppointmentDialog() {
     };
 
     return (
-        <dialog
-            ref={dialogRef}
-            id="appointment-dialog"
-            className="dialog appointment-dialog"
-            aria-labelledby="appointment-dialog-title"
-            onCancel={(event) => {
-                if (busy) event.preventDefault();
-            }}
-        >
+        <>
+            <dialog
+                ref={dialogRef}
+                id="appointment-dialog"
+                className="dialog appointment-dialog"
+                aria-labelledby="appointment-dialog-title"
+                onCancel={(event) => {
+                    if (busy) event.preventDefault();
+                }}
+            >
             {open && <form id="appointment-form" key={appointment?.id ?? 'new'} onSubmit={submit}>
                 <div className="dialog-heading">
                     <div>
@@ -261,6 +275,16 @@ export function AppointmentDialog() {
                     </button>
                 </div>
             </form>}
-        </dialog>
+            </dialog>
+            <ConfirmActionDialog
+                open={confirmingDelete}
+                title="Eliminar turno"
+                message={appointment ? `¿Borrar el turno de ${appointment.professional || 'este profesional'}?` : ''}
+                confirmLabel="Eliminar turno"
+                busy={busy}
+                onConfirm={executeRemove}
+                onCancel={() => setConfirmingDelete(false)}
+            />
+        </>
     );
 }

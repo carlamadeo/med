@@ -5,6 +5,7 @@ import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import type {Operation, OperationDraft, Study} from '@domain/models';
 import {operations, visibleOperations, studies, view} from '../state/store';
+import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
@@ -40,6 +41,7 @@ export function Operations() {
     const [detailId, setDetailId] = useState<string | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<Operation | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -141,12 +143,15 @@ export function Operations() {
         }
     }
 
-    async function remove(op: Operation) {
+    function remove(op: Operation) {
         if (studies.value.some((study) => study.operationId === op.id)) {
             setMessage('Desvinculá los estudios antes de eliminar esta operación.');
             return;
         }
-        if (!window.confirm(`¿Eliminar la operación ${op.name}?`)) return;
+        setPendingDelete(op);
+    }
+
+    async function executeRemove(op: Operation) {
         setBusy(true);
         setMessage('');
 
@@ -189,6 +194,7 @@ export function Operations() {
             setMessage(err instanceof Error ? err.message : 'No se pudo eliminar la operación.');
         } finally {
             setBusy(false);
+            setPendingDelete(null);
         }
     }
 
@@ -449,5 +455,17 @@ export function Operations() {
                 </fieldset>
             </form>
         </dialog>
+
+        <ConfirmActionDialog
+            open={Boolean(pendingDelete)}
+            title="Eliminar operación"
+            message={pendingDelete ? `¿Eliminar la operación ${pendingDelete.name}?` : ''}
+            confirmLabel="Eliminar operación"
+            busy={busy}
+            onConfirm={() => {
+                if (pendingDelete) void executeRemove(pendingDelete);
+            }}
+            onCancel={() => setPendingDelete(null)}
+        />
     </section>;
 }

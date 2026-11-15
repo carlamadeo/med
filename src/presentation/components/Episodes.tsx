@@ -5,6 +5,7 @@ import {Outbox} from '@data/outbox';
 import {normalize, todayLocal} from '@domain/utils';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
 import {episodes, visibleEpisodes} from '../state/store';
+import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
@@ -71,6 +72,7 @@ export function Episodes() {
     const [medications, setMedications] = useState<FormMedication[]>([{name: '', frequency: '', instructions: ''}]);
     const [formOpen, setFormOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<Episode | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -271,8 +273,11 @@ export function Episodes() {
         setFormOpen(true);
     }
 
-    async function deleteEpisode(episode: Episode) {
-        if (!confirm(`Eliminar el episodio "${episode.illness}"?`)) return;
+    function deleteEpisode(episode: Episode) {
+        setPendingDelete(episode);
+    }
+
+    async function executeDeleteEpisode(episode: Episode) {
         try {
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
@@ -313,6 +318,7 @@ export function Episodes() {
             setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el episodio.');
         } finally {
             setBusy(false);
+            setPendingDelete(null);
         }
     }
 
@@ -546,14 +552,21 @@ export function Episodes() {
                                                    defaultValue={symptom.name}
                                                    onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}/>
                                             <input type="number" min="1" max="5" placeholder="Intensidad 1-5"
+                                                   aria-label="Intensidad del síntoma"
                                                    defaultValue={symptom.intensity ?? ''}
                                                    onChange={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>
                                             <input type="text" placeholder="Descripción"
+                                                   aria-label="Descripción del síntoma"
                                                    defaultValue={symptom.description ?? ''}
                                                    onChange={(e) => handleSymptomDescChange(obsIndex, symIndex, e)}/>
                                             {obs.symptoms.length > 1 &&
-                                                <button type="button" onClick={() => removeSymptom(obsIndex, symIndex)}
-                                                        aria-label="Quitar síntoma">×</button>}
+                                                <button type="button" className="icon-button episode-row-remove"
+                                                        onClick={() => removeSymptom(obsIndex, symIndex)}
+                                                        aria-label="Quitar síntoma">
+                                                    <svg className="icon" aria-hidden="true">
+                                                        <use href="#i-close"/>
+                                                    </svg>
+                                                </button>}
                                         </div>
                                     ))}
                                     <button type="button" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
@@ -573,14 +586,22 @@ export function Episodes() {
                         {medications.map((med: FormMedication, medIndex: number) => (
                             <div key={medIndex} className="medication-row">
                                 <input type="text" list="episode-medications" placeholder="Nombre del medicamento"
+                                       aria-label="Nombre del medicamento"
                                        defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)}/>
                                 <input type="text" placeholder="Frecuencia (ej: cada 8h)" defaultValue={med.frequency}
+                                       aria-label="Frecuencia del medicamento"
                                        onChange={(e) => handleMedFreqChange(medIndex, e)}/>
                                 <input type="text" placeholder="Indicaciones médicas" defaultValue={med.instructions}
+                                       aria-label="Indicaciones del medicamento"
                                        onChange={(e) => handleMedInstrChange(medIndex, e)}/>
                                 {medications.length > 1 &&
-                                    <button type="button" onClick={() => removeMedication(medIndex)}
-                                            aria-label="Quitar medicamento">×</button>}
+                                    <button type="button" className="icon-button episode-row-remove"
+                                            onClick={() => removeMedication(medIndex)}
+                                            aria-label="Quitar medicamento">
+                                        <svg className="icon" aria-hidden="true">
+                                            <use href="#i-close"/>
+                                        </svg>
+                                    </button>}
                             </div>
                         ))}
                         <button type="button" onClick={addMedication}>+ Medicamento</button>
@@ -596,5 +617,17 @@ export function Episodes() {
                 </fieldset>
             </form>
         </dialog>
+
+        <ConfirmActionDialog
+            open={Boolean(pendingDelete)}
+            title="Eliminar episodio"
+            message={pendingDelete ? `¿Eliminar el episodio "${pendingDelete.illness}"?` : ''}
+            confirmLabel="Eliminar episodio"
+            busy={busy}
+            onConfirm={() => {
+                if (pendingDelete) void executeDeleteEpisode(pendingDelete);
+            }}
+            onCancel={() => setPendingDelete(null)}
+        />
     </section>;
 }
