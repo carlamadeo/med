@@ -54,7 +54,7 @@ const headerDoctorLabel =
 const genericDoctorTitle = /^dr\.?\s*\/\s*(?:dra\.?|a)(?:\s*[:=-]\s*|\s+)(.*)$/iu;
 const honorific = /^dr(?:a)?\.?\s+/iu;
 const registration =
-    /(?:[\s,]+(?:m\.?\s*[np]\.?|matr[ií]cula|especialidad)\s*[:.\d]|[\s,]+\d|\s*[|;]).*$/iu;
+    /(?:[\s,]+(?:m\.?\s*[np]\.?|matr[ií]cula|especialidad)\s*[:.\d]|\s+(?:n[°ºo.]\s*)?(?:carnet|p[aá]gina)\s*[:.\d]|[\s,]+\d|\s*[|;]).*$/iu;
 
 const normalize = (value: string): string => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
