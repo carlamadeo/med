@@ -101,6 +101,7 @@ it('exports every study regardless of category and preserves the legacy PDF path
 
     const zip = await downloadedZip(createUrl);
     expect(await zip.file('pdfs/one.pdf')!.async('text')).toBe('contenido');
+<<<<<<< HEAD
     expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
         version: 1, scope: 'all', totalStudies: 2, studies: [{id: 'one'}, {id: 'two'}],
     });
@@ -209,8 +210,11 @@ it('allows export when changes are queued for a different account', async () => 
     await openDialog();
     await submit();
 
-    const zip = await downloadedZip(createUrl);
-    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({totalStudies: 1});
+const zip = await downloadedZip(createUrl);
+    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
+        version: 1, scope: 'all', totalStudies: 1, studies: [{id: 'one'}],
+    });
+    expect(zip.file('operations.json')).not.toBeNull();
 });
 
 it('does not download an export when the account changes while preparing it', async () => {

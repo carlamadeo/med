@@ -70,7 +70,7 @@ it('renders studies in a table with correct columns', async () => {
     });
     const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
     expect([...root.querySelectorAll('thead th')].map((cell) => cell.textContent)).toEqual([
-        'Estudio', 'Fecha', 'Profesional', 'Institución', 'Acciones',
+        'Estudio', 'Fecha', 'Profesional', 'Institución', 'Estado', 'Acciones',
     ]);
     expect(rows).toHaveLength(2);
     expect(rows[0]?.textContent).toContain('Uno');
@@ -113,7 +113,7 @@ it('shows the study date and names its PDF, image and viewer icon links', async 
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
 });
 
-it('keeps unsynced studies protected from changes without a status column', async () => {
+it('shows sync status for each study', async () => {
     const base = {
         date: '2024-01-01',
         types: ['Otro'],
@@ -138,7 +138,9 @@ it('keeps unsynced studies protected from changes without a status column', asyn
             studies: visibleStudies.value
         }), root);
     });
-    expect(root.textContent).not.toMatch(/Sincronizado|Pendiente|Conflicto/);
+    expect(root.textContent).toContain('Sincronizado');
+    expect(root.textContent).toContain('Pendiente');
+    expect(root.textContent).toContain('Conflicto');
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Synced"]')?.disabled).toBe(false);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Pending"]')?.disabled).toBe(true);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Conflict"]')?.disabled).toBe(true);

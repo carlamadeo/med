@@ -5,6 +5,7 @@ import {
     setExporting,
     setExportError,
     studies,
+    visibleStudies,
     operations,
     portals,
     medicalEvents,
@@ -103,14 +104,35 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         dialogRef.current?.close();
         setExporting(false);
         setExportError(null);
+
+        if (pendingChanges.value.length || directoryWarning.value) {
+            setExportError('Sincronizá los cambios pendientes y cargá todos los registros antes de exportar.');
+            return;
+        }
+    };
+
+    const handleCancel = () => {
+        handleClose();
+    };
+
+    const getStudiesToExport = () => {
+        return visibleStudies.value;
     };
 
     const handleConfirm = async () => {
         if (sessionLost || !exporting.value) return;
         setExportError(null);
-        const blocker = getExportBlocker();
-        if (blocker) {
-            setExportError(blocker);
+
+        const studiesToExport = getStudiesToExport();
+        const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
+        if (studiesToExport.length === 0 && !hasOtherRecords) {
+            setExportError('No hay registros para exportar');
+            return;
+        }
+
+        const selectedStudies = studiesToExport.filter(s => !s.syncStatus);
+        if (selectedStudies.length !== studiesToExport.length) {
+            setExportError('No se pueden exportar estudios con cambios pendientes');
             return;
         }
 
@@ -118,17 +140,11 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             setBusy(true);
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
-            await assertExportReady(owner);
-            await assertExportToken(token);
             const snapshot = readExportSnapshot();
-            if (!Object.values(snapshot).some(records => records.length > 0)) {
-                throw new Error('No hay registros para exportar.');
+            const zip = await createExportZip(snapshot, selectedStudies, includeAttachments, includeViewerLinks, token);
+            if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
+                throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
             }
-            const zip = await createExportZip(snapshot, includeAttachments, includeViewerLinks, token);
-            await assertExportToken(token);
-            if (await driveAuth.getAccountId() !== owner) throw new Error(accountChangedMessage);
-            await assertExportReady(owner);
-            await assertExportToken(token);
             downloadBlob(zip, filename);
             handleClose();
         } catch (err) {
@@ -139,7 +155,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     };
 
     const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
-    const studyCount = studies.value.length;
+    const studyCount = getStudiesToExport().length;
     const hasRecords = studyCount > 0 || hasOtherRecords;
     const blocker = isExporting && !sessionLost ? getExportBlocker() : null;
     const message = error || expError || blocker;
@@ -246,6 +262,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
 
 async function createExportZip(
     snapshot: ReturnType<typeof readExportSnapshot>,
+    selectedStudies: { id: string; driveFileId: string; attachmentMime?: string; hasPdf: boolean; viewer?: string; title: string; date: string }[],
     includeAttachments: boolean,
     includeViewerLinks: boolean,
     token: string,

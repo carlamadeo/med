@@ -1,7 +1,15 @@
 /** Lista de estudios en formato tabla. */
-import {formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel} from '@domain/library';
+import {formatStudyDate, reportUrl, studyAttachmentLabel} from '@domain/library';
 import {isSourceUnavailable} from '../state/store';
+import {studySyncState} from '@domain/summary';
 import type {Study} from '@domain/models';
+
+const syncMeta = {
+    synced: {label: 'Sincronizado', tone: 'success', icon: 'i-check'},
+    pending: {label: 'Pendiente', tone: 'warning', icon: 'i-clock'},
+    conflict: {label: 'Conflicto', tone: 'danger', icon: 'i-alert'},
+    failed: {label: 'Sin sincronizar', tone: 'danger', icon: 'i-alert'},
+} as const;
 
 interface StudyListProps {
     onEdit: (study: Study) => void;
@@ -10,7 +18,13 @@ interface StudyListProps {
     studies: Study[];
 }
 
-export function StudyList({onEdit, onDelete, onShare, studies}: StudyListProps) {
+export function StudyList({
+                               onEdit,
+                               onDelete,
+                               onShare = () => {
+    },
+                               studies: studiesList
+                           }: StudyListProps) {
     return (
         <div className="summary-table-scroll library-table">
             <table role="table">
@@ -21,20 +35,22 @@ export function StudyList({onEdit, onDelete, onShare, studies}: StudyListProps) 
                         <th scope="col" role="columnheader">Fecha</th>
                         <th scope="col" role="columnheader">Profesional</th>
                         <th scope="col" role="columnheader">Institución</th>
+                        <th scope="col" role="columnheader">Estado</th>
                         <th scope="col" role="columnheader"><span className="sr-only">Acciones</span></th>
                     </tr>
                 </thead>
                 <tbody role="rowgroup">
-                    {studies.length === 0 ? (
+                    {studiesList.length === 0 ? (
                         <tr role="row">
-                            <td colSpan={5} role="cell">
+                            <td colSpan={6} role="cell">
                                 <div className="table-empty">
                                     <p>No hay estudios para mostrar</p>
                                 </div>
                             </td>
                         </tr>
-                    ) : studies.map((study) => {
-                        const hasAttachment = hasStudyAttachment(study);
+                    ) : studiesList.map((study) => {
+                        const state = syncMeta[studySyncState(study)];
+                        const hasAttachment = study.hasPdf || Boolean(study.attachmentMime);
                         const attachmentAvailable = hasAttachment && !isSourceUnavailable(study.driveFileId);
                         const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
                         const attachmentLabel = studyAttachmentLabel(study);
@@ -47,6 +63,11 @@ export function StudyList({onEdit, onDelete, onShare, studies}: StudyListProps) 
                                     <div className="study-cell">
                                         <span className="study-text">
                                             <span className="study-title">{study.title}</span>
+                                            <span className="study-types">
+                                                {study.types.length ? study.types.slice(0, 2).map((type) => <span className="type-badge"
+                                                                                                           key={type}>{type}</span>) :
+                                                    <span className="type-badge">Sin tipo</span>}
+                                            </span>
                                         </span>
                                     </div>
                                 </td>
@@ -60,6 +81,12 @@ export function StudyList({onEdit, onDelete, onShare, studies}: StudyListProps) 
                                 <td role="cell" className="portal-cell library-study-metadata" data-empty={!study.portal}>
                                     <span className="library-mobile-label" aria-hidden="true">Institución </span>
                                     {study.portal || '—'}
+                                </td>
+                                <td role="cell">
+                                    <span className="status-pill" data-tone={state.tone}>
+                                        <svg className="icon"><use href={`#${state.icon}`}/></svg>
+                                        {state.label}
+                                    </span>
                                 </td>
                                 <td role="cell">
                                     <div className="row-actions">

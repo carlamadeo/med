@@ -27,18 +27,18 @@ interface StudyListContainerProps {
 }
 
 export function StudyListContainer({
-                                        onEdit,
-                                        onDelete,
-                                        onShare,
-                                        onRetryLoad,
-                                        onAddStudy,
-                                        onOpenCandidate,
-                                        typesReady,
-                                        availableTypes,
-                                        offline,
-                                        directoryWarning,
-                                        pendingChangesCount
-                                    }: StudyListContainerProps) {
+                                         onEdit,
+                                         onDelete,
+                                         onShare,
+                                         onRetryLoad,
+                                         onAddStudy,
+                                         onOpenCandidate,
+                                         typesReady,
+                                         availableTypes,
+                                         offline,
+                                         directoryWarning,
+                                         pendingChangesCount
+                                     }: StudyListContainerProps) {
     const [query, setQuery] = useState('');
     const searchInput = useRef<HTMLInputElement>(null);
     const studiesList = filterStudiesByQuery(visibleStudies.value, query);
@@ -161,7 +161,8 @@ export function StudyListContainer({
                             }
                         />
                     ) : (
-                        <StudyList onEdit={onEdit} onDelete={onDelete} onShare={onShare} studies={studiesList}/>
+                        <StudyList onEdit={onEdit} onDelete={onDelete} onShare={onShare ?? (() => {
+                        })} studies={studiesList}/>
                     )}
                 </>
             )}

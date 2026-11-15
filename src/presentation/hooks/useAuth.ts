@@ -56,7 +56,7 @@ export function useAuth({
             studiesReady.value = false;
             directoriesReady.value = false;
             directoryWarning.value = false;
-            if (!signedIn) {
+if (!signedIn) {
                 setIsSignedIn(false);
                 view.value = 'cronologia';
                 categoryTypes.value = [];
