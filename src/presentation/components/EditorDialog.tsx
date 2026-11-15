@@ -46,7 +46,7 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {doctorNames, formatStudyDate, portalNames} from '@domain/library';
+import {doctorNames, formatStudyDate, portalNames, studyTypeNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect, useRef, useState} from 'preact/hooks';
@@ -528,11 +528,12 @@ export function EditorDialog({
                             <legend>Tipos de estudio</legend>
                             <p className="hint" id="types-hint">Elegí uno o varios para clasificar y filtrar en tu archivo.</p>
                             <MultiSelectCombobox
-                                options={availableTypes}
+                                options={studyTypeNames(availableTypes, studies.value)}
                                 value={types}
                                 onChange={setTypes}
-                                placeholder="Elegí tipos…"
+                                placeholder="Elegí o agregá tipos…"
                                 required
+                                allowCreate
                                 ariaDescribedBy="types-hint"
                             />
                         </fieldset>

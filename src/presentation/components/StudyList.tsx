@@ -88,15 +88,31 @@ export function StudyList({
                                 </div>
                             </td>
                         </tr>
-                    ) : studiesList.map((study) => {
+                    ) : studiesList.flatMap((study, index) => {
                         const hasAttachment = study.hasPdf || Boolean(study.attachmentMime);
                         const attachmentAvailable = hasAttachment && !isSourceUnavailable(study.driveFileId);
                         const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
                         const attachmentLabel = studyAttachmentLabel(study);
                         const pending = Boolean(study.syncStatus);
                         const canShare = hasAttachment || study.viewer || study.documentIds?.length;
+                        const isDateSorted = sortOrder === 'date-desc' || sortOrder === 'date-asc';
+                        const year = /^\d{4}/.test(study.date) ? study.date.slice(0, 4) : '';
+                        const prevStudy = index > 0 ? studiesList[index - 1] : undefined;
+                        const prevYear = prevStudy && /^\d{4}/.test(prevStudy.date) ? prevStudy.date.slice(0, 4) : '';
+                        const showYearDivider = isDateSorted && year !== '' && year !== prevYear;
 
-                        return (
+                        const rows = [];
+                        if (showYearDivider) {
+                            rows.push(
+                                <tr key={`year-${year}`} className="year-divider-row" role="row">
+                                    <td colSpan={5} role="cell">
+                                        <span className="year-divider-label">{year}</span>
+                                    </td>
+                                </tr>
+                            );
+                        }
+
+                        rows.push(
                             <tr key={study.id} role="row">
                                 <td role="cell">
                                     <div className="study-cell">
@@ -173,6 +189,7 @@ export function StudyList({
                                 </td>
                             </tr>
                         );
+                        return rows;
                     })}
                 </tbody>
             </table>

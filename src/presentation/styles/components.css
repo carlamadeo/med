@@ -585,6 +585,17 @@
     color: var(--color-brand);
 }
 
+.combobox-option.combobox-create {
+    color: var(--color-brand);
+    font-weight: var(--font-weight-medium);
+}
+
+.combobox-option-count {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
 .combobox-empty {
     padding: var(--space-3);
     font-size: var(--text-sm);

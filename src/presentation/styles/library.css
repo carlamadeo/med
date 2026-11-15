@@ -15,6 +15,16 @@
     width: min(100%, 22rem);
 }
 
+.library-type-filter {
+    min-width: 13.5rem;
+    max-width: 24rem;
+}
+
+.library-type-filter .combobox-trigger {
+    min-height: 2.75rem;
+    padding-block: 0.375rem;
+}
+
 .table-sort-button {
     display: inline-flex;
     align-items: center;
@@ -59,12 +69,6 @@
     transform: rotate(180deg);
 }
 
-#categories.library-types button {
-    min-height: 2.75rem;
-    border-radius: var(--radius-md);
-    overflow-wrap: anywhere;
-}
-
 .library-table .study-cell {
     min-width: 8rem;
 }
@@ -85,13 +89,41 @@
     display: none;
 }
 
+.library-table tbody tr.year-divider-row {
+    background: transparent;
+}
+
+.library-table tbody tr.year-divider-row:hover {
+    background: transparent;
+}
+
+.library-table tbody tr.year-divider-row td {
+    padding: 0.75rem 0 0.35rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.year-divider-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-hover);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 720px) {
     .library-toolbar {
         width: 100%;
     }
 
-    .library-search {
+    .library-search,
+    .library-type-filter {
         width: 100%;
+        max-width: none;
     }
 
     .library-table.summary-table-scroll thead,
@@ -134,6 +166,12 @@
         grid-column: 1 / -1;
         grid-row: auto;
         justify-self: start;
+    }
+
+    .library-table.summary-table-scroll tbody tr.year-divider-row td {
+        width: 100%;
+        justify-self: stretch;
+        padding: 0.75rem 0 0.35rem;
     }
 
     .library-mobile-label {

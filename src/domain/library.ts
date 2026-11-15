@@ -159,3 +159,59 @@ export function doctorNames(
     for (const extra of extraNames) addNormalizedName(names, extra);
     return sortDisplayNames(names);
 }
+
+/** Combines predefined study types with custom types already saved in studies, without duplicates. */
+export function studyTypeNames(
+    availableTypes: readonly string[],
+    studies: readonly Study[] = [],
+): string[] {
+    const names = new Map<string, string>();
+    for (const type of availableTypes) addNormalizedName(names, type);
+    for (const study of studies) {
+        for (const type of study.types) addNormalizedName(names, type);
+    }
+    return [...names.values()];
+}
+
+/** Counts how many studies use each type, ordered by frequency descending then alphabetically. */
+export function usedStudyTypeCounts(
+    studies: readonly Study[],
+    selectedTypes: readonly string[] = [],
+): { options: string[]; counts: Record<string, number> } {
+    const displayNames = new Map<string, string>();
+    const countsByKey = new Map<string, number>();
+    for (const study of studies) {
+        const seenInStudy = new Set<string>();
+        for (const raw of study.types) {
+            if (typeof raw !== 'string') continue;
+            const clean = raw.trim().replace(/\s+/g, ' ');
+            if (!clean) continue;
+            const key = normalize(clean);
+            if (!displayNames.has(key)) displayNames.set(key, clean);
+            if (!seenInStudy.has(key)) {
+                seenInStudy.add(key);
+                countsByKey.set(key, (countsByKey.get(key) ?? 0) + 1);
+            }
+        }
+    }
+    for (const raw of selectedTypes) {
+        const clean = raw.trim().replace(/\s+/g, ' ');
+        if (!clean) continue;
+        const key = normalize(clean);
+        if (!displayNames.has(key)) {
+            displayNames.set(key, clean);
+            countsByKey.set(key, 0);
+        }
+    }
+    const entries = [...displayNames.entries()].sort(([keyA, nameA], [keyB, nameB]) => {
+        const diff = (countsByKey.get(keyB) ?? 0) - (countsByKey.get(keyA) ?? 0);
+        return diff !== 0 ? diff : nameA.localeCompare(nameB, 'es', {sensitivity: 'base'});
+    });
+    const options: string[] = [];
+    const counts: Record<string, number> = {};
+    for (const [key, name] of entries) {
+        options.push(name);
+        counts[name] = countsByKey.get(key) ?? 0;
+    }
+    return {options, counts};
+}

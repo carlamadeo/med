@@ -9,7 +9,10 @@ it('clears library search and filters when another account signs in', async () =
     const search = 'input[aria-label="Buscar estudios"]';
     await act(() => {
         typeInto(search, 'Informe privado');
-        $('#categories button')?.click();
+        $('#categories [role="combobox"]')?.click();
+    });
+    await act(() => {
+        $('#categories [role="option"]:not(.combobox-search-wrapper)')?.click();
     });
 
     await act(async () => {
@@ -23,5 +26,5 @@ it('clears library search and filters when another account signs in', async () =
     await vi.waitFor(() => expect($('#library').hidden).toBe(false));
 
     expect($<HTMLInputElement>(search).value).toBe('');
-    expect($('#categories button[aria-pressed="true"]')).toBeNull();
+    expect(document.querySelector('#categories .combobox-tag')).toBeNull();
 });

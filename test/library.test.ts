@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {doctorNames, filterStudies, portalNames} from '@domain/library';
+import {doctorNames, filterStudies, portalNames, studyTypeNames} from '@domain/library';
 import type {Filters, Study} from '@domain/models';
 
 function study(id: string, over: Partial<Study> = {}): Study {
@@ -209,5 +209,15 @@ describe('doctorNames', () => {
             ['Dr. Bruno Díaz', '  ', undefined],
         );
         expect(names).toEqual(['Dr. Bruno Díaz', 'Dra. Ana Pérez']);
+    });
+});
+
+describe('studyTypeNames', () => {
+    it('combines predefined types with custom types saved in studies without duplicates', () => {
+        const names = studyTypeNames(
+            ['Ecografía', 'Laboratorio'],
+            [study('1', {types: ['ecografia', 'Resonancia magnética']})],
+        );
+        expect(names).toEqual(['Ecografía', 'Laboratorio', 'Resonancia magnética']);
     });
 });

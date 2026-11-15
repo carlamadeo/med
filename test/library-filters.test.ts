@@ -24,14 +24,18 @@ it('shows study type filters directly and filters the library', async () => {
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
     expect(root.querySelector('.library-views')).toBeNull();
-    const filter = [...root.querySelectorAll('button')].find((button) => button.textContent === 'Radiografía');
-    expect(filter).toBeDefined();
-    await act(() => filter?.click());
+    const trigger = root.querySelector<HTMLElement>('#categories [role="combobox"]')!;
+    expect(trigger).not.toBeNull();
+    await act(() => trigger.click());
+    const option = (name: string) =>
+        [...root.querySelectorAll<HTMLLIElement>('#categories [role="option"]')]
+            .find((el) => el.querySelector('span')?.textContent === name);
+    await act(() => option('Radiografía')?.click());
     expect(visibleStudies.value.map((study) => study.title)).toEqual(['Uno']);
-    expect(filter?.getAttribute('aria-pressed')).toBe('true');
+    expect(option('Radiografía')?.getAttribute('aria-selected')).toBe('true');
     expect(root.querySelector('.related-heading')?.textContent).toContain('Estudios de Radiografía');
     expect(root.querySelector('.related-heading')?.textContent).toContain('1 estudio');
-    await act(() => filter?.click());
+    await act(() => option('Radiografía')?.click());
     expect(visibleStudies.value).toHaveLength(2);
 });
 
@@ -63,8 +67,12 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     expect(titles()).toEqual(['Radiografía de tórax']);
     await searchFor('NUNEZ');
     expect(titles()).toEqual(['Radiografía de tórax', 'Ecografía renal']);
-    await act(() => button('Radiografía')?.click());
-    await act(() => button('Análisis')?.click());
+    await act(() => root.querySelector<HTMLElement>('#categories [role="combobox"]')?.click());
+    const typeOption = (name: string) =>
+        [...root.querySelectorAll<HTMLLIElement>('#categories [role="option"]')]
+            .find((el) => el.querySelector('span')?.textContent === name);
+    await act(() => typeOption('Radiografía')?.click());
+    await act(() => typeOption('Análisis')?.click());
     expect(titles()).toEqual(['Radiografía de tórax']);
 
     await searchFor('clinica sur');

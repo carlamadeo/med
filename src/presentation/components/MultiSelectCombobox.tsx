@@ -5,8 +5,12 @@ export interface MultiSelectComboboxProps {
     value: string[];
     onChange: (value: string[]) => void;
     placeholder?: string;
+    searchPlaceholder?: string;
     label?: string;
+    ariaLabel?: string;
+    optionCounts?: Record<string, number>;
     required?: boolean;
+    allowCreate?: boolean;
     ariaDescribedBy?: string;
 }
 
@@ -15,8 +19,12 @@ export function MultiSelectCombobox({
     value,
     onChange,
     placeholder = 'Elegí tipos…',
+    searchPlaceholder = 'Filtrar o escribir un tipo nuevo…',
     label,
+    ariaLabel = 'Tipos de estudio',
+    optionCounts,
     required = false,
+    allowCreate = false,
     ariaDescribedBy,
 }: MultiSelectComboboxProps) {
     const [isOpen, setIsOpen] = useState(false);
@@ -29,9 +37,16 @@ export function MultiSelectCombobox({
     const labelId = `${id}-label`;
     const listId = `${id}-list`;
 
+    const trimmedSearch = search.trim().replace(/\s+/g, ' ');
+    const normalizedSearch = trimmedSearch.toLocaleLowerCase('es');
     const filteredOptions = options.filter(opt =>
-        opt.toLowerCase().includes(search.toLowerCase())
+        opt.toLocaleLowerCase('es').includes(normalizedSearch)
     );
+    const hasExactMatch = trimmedSearch !== '' && (
+        options.some(opt => opt.toLocaleLowerCase('es') === normalizedSearch) ||
+        value.some(opt => opt.toLocaleLowerCase('es') === normalizedSearch)
+    );
+    const canCreate = allowCreate && trimmedSearch !== '' && !hasExactMatch;
 
     const toggleOption = useCallback((option: string) => {
         const newValue = value.includes(option)
@@ -39,6 +54,15 @@ export function MultiSelectCombobox({
             : [...value, option];
         onChange(newValue);
     }, [value, onChange]);
+
+    const createOption = useCallback((custom: string) => {
+        if (!custom) return;
+        if (!value.some(v => v.toLocaleLowerCase('es') === custom.toLocaleLowerCase('es'))) {
+            onChange([...value, custom]);
+        }
+        setSearch('');
+        setActiveIndex(-1);
+    }, [onChange, value]);
 
     const handleKeyDown = useCallback((event: KeyboardEvent) => {
         switch (event.key) {
@@ -86,6 +110,31 @@ export function MultiSelectCombobox({
         onChange(value.filter(v => v !== option));
     }, [value, onChange]);
 
+    const handleSearchKeyDown = useCallback((event: KeyboardEvent) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActiveIndex(prev => Math.min(prev + 1, filteredOptions.length - 1));
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActiveIndex(prev => Math.max(prev - 1, -1));
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
+                const option = filteredOptions[activeIndex];
+                if (option) toggleOption(option);
+            } else if (canCreate) {
+                createOption(trimmedSearch);
+            }
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsOpen(false);
+            setSearch('');
+            setActiveIndex(-1);
+            buttonRef.current?.focus();
+        }
+    }, [activeIndex, canCreate, createOption, filteredOptions, toggleOption, trimmedSearch]);
+
     const handleInputChange = useCallback((event: Event) => {
         const target = event.currentTarget as HTMLInputElement;
         setSearch(target.value);
@@ -126,7 +175,7 @@ export function MultiSelectCombobox({
                  aria-required={required}
                  aria-describedby={ariaDescribedBy}
                  aria-labelledby={label ? labelId : undefined}
-                 aria-label={label ? undefined : 'Tipos de estudio'}
+                 aria-label={label ? undefined : ariaLabel}
                  onClick={() => setIsOpen(!isOpen)}
                  onKeyDown={handleKeyDown}
                  tabIndex={0}
@@ -159,30 +208,44 @@ export function MultiSelectCombobox({
                     <li className="combobox-search-wrapper">
                         <input type="text"
                                className="combobox-search"
-                               placeholder="Filtrar tipos…"
+                               placeholder={searchPlaceholder}
                                value={search}
                                onInput={handleInputChange}
+                               onKeyDown={handleSearchKeyDown}
                                onClick={(e) => e.stopPropagation()}
                                ref={inputRef}
                                autoComplete="off"
-                               aria-label="Filtrar tipos de estudio"/>
+                               aria-label="Filtrar o agregar tipo de estudio"/>
                     </li>
-                    {filteredOptions.length === 0 ? (
+                    {filteredOptions.length === 0 && !canCreate ? (
                         <li className="combobox-empty" role="option" aria-disabled="true">
                             Sin coincidencias
                         </li>
                     ) : (
-                        filteredOptions.map((opt, index) => (
-                            <li key={opt}
-                                role="option"
-                                aria-selected={value.includes(opt)}
-                                aria-checked={value.includes(opt)}
-                                className={`combobox-option ${value.includes(opt) ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`}
-                                onClick={() => toggleOption(opt)}
-                                onMouseEnter={() => setActiveIndex(index)}>
-                                <span>{opt}</span>
-                            </li>
-                        ))
+                        <>
+                            {filteredOptions.map((opt, index) => (
+                                <li key={opt}
+                                    role="option"
+                                    aria-selected={value.includes(opt)}
+                                    aria-checked={value.includes(opt)}
+                                    className={`combobox-option ${value.includes(opt) ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`}
+                                    onClick={() => toggleOption(opt)}
+                                    onMouseEnter={() => setActiveIndex(index)}>
+                                    <span>{opt}</span>
+                                    {optionCounts && optionCounts[opt] !== undefined && (
+                                        <span className="combobox-option-count">{optionCounts[opt]}</span>
+                                    )}
+                                </li>
+                            ))}
+                            {canCreate && (
+                                <li role="option"
+                                    aria-selected={false}
+                                    className="combobox-option combobox-create"
+                                    onClick={() => createOption(trimmedSearch)}>
+                                    <span>+ Agregar «{trimmedSearch}»</span>
+                                </li>
+                            )}
+                        </>
                     )}
                 </ul>
             )}

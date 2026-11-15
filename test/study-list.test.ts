@@ -68,7 +68,7 @@ it('renders studies in a table with correct columns', async () => {
             studies: visibleStudies.value
         }), root);
     });
-    const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+    const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr:not(.year-divider-row)')];
     expect([...root.querySelectorAll('thead th')].map((cell) => cell.textContent)).toEqual([
         'Estudio', 'Fecha', 'Profesional', 'Institución', 'Acciones',
     ]);
@@ -178,4 +178,26 @@ it('shows a +N badge when a study has more than two types', async () => {
     const badges = [...root.querySelectorAll('.type-badge')];
     expect(badges.map((badge) => badge.textContent)).toEqual(['Laboratorio', 'Ecografía', '+2']);
     expect(badges[2]?.getAttribute('title')).toBe('Radiografía, Otro');
+});
+
+it('renders a year divider row between studies from different years when sorted by date', async () => {
+    const base = {types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    setStudies([
+        {...base, id: '1', driveFileId: '1', title: 'Estudio 2025', date: '2025-05-01'},
+        {...base, id: '2', driveFileId: '2', title: 'Estudio 2024 B', date: '2024-08-10'},
+        {...base, id: '3', driveFileId: '3', title: 'Estudio 2024 A', date: '2024-01-15'},
+        {...base, id: '4', driveFileId: '4', title: 'Estudio 2023', date: '2023-11-20'},
+    ]);
+    await act(() => render(h(StudyList, {
+        onEdit: () => {}, onDelete: () => {}, sortOrder: 'date-desc', studies: visibleStudies.value,
+    }), root));
+
+    const dividers = [...root.querySelectorAll('.year-divider-row')].map((row) => row.textContent?.trim());
+    expect(dividers).toEqual(['2025', '2024', '2023']);
+
+    // When sorted by title, year dividers are not shown
+    await act(() => render(h(StudyList, {
+        onEdit: () => {}, onDelete: () => {}, sortOrder: 'title', studies: visibleStudies.value,
+    }), root));
+    expect(root.querySelectorAll('.year-divider-row')).toHaveLength(0);
 });

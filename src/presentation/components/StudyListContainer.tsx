@@ -83,9 +83,9 @@ export function StudyListContainer({
                                     onInput={(event) => setQuery(event.currentTarget.value)}
                                 />
                             </div>
+                            <LibraryTabs availableTypes={availableTypes}/>
                         </div>
                     </div>
-                    <LibraryTabs availableTypes={availableTypes}/>
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (
                         <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
                     )}

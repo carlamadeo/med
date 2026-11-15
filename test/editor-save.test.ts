@@ -244,3 +244,38 @@ it('suggests previously saved doctors and closes the dropdown on selection', asy
     render(null, root);
     root.remove();
 });
+
+it('allows creating and selecting a custom study type', async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const root = document.createElement('div');
+    document.body.append(root);
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {}, onSave: save, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio']
+    }), root));
+    await act(() => {
+        setEditingStudy(null);
+        setEditorOpen(true);
+    });
+
+    const trigger = root.querySelector<HTMLElement>('#study-types [role="combobox"]')!;
+    await act(() => trigger.click());
+
+    const searchInput = root.querySelector<HTMLInputElement>('.combobox-search')!;
+    await act(() => {
+        searchInput.value = 'Polisomnografía';
+        searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+    });
+
+    const createOption = root.querySelector<HTMLLIElement>('.combobox-create');
+    expect(createOption?.textContent).toContain('+ Agregar «Polisomnografía»');
+
+    await act(() => createOption!.click());
+
+    const tags = [...root.querySelectorAll('.combobox-tag')].map((tag) => tag.textContent?.trim());
+    expect(tags).toContain('Polisomnografía');
+
+    setEditorOpen(false);
+    render(null, root);
+    root.remove();
+});

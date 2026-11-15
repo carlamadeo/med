@@ -1,22 +1,28 @@
-import {categoryTypes} from '../state/store';
+import {usedStudyTypeCounts} from '@domain/library';
+import {categoryTypes, studies} from '../state/store';
+import {MultiSelectCombobox} from './MultiSelectCombobox';
 
 interface LibraryTabsProps {
-    availableTypes: string[];
+    availableTypes?: string[];
 }
 
-export function LibraryTabs({availableTypes}: LibraryTabsProps) {
+export function LibraryTabs(_props: LibraryTabsProps) {
+    const {options, counts} = usedStudyTypeCounts(studies.value, categoryTypes.value);
+    if (options.length === 0) return null;
+
     return (
-        <div id="categories" className="library-types" role="group" aria-label="Filtrar por tipo de estudio">
-            {availableTypes.map((type) => (
-                <button key={type} type="button" aria-pressed={categoryTypes.value.includes(type)}
-                        onClick={() => {
-                            categoryTypes.value = categoryTypes.value.includes(type)
-                                ? categoryTypes.value.filter((item) => item !== type)
-                                : [...categoryTypes.value, type];
-                        }}>
-                    {type}
-                </button>
-            ))}
+        <div id="categories" className="library-type-filter">
+            <MultiSelectCombobox
+                options={options}
+                optionCounts={counts}
+                value={categoryTypes.value}
+                onChange={(next) => {
+                    categoryTypes.value = next;
+                }}
+                placeholder="Todos los tipos"
+                searchPlaceholder="Buscar tipo…"
+                ariaLabel="Filtrar por tipo de estudio"
+            />
         </div>
     );
 }
