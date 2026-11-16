@@ -31,6 +31,7 @@ export const isFolderPickerOpen = signal(false);
 
 export const offline = signal(!navigator.onLine);
 export const directoryWarning = signal(false);
+export const directoryFailures = signal<string[]>([]);
 
 // ------------------------------------------------------------------
 // Acciones - UI

@@ -11,6 +11,7 @@ import {
 import type {Study, ViewMode} from '@domain/models';
 import {
     error,
+    directoryFailures,
     isSourceUnavailable,
     loading,
     offline,
@@ -32,6 +33,7 @@ interface ResumenProps {
     onShare: (study: Study) => void;
     onNavigate: (view: ViewMode) => void;
     onRetryLoad: () => void;
+    onRetryDirectories: () => void;
 }
 
 const syncMeta = {
@@ -56,6 +58,7 @@ export function Resumen({
                             onShare,
                             onNavigate,
                             onRetryLoad,
+                            onRetryDirectories,
                         }: ResumenProps) {
     const [printing, setPrinting] = useState<Study | null>(null);
     const all = visibleStudies.value;
@@ -412,6 +415,12 @@ export function Resumen({
                                 <dd>{conflicts}</dd>
                             </div>
                         </dl>
+                        {directoryFailures.value.length > 0 && (
+                            <div className="sync-alert" role="status" data-tone="warning">
+                                <p>No se pudieron cargar: {directoryFailures.value.join(', ')}</p>
+                                <button className="button secondary button-sm" type="button" onClick={onRetryDirectories}>Reintentar carga</button>
+                            </div>
+                        )}
                         {offline.value ? (
                             <p className="sync-alert" data-tone="warning">
                                 <svg className="icon">
@@ -426,14 +435,14 @@ export function Resumen({
                                 </svg>
                                 {pending.length} {pending.length === 1 ? 'cambio espera' : 'cambios esperan'} sincronización.
                             </p>
-                        ) : (
+                        ) : directoryFailures.value.length === 0 ? (
                             <p className="sync-alert" data-tone="success">
                                 <svg className="icon">
                                     <use href="#i-check"/>
                                 </svg>
                                 Todo sincronizado con Drive.
                             </p>
-                        )}
+                        ) : null}
                         {pending.length > 0 && (
                             <button
                                 className="button secondary button-sm sync-action"

@@ -15,7 +15,8 @@ import type {
     ViewMode,
     Filters
 } from '@domain/models';
-import type {StudySortOrder} from '@domain/library';
+import {filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
+import {normalize} from '@domain/utils';
 import {pendingChanges} from './outboxStore';
 
 export interface IntakeCandidate {
@@ -41,6 +42,9 @@ export const appointments = signal<Appointment[]>([]);
 export const view = signal<ViewMode>('resumen');
 export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
+export const libraryQuery = signal('');
+export const libraryPortal = signal('');
+export const libraryOperation = signal<{id: string; name: string} | null>(null);
 
 // Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
 export const unavailableSources = signal<Set<string>>(new Set());
@@ -84,6 +88,23 @@ export const visibleStudies = computed<Study[]>(() => {
     }
     return result;
 });
+
+export const libraryHasFilters = computed(() => Boolean(libraryQuery.value.trim() || libraryPortal.value || libraryOperation.value || categoryTypes.value.length));
+export const filteredStudies = computed(() => {
+    const items = visibleStudies.value.filter(study =>
+        (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
+        (!libraryOperation.value || study.operationId === libraryOperation.value.id)
+    );
+    return sortStudies(filterStudiesByQuery(items, libraryQuery.value), sortOrder.value);
+});
+
+export function resetLibraryFilters(): void {
+    libraryQuery.value = '';
+    libraryPortal.value = '';
+    libraryOperation.value = null;
+    categoryTypes.value = [];
+    sortOrder.value = 'date-desc';
+}
 
 export const visibleOperations = computed<Operation[]>(() => {
     const result = [...operations.value];

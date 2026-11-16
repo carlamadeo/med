@@ -23,10 +23,23 @@ export function FolderPickerDialog() {
     useFocusTrap(dialogRef, open);
 
     useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored && !currentFolderId) {
-            setApprovedFolderId(stored);
-        }
+        let generation = 0;
+        const restore = (signedIn: boolean) => {
+            const current = ++generation;
+            setApprovedFolderId(null);
+            if (!signedIn) return;
+            void driveAuth.getAccountId().then(owner => {
+                if (generation !== current) return;
+                const stored = localStorage.getItem(`${STORAGE_KEY}:${owner}`);
+                if (stored) setApprovedFolderId(stored);
+            }).catch(() => {});
+        };
+        const unsubscribe = driveAuth.onAuthChange(restore);
+        if (driveAuth.isSignedIn()) restore(true);
+        return () => {
+            generation += 1;
+            unsubscribe();
+        };
     }, []);
 
     const loadFolders = async () => {
@@ -83,13 +96,19 @@ export function FolderPickerDialog() {
 
     const handleSave = async () => {
         if (!selectedId) return;
-        localStorage.setItem(STORAGE_KEY, selectedId);
+        const owner = driveAuth.cachedAccountId();
+        if (!owner) {
+            setError('Conectate primero para verificar tu cuenta.');
+            return;
+        }
+        localStorage.setItem(`${STORAGE_KEY}:${owner}`, selectedId);
         setApprovedFolderId(selectedId);
         setOpen(false);
     };
 
     const handleClear = () => {
-        localStorage.removeItem(STORAGE_KEY);
+        const owner = driveAuth.cachedAccountId();
+        if (owner) localStorage.removeItem(`${STORAGE_KEY}:${owner}`);
         setApprovedFolderId(null);
         setSelectedId(null);
         setOpen(false);
@@ -103,10 +122,10 @@ export function FolderPickerDialog() {
                 type="button"
                 className="button quiet sidebar-folder-button"
                 onClick={handleOpen}
-                title="Configurar carpeta de intake"
+                title="Configurar carpeta de entrada"
             >
                 <svg className="icon" aria-hidden="true"><use href="#i-folder"/></svg>
-                <span>Carpeta de intake</span>
+                <span>Carpeta de entrada</span>
             </button>
 
             <dialog
@@ -121,7 +140,7 @@ export function FolderPickerDialog() {
             >
                 <div className="dialog-heading">
                     <div>
-                        <p className="eyebrow">Intake asistido</p>
+                        <p className="eyebrow">Bandeja de entrada</p>
                         <h2 id="folder-picker-title">Carpeta de documentos</h2>
                     </div>
                     <button className="icon-button" type="button" aria-label="Cerrar" onClick={() => setOpen(false)}>

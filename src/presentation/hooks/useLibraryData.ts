@@ -6,7 +6,7 @@ import {
 import {
     isSignedIn, deletingStudyId, isEditorOpen, setLoading, setError, setIsSignedIn,
     setStudies, operations, portals, medicalEvents, episodes, appointments, directoryWarning,
-    studiesReady, directoriesReady,
+    studiesReady, directoriesReady, directoryFailures,
 } from '../state/store';
 
 export function useLibraryData() {
@@ -60,7 +60,12 @@ export function useLibraryData() {
         if (eventResult.status === 'fulfilled') medicalEvents.value = eventResult.value;
         if (episodeResult.status === 'fulfilled') episodes.value = episodeResult.value;
         if (appointmentResult.status === 'fulfilled') appointments.value = appointmentResult.value;
-        directoryWarning.value = operationResult.status === 'rejected' || portalResult.status === 'rejected' || eventResult.status === 'rejected' || episodeResult.status === 'rejected' || appointmentResult.status === 'rejected';
+        const results: Array<[string, PromiseSettledResult<unknown>]> = [
+            ['Operaciones', operationResult], ['Portales', portalResult],
+            ['Consultas y recetas', eventResult], ['Episodios', episodeResult], ['Turnos', appointmentResult],
+        ];
+        directoryFailures.value = results.filter(([, result]) => result.status === 'rejected').map(([name]) => name);
+        directoryWarning.value = directoryFailures.value.length > 0;
         directoriesReady.value = !directoryWarning.value;
     }, []);
 

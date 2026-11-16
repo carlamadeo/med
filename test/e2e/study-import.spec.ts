@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import {navigateTo} from './nav';
 
 test('allows reviewing a batch containing a PDF and an invalid file', async ({page}) => {
     await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
@@ -20,12 +21,23 @@ test('allows reviewing a batch containing a PDF and an invalid file', async ({pa
     const xref = Buffer.byteLength(pdf);
     pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
     await page.goto('/');
+    await navigateTo(page, 'cronologia');
     await page.getByRole('button', {name: 'Importar estudios'}).click();
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
     await dialog.locator('input[type=file]').setInputFiles([{name: 'estudio.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf)}, {name: 'incorrecto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid')}]);
     await expect(dialog.getByText('No se pudo abrir el PDF.')).toBeVisible();
     await expect(dialog.getByLabel('Fecha').first()).toHaveValue('2020-03-18');
     await expect(dialog.getByText('1 estudios listos para guardar')).toBeVisible();
+    for (const width of [320, 390]) {
+        await page.setViewportSize({width, height: 700});
+        for (const theme of ['light', 'dark']) {
+            if (await page.locator('html').getAttribute('data-theme') !== theme) {
+                await page.getByRole('button', {name: /Cambiar a modo/}).click({force: true});
+            }
+            await expect(dialog.getByRole('button', {name: 'Guardar estudios seleccionados'})).toBeInViewport();
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        }
+    }
 });
 
 test('saves the complete multipage PDF in the selected account', async ({page, browserName}) => {
@@ -75,6 +87,7 @@ test('saves the complete multipage PDF in the selected account', async ({page, b
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
+    await navigateTo(page, 'cronologia');
     await page.getByRole('button', {name: 'Importar estudios'}).click();
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
     const second = Buffer.concat([original, Buffer.from('\n')]);

@@ -5,7 +5,9 @@ import {
     setExporting,
     setExportError,
     studies,
-    visibleStudies,
+    filteredStudies,
+    libraryHasFilters,
+    view,
     operations,
     portals,
     medicalEvents,
@@ -20,6 +22,7 @@ import {
 import {useFocusTrap} from '../utils/focusTrap';
 import {driveAuth, driveStudyRepo, DriveSessionError} from '@data';
 import {Outbox} from '@data/outbox';
+import {selectExportSnapshot, type ExportScope, type ExportSnapshot} from '@domain/export-scope';
 
 const outbox = new Outbox();
 const pendingMessage = 'Sincronizá los cambios pendientes antes de exportar.';
@@ -46,7 +49,7 @@ async function assertExportToken(token: string): Promise<void> {
     if (await driveAuth.getAccessToken() !== token) throw new Error(accountChangedMessage);
 }
 
-function readExportSnapshot() {
+function readExportSnapshot(): ExportSnapshot {
     return {
         studies: studies.value,
         operations: operations.value,
@@ -81,6 +84,7 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const previewRef = useRef('');
     const isExporting = exporting.value;
     const expError = exportError.value;
 
@@ -88,6 +92,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     const [includeViewerLinks, setIncludeViewerLinks] = useState(true);
     const [filename, setFilename] = useState(`mis-estudios-${formatDateForFilename()}.zip`);
     const [busy, setBusy] = useState(false);
+    const [scope, setScope] = useState<ExportScope>('all');
 
     useFocusTrap(dialogRef, isExporting);
 
@@ -95,6 +100,9 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         const element = dialogRef.current;
         if (!element) return;
         if (isExporting && !element.open) {
+            const initialScope = (view.value === 'cronologia' || view.value === 'categoria') && libraryHasFilters.value ? 'filtered' : 'all';
+            setScope(initialScope);
+            previewRef.current = JSON.stringify([readExportSnapshot(), initialScope === 'filtered' ? filteredStudies.value : null]);
             element.showModal();
             element.querySelector<HTMLElement>('#export-title')?.focus();
         } else if (!isExporting && element.open) element.close();
@@ -112,16 +120,22 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
     };
 
     const getStudiesToExport = () => {
-        return visibleStudies.value;
+        return scope === 'filtered' ? filteredStudies.value : studies.value;
     };
 
     const handleConfirm = async () => {
         if (sessionLost || !exporting.value) return;
         setExportError(null);
 
+        const signature = JSON.stringify([readExportSnapshot(), scope === 'filtered' ? filteredStudies.value : null]);
+        if (previewRef.current !== signature) {
+            previewRef.current = signature;
+            setExportError('Los datos cambiaron. Revisá la selección y volvé a confirmar.');
+            return;
+        }
         const studiesToExport = getStudiesToExport();
         const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
-        if (studiesToExport.length === 0 && !hasOtherRecords) {
+        if (studiesToExport.length === 0 && (scope === 'filtered' || !hasOtherRecords)) {
             setExportError('No hay registros para exportar');
             return;
         }
@@ -132,13 +146,14 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             return;
         }
 
+        const current = readExportSnapshot();
+        const snapshot = selectExportSnapshot(current, scope, new Set(selectedStudies.map(study => study.id)));
         try {
             setBusy(true);
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
             await assertExportReady(owner);
-            const snapshot = readExportSnapshot();
-            const zip = await createExportZip(snapshot, selectedStudies, includeAttachments, includeViewerLinks, token);
+            const zip = await createExportZip(snapshot, scope, includeAttachments, includeViewerLinks, token);
             await assertExportReady(owner);
             if (await driveAuth.getAccessToken() !== token || await driveAuth.getAccountId() !== owner) {
                 throw new Error('La cuenta cambió durante la exportación. Volvé a intentarlo.');
@@ -154,7 +169,9 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
 
     const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
     const studyCount = getStudiesToExport().length;
-    const hasRecords = studyCount > 0 || hasOtherRecords;
+    const hasRecords = studyCount > 0 || (scope === 'all' && hasOtherRecords);
+    const preview = selectExportSnapshot(readExportSnapshot(), scope, new Set(filteredStudies.value.map(study => study.id)));
+    const attachmentCount = preview.studies.filter(study => study.hasPdf || study.attachmentMime).length;
     const blocker = isExporting && !sessionLost ? getExportBlocker() : null;
     const message = error || expError || blocker;
 
@@ -200,7 +217,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <span className="export-summary-icon"><svg className="icon"><use href="#i-download"/></svg></span>
                     <div>
                         <strong>{studyCount} {studyCount === 1 ? 'estudio' : 'estudios'}</strong>
-                        <span>{hasOtherRecords ? 'Incluye operaciones, portales, consultas, recetas, episodios y turnos.' : 'Se descargará un archivo ZIP con el manifiesto y los documentos seleccionados.'}</span>
+                        <span>{includeAttachments ? attachmentCount : 0} archivos adjuntos · {preview.operations.length} operaciones · {preview.portals.length} portales · {preview.medicalEvents.length} consultas y recetas · {preview.episodes.length} episodios · {preview.appointments.length} turnos.</span>
                     </div>
                 </div>
 
@@ -208,13 +225,17 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <legend>Qué exportar</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="radio" name="export-scope" value="all" checked/>
-                            <span>Todos los estudios <small>{studyCount}</small></span>
+                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'} onChange={() => { setScope('all'); previewRef.current = JSON.stringify([readExportSnapshot(), null]); }}/>
+                            <span>Todos los estudios <small>{studies.value.length}</small></span>
                         </label>
+                        {libraryHasFilters.value && (view.value === 'cronologia' || view.value === 'categoria') && <label className="export-option">
+                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'} onChange={() => { setScope('filtered'); previewRef.current = JSON.stringify([readExportSnapshot(), filteredStudies.value]); }}/>
+                            <span>Resultados filtrados <small>{filteredStudies.value.length}</small></span>
+                        </label>}
                     </div>
                 </fieldset>
 
-                <p className="export-note">La exportación incluye todos los estudios y sus entidades relacionadas.</p>
+                <p className="export-note">{scope === 'all' ? 'La exportación incluye todos los estudios y sus entidades relacionadas.' : 'Incluye los estudios filtrados y los registros vinculados directamente.'}</p>
 
                 <fieldset className="export-section" disabled={busy || sessionLost}>
                     <legend>Contenido a incluir</legend>
@@ -233,7 +254,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                             <svg className="icon">
                                 <use href="#i-external"/>
                             </svg>
-                            <span>Enlaces a visores</span>
+                            <span>Enlaces a visores y portales</span>
                         </label>
                     </div>
                 </fieldset>
@@ -259,8 +280,8 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
 }
 
 async function createExportZip(
-    snapshot: ReturnType<typeof readExportSnapshot>,
-    selectedStudies: { id: string; driveFileId: string; attachmentMime?: string; hasPdf: boolean; viewer?: string; title: string; date: string }[],
+    snapshot: ExportSnapshot,
+    scope: ExportScope,
     includeAttachments: boolean,
     includeViewerLinks: boolean,
     token: string,
@@ -270,7 +291,7 @@ async function createExportZip(
 
     const manifest = {
         version: 1,
-        scope: 'all',
+        scope,
         exportedAt: new Date().toISOString(),
         totalStudies: snapshot.studies.length,
         studies: snapshot.studies.map(s => ({
@@ -307,7 +328,7 @@ async function createExportZip(
         id: p.id,
         name: p.name,
         displayName: p.displayName,
-        url: p.url,
+        url: includeViewerLinks ? p.url : '',
         notes: p.notes,
     }));
     zip.file('portals.json', JSON.stringify(portalsList, null, 2));

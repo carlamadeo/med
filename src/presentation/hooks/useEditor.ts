@@ -547,6 +547,7 @@ export function useEditor({
             revision: currentStudy?.revision || undefined,
             operationId: fields.operationId,
             documentIds: fields.documentIds,
+            intakeSourceId: currentStudy?.intakeSourceId,
         });
     }, [checkingReport, draft, onSave]);
 

@@ -1,10 +1,11 @@
 import {expect, test} from '@playwright/test';
 
 test('the application shell reloads offline without caching Drive responses', async ({page, context}) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.evaluate(async () => {
         await navigator.serviceWorker.ready;
     });
+    expect(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL)).toContain('/med/sw.js');
     await page.reload();
     await expect(page.getByRole('heading', {name: 'Mis estudios', level: 1})).toBeVisible();
     expect(await page.evaluate(async () => (await fetch('./vendor/pdf/pdf.min.mjs')).ok)).toBe(true);

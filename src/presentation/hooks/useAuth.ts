@@ -13,7 +13,8 @@ import {
     studiesReady,
     directoriesReady,
     directoryWarning,
-    categoryTypes,
+    directoryFailures,
+    resetLibraryFilters,
     isEditorOpen,
     deletingStudyId,
     view,
@@ -56,10 +57,11 @@ export function useAuth({
             studiesReady.value = false;
             directoriesReady.value = false;
             directoryWarning.value = false;
+            directoryFailures.value = [];
 if (!signedIn) {
                 setIsSignedIn(false);
                 view.value = 'cronologia';
-                categoryTypes.value = [];
+                resetLibraryFilters();
                 setApprovedFolderId(null);
                 setIntakeCandidates([]);
                 setIntakeError(null);

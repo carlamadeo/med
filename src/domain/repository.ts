@@ -71,4 +71,5 @@ export interface DriveFileMetadata {
     reportName: string;
     operationId?: string;
     documentIds?: string[];
+    intakeSourceId?: string;
 }

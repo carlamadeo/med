@@ -1,4 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
+import {reserveIntakeDestination, clearIntakeReservation, hasIntakeReservation} from '../utils/intakeReservation';
 /**
  * Página principal: lista de estudios, filtros, editor y borrado.
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
@@ -180,7 +181,9 @@ export function LibraryPage() {
     })) {
         pendingId.current = '';
         const owner = driveAuth.cachedAccountId();
-        editorOwner.current = owner ? Promise.resolve(owner) : driveAuth.getAccountId().catch(() => null);
+        editorOwner.current = isLocalDemo.value
+            ? Promise.resolve(null)
+            : owner ? Promise.resolve(owner) : driveAuth.getAccountId().catch(() => null);
         setEditorError(null);
         setSessionLost(false);
         if (studyOrDraft && '_candidateId' in studyOrDraft) {
@@ -188,19 +191,20 @@ export function LibraryPage() {
             setEditingStudy({
                 ...studyOrDraft,
                 id: `pending-${Date.now()}`,
-                title: studyOrDraft._candidateName || '',
-                date: todayLocal(),
-                types: [],
-                doctor: '',
-                portal: '',
-                viewer: '',
-                reportName: '',
+                intakeSourceId: studyOrDraft._candidateId,
+                title: studyOrDraft.title ?? studyOrDraft._candidateName ?? '',
+                date: studyOrDraft.date ?? todayLocal(),
+                types: studyOrDraft.types ?? [],
+                doctor: studyOrDraft.doctor ?? '',
+                portal: studyOrDraft.portal ?? '',
+                viewer: studyOrDraft.viewer ?? '',
+                reportName: studyOrDraft.reportName ?? '',
                 hasPdf: true,
                 driveFileId: '',
                 driveModifiedTime: '',
                 revision: '',
-                operationId: '',
-                documentIds: [],
+                operationId: studyOrDraft.operationId ?? '',
+                documentIds: studyOrDraft.documentIds ?? [],
                 syncStatus: undefined,
                 pendingAttachment: true,
             } as Study);
@@ -274,6 +278,10 @@ export function LibraryPage() {
             const pendingOwner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             const pending = pendingOwner ? await outbox.list(pendingOwner) : [];
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+            if (draft.intakeSourceId && pending.some(item => item.kind === 'save' && item.draft?.intakeSourceId === draft.intakeSourceId)) {
+                setEditorError('Este documento ya tiene un cambio pendiente de sincronización.');
+                return;
+            }
             if (draft.driveFileId && pending.some((item) => item.studyId === draft.driveFileId)) {
                 setEditorError('Este estudio ya tiene un cambio pendiente.');
                 setSaving(false);
@@ -296,22 +304,49 @@ export function LibraryPage() {
                     setSaving(false);
                     return;
                 }
-                await enqueueOffline(owner, () => outbox.enqueueSave(owner, draft), token);
+                await enqueueOffline(owner, async () => {
+                    const current = await outbox.list(owner);
+                    if (draft.intakeSourceId && current.some(item => item.kind === 'save' && item.draft?.intakeSourceId === draft.intakeSourceId)) {
+                        throw new Error('Este documento ya tiene un cambio pendiente de sincronización.');
+                    }
+                    await outbox.enqueueSave(owner, draft);
+                }, token);
                 const queued = await outbox.list(owner);
                 if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
                 pendingChanges.value = queued;
                 setEditorOpen(false);
                 return;
             }
-            if (!draft.driveFileId) {
-                const id = pendingId.current || await driveStudyRepo.reserveId();
+            const save = async () => {
                 if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
-                pendingId.current = id;
-                draft.id = pendingId.current;
-            }
+                if (draft.intakeSourceId && pendingOwner) {
+                    const queued = await outbox.list(pendingOwner);
+                    if (queued.some(item => item.kind === 'save' && item.draft?.intakeSourceId === draft.intakeSourceId)) {
+                        throw new Error('Este documento ya tiene un cambio pendiente de sincronización.');
+                    }
+                    if (!hasIntakeReservation(pendingOwner, draft.intakeSourceId)) {
+                        const existing = (await driveStudyRepo.list({force: true})).find(study => study.intakeSourceId === draft.intakeSourceId);
+                        if (existing) return existing;
+                        const deleted = await driveStudyRepo.listDeleted();
+                        if (deleted.some(study => study.recoverable && study.intakeSourceId === draft.intakeSourceId)) {
+                            throw new Error('Este informe ya fue importado y está en la papelera. Usá Recuperar informe para restaurarlo.');
+                        }
+                    }
+                    draft.id = await reserveIntakeDestination(pendingOwner, draft.intakeSourceId, draft, () => driveStudyRepo.reserveId());
+                } else if (!draft.driveFileId) {
+                    const id = pendingId.current || await driveStudyRepo.reserveId();
+                    if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+                    pendingId.current = id;
+                    draft.id = id;
+                }
+                if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+                return driveStudyRepo.save(draft);
+            };
+            const saved = draft.intakeSourceId && pendingOwner && navigator.locks
+                ? await navigator.locks.request(`mis-estudios-outbox:${pendingOwner}`, save)
+                : await save();
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
-            const saved = await driveStudyRepo.save(draft);
-            if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+            if (draft.intakeSourceId && pendingOwner) clearIntakeReservation(pendingOwner, draft.intakeSourceId);
             invalidateStudies();
             setStudies([...studies.value.filter((item) => item.id !== saved.id), saved]);
             pendingId.current = '';
@@ -416,9 +451,9 @@ export function LibraryPage() {
                             <strong>Modo local de prueba:</strong> Estás probando la app sin conexión a Google Drive. Podés crear, ver, ordenar y filtrar estudios libremente.
                         </aside>
                     )}
-                    <LibraryIntro onAddStudy={() => openEditor(null)} isSignedIn={isSignedIn.value}
-                                  typesReady={typesReady} summary={isSignedIn.value && view.value === 'resumen'}/>
-                    {isSignedIn.value && !isLocalDemo.value && <button type="button" className="button secondary" onClick={() => setImportOpen(true)}>Importar estudios</button>}
+                    <LibraryIntro onAddStudy={() => openEditor(null)} onImport={() => setImportOpen(true)}
+                                  isSignedIn={isSignedIn.value} isLocalDemo={isLocalDemo.value}
+                                  typesReady={typesReady} view={view.value}/>
                     <section id="library" aria-label="Biblioteca"
                              className={view.value === 'resumen' ? 'library library-resumen' : 'library'}
                              hidden={!isSignedIn.value}>
@@ -433,6 +468,7 @@ export function LibraryPage() {
                                     view.value = next;
                                 }}
                                 onRetryLoad={() => void loadStudies(true)}
+                                onRetryDirectories={() => void loadDirectories()}
                             />
                         ) : (
                             <StudyListContainer

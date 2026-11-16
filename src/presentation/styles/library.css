@@ -522,3 +522,36 @@
     padding-block: var(--space-4);
     background: var(--color-surface);
 }
+
+.mobile-study-actions {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .library-table .row-actions .desktop-study-action {
+        display: none;
+    }
+
+    .mobile-study-actions {
+        display: block;
+        position: relative;
+    }
+
+    .mobile-study-actions summary {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .mobile-study-menu {
+        display: grid;
+        gap: 0.25rem;
+        padding: 0.5rem;
+    }
+
+    .mobile-study-menu button {
+        min-height: 44px;
+        text-align: left;
+    }
+}

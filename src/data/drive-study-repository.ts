@@ -32,6 +32,7 @@ export class DriveStudyRepository implements StudyRepository {
             revision: study.revision,
             operationId: study.operationId,
             documentIds: study.documentIds,
+            intakeSourceId: study.intakeSourceId,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
@@ -54,6 +55,7 @@ export class DriveStudyRepository implements StudyRepository {
             revision: record.revision,
             operationId: record.operationId,
             documentIds: documentAssociationIds(record.documentIds, record.id),
+            intakeSourceId: record.intakeSourceId,
         };
     }
 
@@ -142,6 +144,7 @@ export class DriveStudyRepository implements StudyRepository {
             reportName,
             operationId: draft.operationId ?? existing?.operationId ?? '',
             documentIds,
+            intakeSourceId: draft.intakeSourceId ?? existing?.intakeSourceId,
         };
         const description = JSON.stringify(payload);
         const extension = documentMime === 'image/jpeg' ? '.jpg' : documentMime === 'image/png' ? '.png' : documentMime === 'application/pdf' ? '.pdf' : '.json';
@@ -240,7 +243,8 @@ export class DriveStudyRepository implements StudyRepository {
         date: string;
         deletedAt: string;
         revision: string;
-        recoverable: boolean
+        recoverable: boolean;
+        intakeSourceId?: string
     }>> {
         const token = await this.client.getAccessToken();
         const owner = await this.cacheOwner();
@@ -250,7 +254,8 @@ export class DriveStudyRepository implements StudyRepository {
             date: string;
             deletedAt: string;
             revision: string;
-            recoverable: boolean
+            recoverable: boolean;
+            intakeSourceId?: string
         }> = [];
         if (!navigator.onLine) {
             const cached = await storage.readSessionDirectory<typeof result[number]>(owner, 'deletedStudiesCache');
@@ -275,6 +280,7 @@ export class DriveStudyRepository implements StudyRepository {
                     title: study.title,
                     date: study.date,
                     revision: study.revision,
+                    intakeSourceId: study.intakeSourceId,
                     deletedAt,
                     recoverable: isRecoverable(deletedAt)
                 });

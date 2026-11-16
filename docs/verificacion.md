@@ -9,13 +9,13 @@ interfaz cuando el cambio llegue a ella.
 - **Sesión y caché.** Verificá que una cuenta distinta o sin verificar no acceda a la copia anterior. Incluí
   cierre de sesión y restauración en la misma pestaña. Si cambia IndexedDB, probá la migración desde el formato
   anterior. [Identidad de la caché](../test/cache-owner-verification.test.ts) ·
-  [Verificación de cuenta](../test/app-owner-verification.test.ts) ·
+  [Verificación de cuenta](../test/cache-owner-verification.test.ts) ·
   [Migración](../test/storage-migration.test.ts)
 - **Cola y conflictos.** Probá una mutación sin conexión y la reconexión con la misma cuenta. Según el cambio,
   comprobá un reintento con el mismo ID, una revisión que queda obsoleta mientras se revisa el conflicto y un
-  navegador sin Web Locks. Para sincronización en navegador, usá `npm run test:outbox`.
+  navegador sin Web Locks. Para sincronización en navegador, usá `npm run test:outbox`. El escenario guarda una ficha sin conexión, verifica que queda pendiente y comprueba una única subida al reconectar y recargar.
   [Cola](../test/outbox.test.ts) · [Reintento](../test/save-retry.test.ts) ·
-  [Revisión obsoleta](../test/app-conflict-stale.test.ts) · [Bloqueo de encolado](../test/enqueue-offline.test.ts)
+  [Conflictos de turno](../test/app-appointment-conflict.test.ts) · [Bloqueo de encolado](../test/enqueue-offline.test.ts)
 - **Recuperación.** Comprobá eliminación, elegibilidad y restauración para la entidad afectada. Si modificás la
   recuperación sin conexión, verificá también el paso por la cola y la revisión remota al reconectar.
   [Recuperación por entidad](../test/directory-recovery.test.ts) · [Ventana](../test/recovery-window.test.ts) ·
@@ -37,7 +37,7 @@ y la descarga con directorios incompletos son brechas pendientes de corrección.
 
 - **Editor.** Probá cancelar la lectura, reemplazar el archivo durante el análisis y cerrar o cambiar de sesión.
   Comprobá que los resultados tardíos se descarten y que las sugerencias respeten los campos editados a mano.
-  [Editor y análisis](../test/app-analysis.test.ts) · [Cancelación de subida](../test/upload-cancellation.test.ts)
+  [Análisis de PDF](../test/extract.test.ts) · [Cancelación de subida](../test/upload-cancellation.test.ts)
 - **Workers.** Ejecutá `npm run test:e2e -- test/e2e/pdf-worker.spec.ts` para probar texto, OCR y cancelación en
   navegador. [Pruebas de workers](../test/e2e/pdf-worker.spec.ts)
 - **Caché y subruta.** Para cambios de Vite, workers o service worker, ejecutá `npm run test:offline` y comprobá
@@ -51,7 +51,7 @@ y la descarga con directorios incompletos son brechas pendientes de corrección.
 
 Para filtros y orden, empezá con `npx vitest run test/library.test.ts test/search.test.ts` y comprobá la vista que
 consume los resultados. Para cambios de navegación, foco o lista virtualizada, usá
-`npx playwright test --config playwright.outbox.config.ts test/e2e/navigation.spec.ts --project=chromium`.
+`npm run test:e2e -- test/e2e/shell.spec.ts`.
 `npm run test:a11y` cubre infracciones serias y críticas en varias vistas y el editor. Revisá el contraste
-en el navegador si cambia el diseño. [Prueba de navegación](../test/e2e/navigation.spec.ts) ·
+en el navegador si cambia el diseño. [Prueba de navegación](../test/e2e/shell.spec.ts) ·
 [Pruebas de accesibilidad](../test/a11y.test.ts)

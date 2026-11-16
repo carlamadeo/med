@@ -117,3 +117,100 @@ it('filters candidates by file name', async () => {
     await vi.waitFor(() => expect(root.textContent).not.toContain('informe-laboratorio.pdf'));
     expect(root.textContent).toContain('receta-completa.pdf');
 });
+
+it('actualiza la lista desde Drive al solicitar una actualización', async () => {
+    const candidate = {id: 'new', name: 'nuevo.pdf', mimeType: 'application/pdf', modifiedTime: '2024-01-01', size: 8, status: 'new' as const};
+    const list = vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValueOnce([]).mockResolvedValueOnce([candidate]);
+    document.body.append(root);
+    approvedFolderId.value = 'folder';
+    await act(() => render(h(IntakeCandidates, {onOpenEditor: vi.fn()}), root));
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    await act(() => [...root.querySelectorAll('button')].find(button => button.textContent?.includes('Actualizar'))!.click());
+    await vi.waitFor(() => expect(root.textContent).toContain('nuevo.pdf'));
+});
+
+it('muestra el nombre y tamaño devueltos por Drive aunque la descripción sea texto libre', async () => {
+    const {DriveIntakeRepository} = await import('@data/drive-intake-repository');
+    const {storage} = await import('@core/storage');
+    vi.spyOn(storage, 'readSessionDirectory').mockResolvedValue(null);
+    const request = vi.fn().mockResolvedValue({json: async () => ({files: [{id: 'one', name: 'estudio.pdf', description: 'descripción libre', mimeType: 'application/pdf', size: '624', modifiedTime: '2024-01-01'}]})});
+    const client = {cacheOwner: async () => 'owner', request, url: (_base: string, _path: string, params: Record<string, string>) => {
+        expect(params.fields).toContain('name');
+        expect(params.fields).toContain('size');
+        return 'https://example.com';
+    }};
+    const repo = new DriveIntakeRepository(client as never);
+    await expect(repo.listCandidates('folder')).resolves.toEqual([expect.objectContaining({name: 'estudio.pdf', size: 624})]);
+});
+
+it('verifica una reserva antigua contra el estudio guardado en Drive', async () => {
+    const {driveStudyRepo} = await import('@data');
+    const {studies} = await import('@presentation/state/store');
+    const candidate = {id: 'source-old', name: 'informe.pdf', mimeType: 'application/pdf', modifiedTime: '2024-01-01', size: 8, status: 'new' as const};
+    const study = {id: 'reserved-old', driveFileId: 'reserved-old', intakeSourceId: candidate.id, title: 'Informe guardado', date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: 'informe.pdf', hasPdf: true, driveModifiedTime: '', revision: '1'};
+    localStorage.setItem('mis-estudios:intake-reservation:owner:source-old', JSON.stringify({id: 'reserved-old', fingerprint: 'old'}));
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('owner');
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate]);
+    vi.spyOn(driveStudyRepo, 'list').mockResolvedValue([study]);
+    const open = vi.fn();
+    document.body.append(root);
+    approvedFolderId.value = 'folder';
+    await act(() => render(h(IntakeCandidates, {onOpenEditor: open}), root));
+    await vi.waitFor(() => expect(root.textContent).toContain('Verificar y reintentar'));
+    await act(() => [...root.querySelectorAll('button')].find(button => button.textContent === 'Verificar y reintentar')!.click());
+    await vi.waitFor(() => expect(studies.value.some(item => item.id === 'reserved-old')).toBe(true));
+    expect(localStorage.getItem('mis-estudios:intake-reservation:owner:source-old')).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+    studies.value = [];
+});
+
+it('conserva la reserva y no abre el editor si cambia la cuenta al verificar Drive', async () => {
+    const {driveStudyRepo} = await import('@data');
+    const {studies} = await import('@presentation/state/store');
+    const candidate = {id: 'source-switch', name: 'informe.pdf', mimeType: 'application/pdf', modifiedTime: '2024-01-01', size: 8, status: 'new' as const};
+    const reservationKey = 'mis-estudios:intake-reservation:first:source-switch';
+    localStorage.setItem(reservationKey, JSON.stringify({id: 'reserved', fingerprint: 'old'}));
+    let account = 'first';
+    vi.spyOn(driveAuth, 'cachedAccountId').mockImplementation(() => account);
+    vi.spyOn(driveAuth, 'getAccessToken').mockImplementation(async () => account);
+    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate]);
+    let finish!: (value: Awaited<ReturnType<typeof driveStudyRepo.list>>) => void;
+    const list = vi.spyOn(driveStudyRepo, 'list').mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const open = vi.fn();
+    document.body.append(root);
+    approvedFolderId.value = 'folder';
+    await act(() => render(h(IntakeCandidates, {onOpenEditor: open}), root));
+    await vi.waitFor(() => expect(root.textContent).toContain('Verificar y reintentar'));
+    await act(() => [...root.querySelectorAll('button')].find(button => button.textContent === 'Verificar y reintentar')!.click());
+    await vi.waitFor(() => expect(list).toHaveBeenCalled());
+    account = 'second';
+    await act(async () => finish([{id: 'reserved', driveFileId: 'reserved', intakeSourceId: candidate.id, title: 'Informe', date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]));
+    expect(localStorage.getItem(reservationKey)).not.toBeNull();
+    expect(studies.value.some(study => study.id === 'reserved')).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+    localStorage.removeItem(reservationKey);
+});
+
+it('no confirma una ficha cuyo origen difiere del archivo reservado', async () => {
+    const {driveStudyRepo} = await import('@data');
+    const {studies} = await import('@presentation/state/store');
+    const candidate = {id: 'source-mismatch', name: 'informe.pdf', mimeType: 'application/pdf', modifiedTime: '2024-01-01', size: 8, status: 'new' as const};
+    const reservationKey = 'mis-estudios:intake-reservation:owner:source-mismatch';
+    localStorage.setItem(reservationKey, JSON.stringify({id: 'reserved-mismatch', fingerprint: 'old'}));
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('owner');
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate]);
+    vi.spyOn(driveStudyRepo, 'list').mockResolvedValue([{id: 'reserved-mismatch', driveFileId: 'reserved-mismatch', intakeSourceId: 'otro', title: 'Otro informe', date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]);
+    vi.spyOn(driveIntakeRepo, 'getPdfFile').mockResolvedValue(new File(['PDF'], 'informe.pdf', {type: 'application/pdf'}));
+    const open = vi.fn();
+    document.body.append(root);
+    approvedFolderId.value = 'folder';
+    await act(() => render(h(IntakeCandidates, {onOpenEditor: open}), root));
+    await vi.waitFor(() => expect(root.textContent).toContain('Verificar y reintentar'));
+    await act(() => [...root.querySelectorAll('button')].find(button => button.textContent === 'Verificar y reintentar')!.click());
+    await vi.waitFor(() => expect(open).toHaveBeenCalled());
+    expect(localStorage.getItem(reservationKey)).not.toBeNull();
+    expect(studies.value.some(study => study.id === 'reserved-mismatch')).toBe(false);
+    localStorage.removeItem(reservationKey);
+});

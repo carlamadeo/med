@@ -9,10 +9,10 @@ export class DriveIntakeRepository {
     private parseCandidate(file: DriveFileResponse): IntakeCandidate {
         return {
             id: file.id,
-            name: file.description ? JSON.parse(file.description).title || file.name : file.name,
+            name: file.name || 'Informe.pdf',
             mimeType: file.mimeType,
             modifiedTime: file.modifiedTime ?? '',
-            size: 0, // Drive doesn't return size in list, would need separate call
+            size: Number(file.size) || 0,
             status: 'new',
         };
     }
@@ -49,13 +49,13 @@ export class DriveIntakeRepository {
         return candidates;
     }
 
-    async getPdfFile(fileId: string): Promise<File> {
+    async getPdfFile(fileId: string, name = 'informe.pdf'): Promise<File> {
         const response = await this.client.request(
             this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(fileId)}`, {alt: 'media'})
         );
         const blob = await response.blob();
-        return new File([blob], 'informe.pdf', {type: 'application/pdf'});
+        return new File([blob], name, {type: 'application/pdf'});
     }
 }
 
-const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';
+const ENTRY_FIELDS = 'id,name,description,version,modifiedTime,mimeType,trashed,appProperties';

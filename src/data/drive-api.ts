@@ -24,6 +24,7 @@ export interface DriveFileResponse {
     description: string;
     version: string;
     modifiedTime?: string;
+    size?: string;
     mimeType: string;
     trashed: boolean;
     appProperties?: Record<string, string>;
@@ -366,6 +367,7 @@ export class DriveClient {
             revision: file.version,
             operationId: typeof entry.operationId === 'string' ? entry.operationId : '',
             documentIds: documentAssociationIds(entry.documentIds, file.id),
+            intakeSourceId: typeof entry.intakeSourceId === 'string' ? entry.intakeSourceId : undefined,
         };
     }
 
