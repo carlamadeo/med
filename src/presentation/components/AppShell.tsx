@@ -118,7 +118,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
         {
             label: 'Archivo',
             items: [
-                {label: 'Intake asistido', icon: 'i-scan', view: 'intake'},
+                {label: 'Bandeja de entrada', icon: 'i-scan', view: 'intake'},
                 {label: 'Exportar historia', icon: 'i-download', action: 'export'},
             ],
         },

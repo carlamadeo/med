@@ -255,3 +255,44 @@ it('keeps the dialog open without downloading if a selected attachment is unavai
     expect(createUrl).not.toHaveBeenCalled();
     expect(root.querySelector('dialog')?.open).toBe(true);
 });
+
+it('exports only filtered studies and directly related records', async () => {
+    const store = await import('@presentation/state/store');
+    store.view.value = 'cronologia';
+    store.libraryPortal.value = 'Clínica Norte';
+    setStudies([
+        study('one', {portal: 'Clinica Norte', hasPdf: true, operationId: 'op', documentIds: ['two']}),
+        study('two', {portal: 'Otra', hasPdf: true}),
+    ]);
+    operations.value = [{id: 'op', name: 'Operación', color: '', studyIds: []}];
+    portals.value = [{id: 'p', name: 'Clínica Norte', displayName: 'Norte', url: 'https://example.com'}];
+    medicalEvents.value = [
+        {id: 'linked', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['one', 'two'], documentIds: ['two'], revision: '1'},
+        {id: 'other', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['two'], documentIds: [], revision: '1'},
+    ];
+    const getPdf = vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['contenido'], 'informe.pdf', {type: 'application/pdf'}));
+    const createUrl = captureDownload();
+    await openDialog();
+    expect(root.querySelector<HTMLInputElement>('input[value=filtered]')?.checked).toBe(true);
+    await submit();
+    const zip = await downloadedZip(createUrl);
+    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({scope: 'filtered', totalStudies: 1, studies: [{id: 'one', documentIds: []}]});
+    expect(JSON.parse(await zip.file('medical-events.json')!.async('text'))).toMatchObject([{id: 'linked', studyIds: ['one'], documentIds: []}]);
+    expect(zip.file('pdfs/two.pdf')).toBeNull();
+    expect(getPdf).toHaveBeenCalledOnce();
+    store.resetLibraryFilters();
+    store.view.value = 'resumen';
+});
+
+it('requires confirmation again if records change while the export dialog is open', async () => {
+    setStudies([study('one')]);
+    const createUrl = captureDownload();
+    await openDialog();
+    await act(() => setStudies([study('one'), study('two')]));
+    await submit();
+    expect(createUrl).not.toHaveBeenCalled();
+    expect(root.querySelector('#export-error')?.textContent).toContain('Los datos cambiaron');
+    await submit();
+    const zip = await downloadedZip(createUrl);
+    expect(JSON.parse(await zip.file('manifest.json')!.async('text')).totalStudies).toBe(2);
+});

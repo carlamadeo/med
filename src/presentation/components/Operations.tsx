@@ -4,7 +4,7 @@ import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from 
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import type {Operation, OperationDraft, Study} from '@domain/models';
-import {operations, visibleOperations, studies, view} from '../state/store';
+import {operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
@@ -383,6 +383,8 @@ export function Operations() {
                                 <button className="button ghost button-sm" type="button"
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => {
+                                            resetLibraryFilters();
+                                            libraryOperation.value = {id: operation.id, name: operation.name};
                                             view.value = 'cronologia';
                                         }}>Ver estudios
                                 </button>
@@ -434,13 +436,13 @@ export function Operations() {
 
                 <fieldset disabled={busy}>
                     <div className="operation-form-grid">
-                        <label>Nombre <input id="operation-name" name="name" required maxLength={120}
+                        <label>Nombre (obligatorio) <input id="operation-name" name="name" required maxLength={120}
                                              defaultValue={editing?.name ?? ''}/></label>
-                        <label>Fecha <input id="operation-date" name="date" type="date" required
+                        <label>Fecha (obligatoria) <input id="operation-date" name="date" type="date" required
                                             defaultValue={editing?.date ?? ''}/></label>
                         <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
                         <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
-                        <label className="wide">Procedimiento <input id="operation-type" name="type" required
+                        <label className="wide">Procedimiento (obligatorio) <input id="operation-type" name="type" required
                                                                      defaultValue={editing?.type ?? ''}/></label>
                         <label className="wide">Notas <textarea name="notes"
                                                                 defaultValue={editing?.notes ?? ''}/></label>

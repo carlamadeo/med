@@ -87,6 +87,9 @@ export function MultiSelectCombobox({
                 }
                 break;
             case 'Escape':
+                if (!isOpen) break;
+                event.preventDefault();
+                event.stopPropagation();
                 setIsOpen(false);
                 setSearch('');
                 setActiveIndex(-1);

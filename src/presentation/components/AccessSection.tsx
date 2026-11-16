@@ -60,7 +60,7 @@ export function AccessSection({onConnect, onEnterDemo, error, bootFailed, config
                     </span>
                     <div>
                         <strong>100% privado y en tu nube</strong>
-                        <p>Los datos y archivos residen exclusivamente en tu cuenta personal de Google Drive.</p>
+                        <p>Tus archivos se guardan en Google Drive. La aplicación conserva una copia de las fichas y los cambios pendientes en este navegador.</p>
                     </div>
                 </div>
                 <div className="access-feature-item">
@@ -78,7 +78,7 @@ export function AccessSection({onConnect, onEnterDemo, error, bootFailed, config
                     </span>
                     <div>
                         <strong>Disponible sin conexión</strong>
-                        <p>Consultá tu historial médico y abrí los últimos estudios guardados incluso sin internet.</p>
+                        <p>Consultá la última copia de tus fichas y guardá cambios pendientes. Abrir informes y visores puede requerir conexión.</p>
                     </div>
                 </div>
             </div>

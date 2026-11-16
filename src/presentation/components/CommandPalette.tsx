@@ -5,6 +5,9 @@ import {normalizeSearch, searchArchive} from '@domain/search';
 import {
     portals,
     setExporting,
+    resetLibraryFilters,
+    libraryQuery,
+    libraryPortal,
     setRecoveringStudyId,
     visibleAppointments,
     visibleStudies,
@@ -105,6 +108,8 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
             label: `Buscar «${query.trim()}» en la biblioteca`,
             icon: 'i-search',
             run: () => {
+                resetLibraryFilters();
+                libraryQuery.value = query.trim();
                 onNavigate('cronologia');
                 close();
             },
@@ -138,6 +143,8 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
             hint: result.portal?.url ?? result.subtitle,
             icon: 'i-globe',
             run: () => {
+                resetLibraryFilters();
+                libraryPortal.value = result.portal?.name ?? '';
                 onNavigate('cronologia');
                 close();
             },

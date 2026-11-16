@@ -386,7 +386,7 @@ export function Appointments() {
                     </span>
                   </div>
                   <p className="appointment-card-meta">
-                    {item.time} · {item.timeZone}
+                    {item.time} · {TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ?? item.timeZone}
                   </p>
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   <AppointmentStudyList studyIds={item.studyIds} />

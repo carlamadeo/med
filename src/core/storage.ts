@@ -25,6 +25,7 @@ interface StudyRecord {
     revision: string;
     operationId?: string;
     documentIds?: string[];
+    intakeSourceId?: string;
     createdAt: number;
     updatedAt: number;
 }

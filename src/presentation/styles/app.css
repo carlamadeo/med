@@ -1200,3 +1200,13 @@ input::file-selector-button {
         scroll-behavior: auto !important;
     }
 }
+
+.intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.intro-actions[hidden] {
+    display: none;
+}

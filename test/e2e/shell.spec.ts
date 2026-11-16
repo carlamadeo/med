@@ -166,6 +166,8 @@ test('revisa estudios relacionados e impresión con teclado y conserva el tema',
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
+    const more = library.getByText('Más acciones', {exact: true}).first();
+    if (await more.isVisible()) await more.click();
     const edit = library.getByRole('button', {name: 'Editar Mamografía bilateral'});
     await edit.focus();
     await page.keyboard.press('Enter');
@@ -207,6 +209,7 @@ test('mantiene Biblioteca utilizable en un ancho de 320 píxeles', async ({page}
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     await expect(page.getByRole('searchbox', {name: 'Buscar estudios'})).toBeVisible();
+    await page.getByText('Más acciones', {exact: true}).first().click();
     await expect(page.getByRole('button', {name: 'Compartir Mamografía bilateral'})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -252,6 +255,8 @@ test('abre y cierra formularios y acciones del archivo', async ({page}) => {
         await expect(page.locator(dialog!)).toBeHidden();
     }
     await navigateTo(page, 'cronologia');
+    const more = page.getByText('Más acciones', {exact: true}).first();
+    if (await more.isVisible()) await more.click();
     await page.getByRole('button', {name: 'Compartir Mamografía bilateral'}).click();
     await expect(page.locator('#share')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -294,4 +299,28 @@ test('muestra registros largos completos en las secciones secundarias', async ({
         expect(await title.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe('ellipsis');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
+});
+
+test('Escape cierra el selector de tipos y conserva el borrador', async ({page}) => {
+    await page.goto('/');
+    await page.getByRole('button', {name: 'Agregar estudio'}).click();
+    const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
+    await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Borrador de prueba');
+    const types = editor.getByRole('combobox', {name: 'Tipos de estudio'});
+    await types.click();
+    await expect(types).toHaveAttribute('aria-expanded', 'true');
+    await types.press('Escape');
+    await expect(editor).toBeVisible();
+    await expect(types).toHaveAttribute('aria-expanded', 'false');
+    await expect(editor.getByRole('textbox', {name: 'Nombre del estudio'})).toHaveValue('Borrador de prueba');
+});
+
+test('el modo local conserva la biblioteca al cancelar el editor', async ({page}) => {
+    await page.goto('/');
+    await page.getByRole('button', {name: 'Salir'}).click();
+    await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await page.getByRole('button', {name: 'Agregar estudio'}).click();
+    await page.getByRole('dialog', {name: 'Agregar estudio'}).getByRole('button', {name: 'Cancelar'}).click();
+    await expect(page.getByRole('region', {name: 'Biblioteca'})).toBeVisible();
+    await expect(page.getByText('Ecografía abdominal completa')).toBeVisible();
 });

@@ -33,6 +33,10 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(root.textContent).toContain('dos.pdf');
+    const saved = save.mock.results[0]!.value;
+    const savedStudy = await saved;
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [savedStudy], onSaved}), root));
+    expect(root.textContent).not.toContain('Posible duplicado de uno');
 });
 
 it('retries an uncertain save using the same ID and unchanged draft', async () => {
@@ -111,7 +115,7 @@ it('selects only ready rows and requires confirmation for normalized library mat
     expect(root.textContent).toContain('Posible duplicado de');
     const confirmation = [...root.querySelectorAll('label')].find(label => label.textContent?.includes('Posible duplicado'))!.querySelector('input')!;
     await act(() => { confirmation.click(); });
-    const select = [...root.querySelectorAll('button')].find(button => button.textContent === 'Seleccionar listas')!;
+    const select = [...root.querySelectorAll('button')].find(button => button.textContent === 'Seleccionar estudios listos')!;
     await act(() => { select.click(); });
     const sections = [...root.querySelectorAll('section.form-section')];
     expect(sections.map(section => section.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked)).toEqual([true, false, false]);
@@ -143,4 +147,28 @@ it('hides a batch on disconnect and restores it only for the same account', asyn
     await act(async () => { notify(true); });
     await vi.waitFor(() => expect(root.textContent).toContain('Elegí los PDF'));
     expect(root.textContent).not.toContain('privado.pdf');
+});
+
+it('allows removing an invalid PDF without removing the other rows', async () => {
+    document.body.append(root);
+    vi.spyOn(driveAuth, 'cachedAccountId').mockReturnValue('account');
+    vi.spyOn(analysis, 'validateDocument').mockImplementation(async file => {
+        if (file instanceof File && file.name === 'invalido.pdf') throw new Error('invalid');
+        return 'application/pdf';
+    });
+    vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
+    const good = new File(['a'], 'valido.pdf', {type: 'application/pdf'});
+    Object.defineProperty(good, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
+    const invalid = new File(['x'], 'invalido.pdf', {type: 'application/pdf'});
+    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved: vi.fn()}), root));
+    const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', {configurable: true, value: [good, invalid]});
+    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('No se pudo abrir el PDF.'));
+    const remove = [...root.querySelectorAll('button')].find(button => button.textContent === 'Quitar invalido.pdf')!;
+    await act(() => { remove.click(); });
+    expect(root.textContent).not.toContain('invalido.pdf');
+    expect(root.textContent).toContain('valido.pdf');
+    expect(root.textContent).toContain('1 estudios listos para guardar');
 });

@@ -15,6 +15,7 @@ export interface Study {
     revision: string;
     operationId?: string;
     documentIds?: string[];
+    intakeSourceId?: string;
     syncStatus?: 'pending' | 'conflict' | 'failed';
     pendingAttachment?: boolean;
 }
@@ -38,6 +39,7 @@ export interface StudyDraft {
     revision?: string;
     operationId?: string;
     documentIds?: string[];
+    intakeSourceId?: string;
 }
 
 export interface MedicalEvent {

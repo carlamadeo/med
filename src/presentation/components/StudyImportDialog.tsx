@@ -154,28 +154,31 @@ export function StudyImportDialog({open, onClose, studies, onSaved}: Props) {
         if (rowsRef.current.some(row => row.status !== 'saved') && !window.confirm('¿Descartar los estudios pendientes de esta tanda?')) return;
         clear(); onClose();
     };
-    return <dialog ref={dialog} className="dialog" aria-labelledby="import-title" onCancel={event => {event.preventDefault(); close();}}>
-        <div className="dialog-heading"><h2 id="import-title">Importar estudios</h2><button type="button" onClick={close}>Cerrar</button></div>
+    return <dialog ref={dialog} className="dialog study-import-dialog" aria-labelledby="import-title" onCancel={event => {event.preventDefault(); close();}}>
+        <div className="dialog-heading"><h2 id="import-title">Importar estudios</h2><button className="button quiet" type="button" onClick={close}>Cerrar</button></div>
         {sessionVisible ? <div onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); if (!saving && event.dataTransfer?.files) void add(event.dataTransfer.files);}}>
-            <label>Elegí los PDF <input type="file" accept="application/pdf,.pdf" multiple disabled={saving} onChange={event => {const input = event.currentTarget; if (input.files) void add(input.files); input.value = '';}} /></label>
+            <label className="study-import-file-label">Elegí los PDF <input type="file" accept="application/pdf,.pdf" multiple disabled={saving} onChange={event => {const input = event.currentTarget; if (input.files) void add(input.files); input.value = '';}} /></label>
             <p>También podés arrastrar los PDF aquí.</p>
-            <div className="form-grid-2"><label>Institución <input value={institution} onInput={event => setInstitution(event.currentTarget.value)} /></label><button type="button" disabled={saving} onClick={() => update(current => current.map(row => row.selected && row.status !== 'saved' && !row.submitted ? {...row, draft: {...row.draft, portal: institution}} : row))}>Aplicar a seleccionados</button></div>
-            <button type="button" disabled={saving || !rows.some(ready)} onClick={() => update(current => current.map(row => ({...row, selected: ready(row)})))}>Seleccionar listas</button>
-            {rows.map(row => <section key={row.key} className="form-section">
+            <div className="form-grid-2"><label>Institución <input value={institution} onInput={event => setInstitution(event.currentTarget.value)} /></label><button className="button secondary" type="button" disabled={saving} onClick={() => update(current => current.map(row => row.selected && row.status !== 'saved' && !row.submitted ? {...row, draft: {...row.draft, portal: institution}} : row))}>Aplicar a seleccionados</button></div>
+            <button className="button secondary" type="button" disabled={saving || !rows.some(ready)} onClick={() => update(current => current.map(row => ({...row, selected: ready(row)})))}>Seleccionar estudios listos</button>
+            {rows.map(row => <section key={row.key} className="form-section study-import-row" aria-label={row.file.name}>
                 <label><input type="checkbox" checked={row.selected} disabled={saving || row.status === 'saved'} onChange={event => patch(row.key, {selected: event.currentTarget.checked})} /> {row.file.name}</label>
                 <p role="status">{row.message}{identical(row) ? ' Archivo idéntico a otro de esta tanda.' : ''}</p>
                 {row.status !== 'error' && row.status !== 'waiting' && row.status !== 'reading' && <button type="button" onClick={() => {const url = URL.createObjectURL(new Blob([row.file], {type: 'application/pdf'})); previewUrls.current.push(url); window.open(url, '_blank', 'noopener,noreferrer');}}>Abrir PDF</button>}
-                {duplicate(row) && <label><input type="checkbox" checked={row.duplicateConfirmed === duplicate(row)?.id} onChange={event => patch(row.key, {duplicateConfirmed: event.currentTarget.checked ? duplicate(row)?.id ?? '' : ''})} /> Posible duplicado de {duplicate(row)?.title}. Confirmar que es otro estudio.</label>}
-                <fieldset disabled={saving || row.status === 'saved' || Boolean(row.submitted)}>
+                {row.status === 'error' && <button className="button quiet" type="button" disabled={saving} onClick={() => update(current => current.filter(item => item.key !== row.key))}>Quitar {row.file.name}</button>}
+                {row.status !== 'saved' && !row.submitted && duplicate(row) && <label><input type="checkbox" checked={row.duplicateConfirmed === duplicate(row)?.id} onChange={event => patch(row.key, {duplicateConfirmed: event.currentTarget.checked ? duplicate(row)?.id ?? '' : ''})} /> Posible duplicado de {duplicate(row)?.title}. Confirmar que es otro estudio.</label>}
+                {row.status !== 'saved' && <fieldset disabled={saving || Boolean(row.submitted)}>
                     <label>Nombre <input value={row.draft.title} onInput={event => edit(row, {title: event.currentTarget.value})} /></label>
                     <label>Fecha <input type="date" value={row.draft.date} onInput={event => edit(row, {date: event.currentTarget.value})} /></label>
                     <label>Tipo <input value={row.draft.types.join(', ')} onInput={event => edit(row, {types: event.currentTarget.value.split(',').map(value => value.trim()).filter(Boolean)})} /></label>
                     <label>Profesional <input value={row.draft.doctor} onInput={event => edit(row, {doctor: event.currentTarget.value})} /></label>
                     <label>Institución <input value={row.draft.portal} onInput={event => edit(row, {portal: event.currentTarget.value})} /></label>
-                </fieldset>
+                </fieldset>}
             </section>)}
-            <p>{rows.filter(row => row.selected && (ready(row) || row.status === 'uncertain')).length} estudios listos para guardar</p>
-            <button type="button" disabled={saving || !rows.some(row => row.selected && (ready(row) || row.status === 'uncertain'))} onClick={() => void save()}>{saving ? 'Guardando…' : 'Guardar estudios seleccionados'}</button>
+            <div className="study-import-footer">
+                <p>{rows.filter(row => row.selected && (ready(row) || row.status === 'uncertain')).length} estudios listos para guardar</p>
+                <button className="button primary" type="button" disabled={saving || !rows.some(row => row.selected && (ready(row) || row.status === 'uncertain'))} onClick={() => void save()}>{saving ? 'Guardando…' : 'Guardar estudios seleccionados'}</button>
+            </div>
         </div> : <p>Volvé a conectar la misma cuenta para continuar.</p>}
     </dialog>;
 }

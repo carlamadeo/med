@@ -558,3 +558,23 @@ describe('DriveStudyRepository', () => {
         expect(await storage.isStale()).toBe(true);
     });
 });
+
+it('conserva el identificador del documento de origen al editar y recargar', async () => {
+    await driveAuth.signOut();
+    await driveAuth.signIn();
+    const created = await driveStudyRepo.save({...baseDraft, intakeSourceId: 'source-pdf'} as typeof baseDraft);
+    expect(created).toMatchObject({intakeSourceId: 'source-pdf'});
+    const updated = await driveStudyRepo.save({...baseDraft, driveFileId: created.id, revision: created.revision});
+    expect(updated).toMatchObject({intakeSourceId: 'source-pdf'});
+    expect((await driveStudyRepo.list({force: true})).find(study => study.id === created.id)).toMatchObject({intakeSourceId: 'source-pdf'});
+});
+
+it('mantiene el origen de un estudio eliminado y recuperado', async () => {
+    await driveAuth.signOut();
+    await driveAuth.signIn();
+    const saved = await driveStudyRepo.save({...baseDraft, intakeSourceId: 'origen-papelera'});
+    await driveStudyRepo.delete(saved.id, saved.revision);
+    const deleted = (await driveStudyRepo.listDeleted()).find(item => item.id === saved.id)!;
+    expect(deleted).toMatchObject({intakeSourceId: 'origen-papelera', recoverable: true});
+    expect(await driveStudyRepo.restore(saved.id, deleted.revision)).toMatchObject({intakeSourceId: 'origen-papelera'});
+});
