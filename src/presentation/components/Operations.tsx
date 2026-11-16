@@ -3,8 +3,10 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
+import {formatStudyDate} from '@domain/library';
 import type {Operation, OperationDraft, Study} from '@domain/models';
-import {operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
+import {isLocalDemo, operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
+import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
@@ -44,6 +46,8 @@ export function Operations() {
     const [pendingDelete, setPendingDelete] = useState<Operation | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
+    useFocusTrap(dialogRef, formOpen);
+
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
@@ -52,11 +56,13 @@ export function Operations() {
     }, [formOpen]);
 
     const openNew = () => {
+        setMessage('');
         setEditing(null);
         setFormOpen(true);
     };
 
     const openEdit = (operation: Operation) => {
+        setMessage('');
         setEditing(operation);
         setFormOpen(true);
     };
@@ -64,6 +70,11 @@ export function Operations() {
     const closeForm = () => {
         setFormOpen(false);
         setEditing(null);
+    };
+
+    const cancelForm = () => {
+        setMessage('');
+        closeForm();
     };
 
     async function save(form: HTMLFormElement) {
@@ -93,6 +104,27 @@ export function Operations() {
         }
         if (!draft.type?.trim()) {
             setMessage('Ingresá el procedimiento.');
+            setBusy(false);
+            return;
+        }
+
+        if (isLocalDemo.value) {
+            const saved: Operation = {
+                id: draft.id || `demo-op-${Date.now()}`,
+                name: draft.name,
+                studyIds: editing?.studyIds ?? [],
+                color: '',
+                date: draft.date,
+                surgeon: draft.surgeon,
+                institution: draft.institution,
+                type: draft.type,
+                notes: draft.notes,
+                revision: '1',
+            };
+            operations.value = [...operations.value.filter((op) => op.id !== saved.id), saved];
+            setEditing(null);
+            form.reset();
+            setFormOpen(false);
             setBusy(false);
             return;
         }
@@ -156,6 +188,11 @@ export function Operations() {
         setMessage('');
 
         try {
+            if (isLocalDemo.value) {
+                operations.value = operations.value.filter((item) => item.id !== op.id);
+                setMessage('Operación eliminada.');
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = await getOwner();
             if (!owner) {
@@ -203,6 +240,11 @@ export function Operations() {
         setMessage('');
 
         try {
+            if (isLocalDemo.value) {
+                studies.value = studies.value.map((item) => item.id === study.id ? {...item, operationId} : item);
+                setMessage('Estudio actualizado.');
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = await getOwner();
             if (!owner) {
@@ -279,13 +321,13 @@ export function Operations() {
                 <div>
                     <p className="eyebrow">Ficha</p>
                     <h2 id="operation-detail-title">{detail.name}</h2>
-                    <p className="operation-meta">{[detail.date, detail.surgeon, detail.institution, detail.type].filter(Boolean).join(' · ')}</p>
+                    <p className="operation-meta">{[detail.date ? formatStudyDate(detail.date) : '', detail.surgeon, detail.institution, detail.type].filter(Boolean).join(' · ')}</p>
                 </div>
                 <span className="count-badge">{linkedCount} {linkedCount === 1 ? 'estudio' : 'estudios'}</span>
             </div>
 
             {detail.notes && <p className="operation-notes">{detail.notes}</p>}
-            {message && <p className="operation-message" role="alert">{message}</p>}
+            {!formOpen && message && <p className="operation-message" role="alert">{message}</p>}
 
             <div className="linked-head">
                 <h3>Estudios vinculados</h3>
@@ -303,7 +345,7 @@ export function Operations() {
                                 <input type="checkbox" data-study-id={study.id} checked={linked} disabled={busy}
                                        onChange={(event) => void setLink(study, event.currentTarget.checked ? detail.id : '')}/>
                                 <span className="linked-title">{study.title}</span>
-                                <time className="linked-date" dateTime={study.date}>{study.date}</time>
+                                <time className="linked-date" dateTime={study.date}>{formatStudyDate(study.date)}</time>
                                 {other && <span className="tag">Otra operación</span>}
                             </label>
                         </li>;
@@ -345,7 +387,7 @@ export function Operations() {
             </label>
         </div>
 
-        {message && <p className="operation-message" role="alert">{message}</p>}
+        {!formOpen && message && <p className="operation-message" role="alert">{message}</p>}
 
         {visible.length ? (
             <ul id="operations-list" className="operation-grid">
@@ -416,7 +458,12 @@ export function Operations() {
         )}
 
         <dialog ref={dialogRef} id="operation-dialog" className="dialog operation-dialog"
-                aria-labelledby="operation-dialog-title" onClose={closeForm}>
+                aria-labelledby="operation-dialog-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!busy) cancelForm();
+                }}
+                onClose={closeForm}>
             <form id="operation-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
                 event.preventDefault();
                 void save(event.currentTarget);
@@ -426,7 +473,7 @@ export function Operations() {
                         <p className="eyebrow">Historial</p>
                         <h2 id="operation-dialog-title">{editing ? 'Editar operación' : 'Agregar operación'}</h2>
                     </div>
-                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm}
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={cancelForm}
                             disabled={busy}>
                         <svg className="icon">
                             <use href="#i-close"/>
@@ -447,12 +494,13 @@ export function Operations() {
                         <label className="wide">Notas <textarea name="notes"
                                                                 defaultValue={editing?.notes ?? ''}/></label>
                     </div>
+                    {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                     <div className="dialog-actions">
-                        <button className="button secondary" type="button" onClick={closeForm}
+                        <button className="button secondary" type="button" onClick={cancelForm}
                                 disabled={busy}>Cancelar
                         </button>
                         <button className="button primary" type="submit"
-                                disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar operación'}</button>
+                                disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar operación'}</button>
                     </div>
                 </fieldset>
             </form>

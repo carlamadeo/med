@@ -3,15 +3,21 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, todayLocal} from '@domain/utils';
+import {formatStudyDate} from '@domain/library';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
-import {episodes, visibleEpisodes} from '../state/store';
+import {episodes, isLocalDemo, visibleEpisodes} from '../state/store';
+import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
 const COMMON_SYMPTOMS = ['dolor de panza', 'fiebre', 'dolor de cuerpo', 'dolor de cabeza'];
 
+let nextFormKey = 0;
+const createKey = () => `ep-item-${++nextFormKey}`;
+
 interface FormObservation {
+    _key: string;
     date: string;
     text: string;
     temperature?: number;
@@ -19,12 +25,14 @@ interface FormObservation {
 }
 
 interface FormSymptomEntry {
+    _key: string;
     name: string;
     intensity?: number;
     description?: string;
 }
 
 interface FormMedication {
+    _key: string;
     name: string;
     frequency?: string;
     instructions?: string;
@@ -32,18 +40,29 @@ interface FormMedication {
 
 function createEmptyObservation(): FormObservation {
     return {
+        _key: createKey(),
         date: todayLocal(),
         text: '',
         symptoms: [],
-    } as FormObservation;
+    };
+}
+
+function createEmptyMedication(): FormMedication {
+    return {
+        _key: createKey(),
+        name: '',
+        frequency: '',
+        instructions: '',
+    };
 }
 
 function toFormObservation(obs: SymptomObservation): FormObservation {
     return {
+        _key: createKey(),
         date: obs.date,
         text: obs.text,
         temperature: obs.temperature,
-        symptoms: obs.symptoms.map(s => ({name: s.name, intensity: s.intensity, description: s.description})),
+        symptoms: obs.symptoms.map(s => ({_key: createKey(), name: s.name, intensity: s.intensity, description: s.description})),
     };
 }
 
@@ -57,7 +76,7 @@ function toDomainObservation(obs: FormObservation): SymptomObservation {
 }
 
 function toFormMedication(med: Medication): FormMedication {
-    return {name: med.name, frequency: med.frequency, instructions: med.instructions};
+    return {_key: createKey(), name: med.name, frequency: med.frequency, instructions: med.instructions};
 }
 
 function toDomainMedication(med: FormMedication): Medication {
@@ -68,12 +87,14 @@ export function Episodes() {
     const [editing, setEditing] = useState<Episode | null>(null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
-    const [observations, setObservations] = useState<FormObservation[]>([createEmptyObservation()]);
-    const [medications, setMedications] = useState<FormMedication[]>([{name: '', frequency: '', instructions: ''}]);
+    const [observations, setObservations] = useState<FormObservation[]>(() => [createEmptyObservation()]);
+    const [medications, setMedications] = useState<FormMedication[]>(() => [createEmptyMedication()]);
     const [formOpen, setFormOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [pendingDelete, setPendingDelete] = useState<Episode | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
+
+    useFocusTrap(dialogRef, formOpen);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -83,6 +104,7 @@ export function Episodes() {
     }, [formOpen]);
 
     function openNew() {
+        setMessage('');
         setEditing(null);
         resetForm();
         setFormOpen(true);
@@ -92,6 +114,11 @@ export function Episodes() {
         setFormOpen(false);
         setEditing(null);
         resetForm();
+    }
+
+    function cancelForm() {
+        setMessage('');
+        closeForm();
     }
 
     const illnessCounts = new Map<string, number>();
@@ -106,7 +133,7 @@ export function Episodes() {
 
     function resetForm() {
         setObservations([createEmptyObservation()]);
-        setMedications([{name: '', frequency: '', instructions: ''}]);
+        setMedications([createEmptyMedication()]);
     }
 
     function addObservation() {
@@ -127,6 +154,7 @@ export function Episodes() {
         const updated = [...observations];
         const current = updated[index]!;
         updated[index] = {
+            _key: current._key,
             date: field === 'date' ? (value as string) : current.date,
             text: field === 'text' ? (value as string) : current.text,
             temperature: field === 'temperature' ? (value as number | undefined) : current.temperature,
@@ -138,7 +166,7 @@ export function Episodes() {
     function addSymptom(obsIndex: number) {
         const updated = [...observations];
         const obs = updated[obsIndex]!;
-        updated[obsIndex] = {...obs, symptoms: [...obs.symptoms, {name: '', intensity: undefined, description: ''}]};
+        updated[obsIndex] = {...obs, symptoms: [...obs.symptoms, {_key: createKey(), name: '', intensity: undefined, description: ''}]};
         setObservations(updated);
     }
 
@@ -159,9 +187,10 @@ export function Episodes() {
         const obs = updated[obsIndex]!;
         const nextSymptoms: FormSymptomEntry[] = obs.symptoms.map((s: FormSymptomEntry, i: number) => {
             if (i !== symptomIndex) return s;
-            if (field === 'name') return {name: value as string, intensity: s.intensity, description: s.description};
-            if (field === 'description') return {name: s.name, intensity: s.intensity, description: value as string};
+            if (field === 'name') return {_key: s._key, name: value as string, intensity: s.intensity, description: s.description};
+            if (field === 'description') return {_key: s._key, name: s.name, intensity: s.intensity, description: value as string};
             if (field === 'intensity') return {
+                _key: s._key,
                 name: s.name,
                 intensity: value as number | undefined,
                 description: s.description
@@ -173,7 +202,7 @@ export function Episodes() {
     }
 
     function addMedication() {
-        setMedications([...medications, {name: '', frequency: '', instructions: ''}]);
+        setMedications([...medications, createEmptyMedication()]);
     }
 
     function removeMedication(index: number) {
@@ -188,6 +217,7 @@ export function Episodes() {
         const updated = [...medications];
         const current = updated[index]!;
         updated[index] = {
+            _key: current._key,
             name: field === 'name' ? value : current.name,
             frequency: field === 'frequency' ? value : current.frequency,
             instructions: field === 'instructions' ? value : current.instructions,
@@ -214,6 +244,22 @@ export function Episodes() {
         setBusy(true);
         setMessage('');
         try {
+            if (isLocalDemo.value) {
+                const saved: Episode = {
+                    id: draft.id || `demo-episode-${Date.now()}`,
+                    illness: draft.illness,
+                    observations: draft.observations ?? [],
+                    medications: draft.medications ?? [],
+                    closed: Boolean(draft.closed),
+                    revision: '1',
+                };
+                episodes.value = [...episodes.value.filter((episode) => episode.id !== saved.id), saved];
+                setEditing(null);
+                resetForm();
+                form.reset();
+                setFormOpen(false);
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
@@ -261,13 +307,10 @@ export function Episodes() {
     }
 
     function startEdit(episode: Episode) {
+        setMessage('');
         setEditing(episode);
         const obs = episode.observations.length > 0 ? episode.observations.map(toFormObservation) : [createEmptyObservation()];
-        const meds = episode.medications.length > 0 ? episode.medications.map(toFormMedication) : [{
-            name: '',
-            frequency: '',
-            instructions: ''
-        }];
+        const meds = episode.medications.length > 0 ? episode.medications.map(toFormMedication) : [createEmptyMedication()];
         setObservations(obs);
         setMedications(meds);
         setFormOpen(true);
@@ -279,6 +322,11 @@ export function Episodes() {
 
     async function executeDeleteEpisode(episode: Episode) {
         try {
+            if (isLocalDemo.value) {
+                episodes.value = episodes.value.filter((ep) => ep.id !== episode.id);
+                setMessage('Episodio eliminado.');
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
@@ -407,7 +455,7 @@ export function Episodes() {
             </label>
         </div>
 
-        {message && <p className="episodes-message" role="status">{message}</p>}
+        {!formOpen && message && <p className="episodes-message" role="status">{message}</p>}
 
         {illnessCounts.size > 0 && (
             <div className="episode-chips" aria-label="Episodios por enfermedad">
@@ -446,7 +494,7 @@ export function Episodes() {
                             <div className="episode-observations">
                                 {observations.map((observation, index) => (
                                     <div className="episode-observation" key={`${observation.date}-${index}`}>
-                                        <time dateTime={observation.date}>{observation.date}</time>
+                                        <time dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
                                         <p>{observation.text || 'Sin notas'}</p>
                                         <div className="episode-symptoms">
                                             {observation.temperature !== undefined && <span
@@ -501,7 +549,12 @@ export function Episodes() {
         )}
 
         <dialog ref={dialogRef} id="episode-dialog" className="dialog episode-dialog"
-                aria-labelledby="episode-dialog-title" onClose={closeForm}>
+                aria-labelledby="episode-dialog-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!busy) cancelForm();
+                }}
+                onClose={closeForm}>
             <form id="episode-form" key={editing?.id ?? 'new'} onSubmit={(event: Event) => {
                 event.preventDefault();
                 void save(event.currentTarget as HTMLFormElement);
@@ -511,7 +564,7 @@ export function Episodes() {
                         <p className="eyebrow">Seguimiento</p>
                         <h2 id="episode-dialog-title">{editing ? 'Editar episodio' : 'Nuevo episodio'}</h2>
                     </div>
-                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm}
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={cancelForm}
                             disabled={busy}>
                         <svg className="icon">
                             <use href="#i-close"/>
@@ -532,41 +585,40 @@ export function Episodes() {
                             {COMMON_SYMPTOMS.map(s => <option key={s} value={s}/>)}
                         </datalist>
                         {observations.map((obs: FormObservation, obsIndex: number) => (
-                            <div key={obsIndex} className="observation-block">
-                                <label>Fecha <input type="date" defaultValue={obs.date}
-                                                    onChange={(e) => handleDateChange(obsIndex, e)}/></label>
-                                <label>Texto libre <textarea defaultValue={obs.text}
-                                                             onChange={(e) => handleTextChange(obsIndex, e)}
+                            <div key={obs._key} className="observation-block">
+                                <label>Fecha <input type="date" value={obs.date}
+                                                    onInput={(e) => handleDateChange(obsIndex, e)}/></label>
+                                <label>Texto libre <textarea value={obs.text}
+                                                             onInput={(e) => handleTextChange(obsIndex, e)}
                                                              placeholder="Síntomas, evolución, notas..."/></label>
                                 <label>Temperatura (°C) <input type="number" step="0.1" min="35" max="42"
-                                                               defaultValue={obs.temperature ?? ''}
-                                                               onChange={(e) => handleTempChange(obsIndex, e)}/></label>
+                                                               value={obs.temperature ?? ''}
+                                                               onInput={(e) => handleTempChange(obsIndex, e)}/></label>
                                 <fieldset>
                                     <legend>Síntomas con intensidad (1-5)</legend>
                                     {obs.symptoms.map((symptom: FormSymptomEntry, symIndex: number) => (
-                                        <div key={symIndex} className="symptom-row">
+                                        <div key={symptom._key} className="symptom-row">
                                             <input type="text"
                                                    list="episode-common-symptoms"
                                                    placeholder="Seleccionar o escribir síntoma"
                                                    aria-label="Nombre del síntoma"
-                                                   defaultValue={symptom.name}
-                                                   onChange={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}/>
+                                                   value={symptom.name}
+                                                   onInput={(e) => handleSymptomNameChange(obsIndex, symIndex, e)}/>
                                             <input type="number" min="1" max="5" placeholder="Intensidad 1-5"
                                                    aria-label="Intensidad del síntoma"
-                                                   defaultValue={symptom.intensity ?? ''}
-                                                   onChange={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>
+                                                   value={symptom.intensity ?? ''}
+                                                   onInput={(e) => handleSymptomIntensityChange(obsIndex, symIndex, e)}/>
                                             <input type="text" placeholder="Descripción"
                                                    aria-label="Descripción del síntoma"
-                                                   defaultValue={symptom.description ?? ''}
-                                                   onChange={(e) => handleSymptomDescChange(obsIndex, symIndex, e)}/>
-                                            {obs.symptoms.length > 1 &&
-                                                <button type="button" className="icon-button episode-row-remove"
-                                                        onClick={() => removeSymptom(obsIndex, symIndex)}
-                                                        aria-label="Quitar síntoma">
-                                                    <svg className="icon" aria-hidden="true">
-                                                        <use href="#i-close"/>
-                                                    </svg>
-                                                </button>}
+                                                   value={symptom.description ?? ''}
+                                                   onInput={(e) => handleSymptomDescChange(obsIndex, symIndex, e)}/>
+                                            <button type="button" className="icon-button episode-row-remove"
+                                                    onClick={() => removeSymptom(obsIndex, symIndex)}
+                                                    aria-label="Quitar síntoma">
+                                                <svg className="icon" aria-hidden="true">
+                                                    <use href="#i-close"/>
+                                                </svg>
+                                            </button>
                                         </div>
                                     ))}
                                     <button type="button" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
@@ -584,16 +636,16 @@ export function Episodes() {
                         <datalist id="episode-medications">{[...medicationNames.values()].map(name => <option key={name}
                                                                                                               value={name}/>)}</datalist>
                         {medications.map((med: FormMedication, medIndex: number) => (
-                            <div key={medIndex} className="medication-row">
+                            <div key={med._key} className="medication-row">
                                 <input type="text" list="episode-medications" placeholder="Nombre del medicamento"
                                        aria-label="Nombre del medicamento"
-                                       defaultValue={med.name} onChange={(e) => handleMedNameChange(medIndex, e)}/>
-                                <input type="text" placeholder="Frecuencia (ej: cada 8h)" defaultValue={med.frequency}
+                                       value={med.name} onInput={(e) => handleMedNameChange(medIndex, e)}/>
+                                <input type="text" placeholder="Frecuencia (ej: cada 8h)" value={med.frequency ?? ''}
                                        aria-label="Frecuencia del medicamento"
-                                       onChange={(e) => handleMedFreqChange(medIndex, e)}/>
-                                <input type="text" placeholder="Indicaciones médicas" defaultValue={med.instructions}
+                                       onInput={(e) => handleMedFreqChange(medIndex, e)}/>
+                                <input type="text" placeholder="Indicaciones médicas" value={med.instructions ?? ''}
                                        aria-label="Indicaciones del medicamento"
-                                       onChange={(e) => handleMedInstrChange(medIndex, e)}/>
+                                       onInput={(e) => handleMedInstrChange(medIndex, e)}/>
                                 {medications.length > 1 &&
                                     <button type="button" className="icon-button episode-row-remove"
                                             onClick={() => removeMedication(medIndex)}
@@ -607,12 +659,13 @@ export function Episodes() {
                         <button type="button" onClick={addMedication}>+ Medicamento</button>
                     </fieldset>
 
+                    {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                     <div className="dialog-actions">
-                        <button className="button secondary" type="button" onClick={closeForm}
+                        <button className="button secondary" type="button" onClick={cancelForm}
                                 disabled={busy}>Cancelar
                         </button>
                         <button className="button primary" type="submit"
-                                disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar episodio'}</button>
+                                disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar episodio'}</button>
                     </div>
                 </fieldset>
             </form>

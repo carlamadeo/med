@@ -12,6 +12,7 @@ import {
     visibleAppointments,
     visibleStudies,
 } from '../state/store';
+import {useFocusTrap} from '../utils/focusTrap';
 
 interface CommandPaletteProps {
     open: boolean;
@@ -39,6 +40,8 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
     const [active, setActive] = useState(0);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    useFocusTrap(dialogRef, open);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -102,7 +105,12 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
         },
         {id: 'action-resumen', label: 'Ir al resumen', icon: 'i-grid', run: go('resumen')},
         {id: 'action-library', label: 'Ir a la biblioteca', icon: 'i-folder', run: go('cronologia')},
+        {id: 'action-portals', label: 'Ir a portales', icon: 'i-globe', run: go('portales')},
+        {id: 'action-operations', label: 'Ir a operaciones', icon: 'i-scissors', run: go('operaciones')},
         {id: 'action-turnos', label: 'Ir a turnos', icon: 'i-calendar', run: go('turnos')},
+        {id: 'action-events', label: 'Ir a consultas y recetas', icon: 'i-stethoscope', run: go('eventos')},
+        {id: 'action-episodes', label: 'Ir a episodios', icon: 'i-layers', run: go('episodios')},
+        {id: 'action-intake', label: 'Ir a bandeja de entrada', icon: 'i-scan', run: go('intake')},
         ...(query.trim() ? [{
             id: 'action-filter-library',
             label: `Buscar «${query.trim()}» en la biblioteca`,

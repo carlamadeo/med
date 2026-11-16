@@ -2,10 +2,31 @@ import {driveAppointmentRepo, driveAuth} from '@data';
 import {Outbox} from '@data/outbox';
 import {appointmentInstant, validateAppointment} from '@domain/appointments';
 import type {Appointment, AppointmentDraft} from '@domain/models';
-import {appointments} from '../state/store';
+import {appointments, isLocalDemo} from '../state/store';
 import {enqueueOffline} from './enqueueOffline';
 
 const outbox = new Outbox();
+
+export const TIMEZONE_OPTIONS: Array<{value: string; label: string}> = [
+    {value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (GMT-3)'},
+    {value: 'America/Argentina/Cordoba', label: 'Córdoba (GMT-3)'},
+    {value: 'America/Argentina/Mendoza', label: 'Mendoza (GMT-3)'},
+    {value: 'America/Montevideo', label: 'Montevideo (GMT-3)'},
+    {value: 'America/Santiago', label: 'Santiago (GMT-3)'},
+    {value: 'America/Sao_Paulo', label: 'São Paulo (GMT-3)'},
+    {value: 'America/Bogota', label: 'Bogotá (GMT-5)'},
+    {value: 'America/Lima', label: 'Lima (GMT-5)'},
+    {value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)'},
+    {value: 'America/New_York', label: 'Nueva York (GMT-5)'},
+    {value: 'Europe/Madrid', label: 'Madrid (GMT+1)'},
+    {value: 'UTC', label: 'UTC'},
+];
+
+export function getTimeZoneOptions(defaultTimeZone: string): Array<{value: string; label: string}> {
+    return TIMEZONE_OPTIONS.some((option) => option.value === defaultTimeZone)
+        ? TIMEZONE_OPTIONS
+        : [{value: defaultTimeZone, label: defaultTimeZone}, ...TIMEZONE_OPTIONS];
+}
 
 interface AppointmentSaveResult {
     appointment?: Appointment;
@@ -22,6 +43,16 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
     const validation = validateAppointment(draft);
     if (validation.length) return {error: validation[0]!};
     if (!appointmentInstant(draft)) return {error: 'La hora elegida no existe en esa zona horaria.'};
+
+    if (isLocalDemo.value) {
+        const saved: Appointment = {
+            ...draft,
+            id: draft.id ?? `demo-appointment-${Date.now()}`,
+            revision: '1',
+        };
+        appointments.value = [...appointments.value.filter((item) => item.id !== saved.id), saved];
+        return {appointment: saved};
+    }
 
     const token = await driveAuth.getAccessToken();
     if (!token) return {error: 'Conectate primero para guardar un turno.'};
@@ -53,6 +84,10 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
 }
 
 export async function deleteAppointment(appointment: Appointment): Promise<AppointmentDeleteResult> {
+    if (isLocalDemo.value) {
+        appointments.value = appointments.value.filter((item) => item.id !== appointment.id);
+        return {};
+    }
     if (!appointment.revision) return {error: 'No se encontró el turno remoto.'};
     const token = await driveAuth.getAccessToken();
     if (!token) return {error: 'Conectate primero para borrar un turno.'};

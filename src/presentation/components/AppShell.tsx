@@ -3,6 +3,7 @@ import type {ComponentChildren} from 'preact';
 import {appointmentStatus} from '@domain/appointments';
 import type {ViewMode} from '@domain/models';
 import {
+    isLocalDemo,
     pendingChanges,
     portals,
     setExporting,
@@ -41,7 +42,7 @@ const labels: Record<ViewMode, string> = {
     eventos: 'Consultas y recetas',
     episodios: 'Episodios',
     turnos: 'Turnos',
-    intake: 'Intake asistido',
+    intake: 'Bandeja de entrada',
 };
 
 export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShellProps) {
@@ -193,8 +194,8 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                         <span className="avatar" aria-hidden="true"><svg className="icon"><use
                             href="#i-lock"/></svg></span>
                         <span className="account-text">
-              <span className="account-name">Cuenta privada</span>
-              <span className="account-mail">Sesión verificada</span>
+              <span className="account-name">{isLocalDemo.value ? 'Modo de prueba' : 'Cuenta privada'}</span>
+              <span className="account-mail">{isLocalDemo.value ? 'Sin cuenta conectada' : 'Sesión verificada'}</span>
             </span>
                     </div>
                 </div>
@@ -232,7 +233,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     )}
 
                     <div className="topbar-actions">
-                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> Cuenta privada verificada</span>
+                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> {isLocalDemo.value ? 'Modo local de prueba' : 'Cuenta privada verificada'}</span>
                         {onOpenSearch && (
                             <button className="icon-button" id="open-command-palette" type="button"
                                     title="Buscar en el archivo (⌘K / Ctrl+K)" aria-label="Buscar en el archivo"

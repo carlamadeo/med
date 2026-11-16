@@ -12,7 +12,8 @@ import {
     operations,
     portals,
     medicalEvents,
-    appointments
+    appointments,
+    isLocalDemo,
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {
@@ -94,6 +95,12 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
     }, [recoveringId]);
 
     async function loadDeletedItems() {
+        if (isLocalDemo.value) {
+            setDeletedItems({study: [], episode: [], operation: [], portal: [], event: [], appointment: []});
+            setLoadErrors({study: '', episode: '', operation: '', portal: '', event: '', appointment: ''});
+            setLoading(false);
+            return;
+        }
         const generation = ++requestGeneration.current;
         setLoading(true);
         setRecoveryError(null);

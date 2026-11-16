@@ -242,11 +242,18 @@ input[type='checkbox'], input[type='radio'] {
 
 .study-import-dialog .study-import-row fieldset {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
     padding: 0;
     margin: 0;
     border: 0;
     min-width: 0;
+}
+
+@media (max-width: 580px) {
+    .study-import-dialog .study-import-row fieldset {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .study-import-dialog .study-import-row fieldset label {

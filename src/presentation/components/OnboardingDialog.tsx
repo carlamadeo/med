@@ -1,10 +1,13 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'preact/hooks';
+import {useFocusTrap} from '../utils/focusTrap';
 
 const STORAGE_KEY = 'mis-estudios-onboarding-seen';
 
 export function OnboardingDialog() {
     const [open, setOpen] = useState(false);
     const dialog = useRef<HTMLDialogElement>(null);
+
+    useFocusTrap(dialog, open);
 
     useEffect(() => {
         if (!window.localStorage.getItem(STORAGE_KEY)) setOpen(true);

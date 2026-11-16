@@ -5,7 +5,8 @@ import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import {formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
-import {medicalEvents, visibleMedicalEvents, studies} from '../state/store';
+import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
+import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
@@ -20,6 +21,8 @@ export function MedicalEvents() {
     const [pendingDelete, setPendingDelete] = useState<MedicalEvent | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
+    useFocusTrap(dialogRef, formOpen);
+
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
@@ -28,11 +31,13 @@ export function MedicalEvents() {
     }, [formOpen]);
 
     const openNew = () => {
+        setMessage('');
         setEditing(null);
         setFormOpen(true);
     };
 
     const openEdit = (event: MedicalEvent) => {
+        setMessage('');
         setEditing(event);
         setFormOpen(true);
     };
@@ -40,6 +45,11 @@ export function MedicalEvents() {
     const closeForm = () => {
         setFormOpen(false);
         setEditing(null);
+    };
+
+    const cancelForm = () => {
+        setMessage('');
+        closeForm();
     };
 
     async function save(form: HTMLFormElement) {
@@ -62,6 +72,18 @@ export function MedicalEvents() {
         setBusy(true);
         setMessage('');
         try {
+            if (isLocalDemo.value) {
+                const saved: MedicalEvent = {
+                    ...draft,
+                    id: draft.id || `demo-event-${Date.now()}`,
+                    revision: '1',
+                };
+                medicalEvents.value = [...medicalEvents.value.filter((event) => event.id !== saved.id), saved];
+                setEditing(null);
+                form.reset();
+                setFormOpen(false);
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
@@ -113,6 +135,11 @@ export function MedicalEvents() {
 
     async function executeDeleteEvent(event: MedicalEvent) {
         try {
+            if (isLocalDemo.value) {
+                medicalEvents.value = medicalEvents.value.filter((ev) => ev.id !== event.id);
+                setMessage('Evento eliminado.');
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
@@ -196,7 +223,7 @@ export function MedicalEvents() {
             </label>
         </div>
 
-        {message && <p className="events-message" role="status">{message}</p>}
+        {!formOpen && message && <p className="events-message" role="status">{message}</p>}
 
         {visible.length ? (
             <ul id="events-list" className="event-list">
@@ -278,6 +305,10 @@ export function MedicalEvents() {
         )}
 
         <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!busy) cancelForm();
+                }}
                 onClose={closeForm}>
             <form id="event-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
                 event.preventDefault();
@@ -288,7 +319,7 @@ export function MedicalEvents() {
                         <p className="eyebrow">Seguimiento</p>
                         <h2 id="event-dialog-title">{editing ? 'Editar consulta o receta' : 'Agregar consulta o receta'}</h2>
                     </div>
-                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={closeForm}
+                    <button className="icon-button" type="button" aria-label="Cerrar" onClick={cancelForm}
                             disabled={busy}>
                         <svg className="icon">
                             <use href="#i-close"/>
@@ -314,7 +345,7 @@ export function MedicalEvents() {
                         <legend>Estudios relacionados</legend>
                         {studies.value.length ? studies.value.map((study) => <label key={study.id}>
                             <input type="checkbox" name="studyId" data-event-study={study.id} value={study.id}
-                                   defaultChecked={editing?.studyIds.includes(study.id)}/>{study.title} · {study.date}
+                                   defaultChecked={editing?.studyIds.includes(study.id)}/>{study.title} · {formatStudyDate(study.date)}
                         </label>) : <p className="event-related-empty">No hay estudios para vincular.</p>}
                         {editing?.studyIds.filter((id) => !studies.value.some((study) => study.id === id)).map((id) =>
                             <label key={id}><input type="checkbox" name="studyId" value={id} defaultChecked/> Estudio no
@@ -333,12 +364,13 @@ export function MedicalEvents() {
                                                    defaultChecked/> Documento no disponible</label>)}
                     </fieldset>
 
+                    {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                     <div className="dialog-actions">
-                        <button className="button secondary" type="button" onClick={closeForm}
+                        <button className="button secondary" type="button" onClick={cancelForm}
                                 disabled={busy}>Cancelar
                         </button>
                         <button className="button primary" type="submit"
-                                disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar evento'}</button>
+                                disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar evento'}</button>
                     </div>
                 </fieldset>
             </form>

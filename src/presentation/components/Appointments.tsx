@@ -3,25 +3,15 @@ import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {visibleAppointments} from '../state/store';
-import {deleteAppointment as removeAppointment, saveAppointment} from '../utils/appointmentEditor';
+import {
+  deleteAppointment as removeAppointment,
+  getTimeZoneOptions,
+  saveAppointment,
+  TIMEZONE_OPTIONS,
+} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyList, AppointmentStudyPicker} from './AppointmentStudies';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
-
-const TIMEZONE_OPTIONS: Array<{value: string; label: string}> = [
-  {value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (GMT-3)'},
-  {value: 'America/Argentina/Cordoba', label: 'Córdoba (GMT-3)'},
-  {value: 'America/Argentina/Mendoza', label: 'Mendoza (GMT-3)'},
-  {value: 'America/Montevideo', label: 'Montevideo (GMT-3)'},
-  {value: 'America/Santiago', label: 'Santiago (GMT-3)'},
-  {value: 'America/Sao_Paulo', label: 'São Paulo (GMT-3)'},
-  {value: 'America/Bogota', label: 'Bogotá (GMT-5)'},
-  {value: 'America/Lima', label: 'Lima (GMT-5)'},
-  {value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)'},
-  {value: 'America/New_York', label: 'Nueva York (GMT-5)'},
-  {value: 'Europe/Madrid', label: 'Madrid (GMT+1)'},
-  {value: 'UTC', label: 'UTC'},
-];
 
 export function Appointments() {
   const [editing, setEditing] = useState<Appointment | null>(null);
@@ -48,11 +38,13 @@ export function Appointments() {
   }, [formOpen]);
 
   function openNew() {
+    setMessage('');
     setEditing(null);
     setFormOpen(true);
   }
 
   function openEdit(appointment: Appointment) {
+    setMessage('');
     setEditing(appointment);
     setFormOpen(true);
   }
@@ -60,6 +52,11 @@ export function Appointments() {
   function closeForm() {
     setFormOpen(false);
     setEditing(null);
+  }
+
+  function cancelForm() {
+    setMessage('');
+    closeForm();
   }
 
   async function save(form: HTMLFormElement) {
@@ -124,11 +121,10 @@ export function Appointments() {
     }
   }
 
-  const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
+  const resolvedTimeZone =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
   const defaultTimeZone = editing?.timeZone ?? resolvedTimeZone;
-  const timeZoneOptions = TIMEZONE_OPTIONS.some(option => option.value === defaultTimeZone)
-    ? TIMEZONE_OPTIONS
-    : [{value: defaultTimeZone, label: defaultTimeZone}, ...TIMEZONE_OPTIONS];
+  const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
 
   const normalizedQuery = normalize(query);
   const visible = [...visibleAppointments.value]
@@ -168,7 +164,7 @@ export function Appointments() {
         aria-labelledby="appointments-dialog-title"
         onCancel={event => {
           event.preventDefault();
-          if (!busy) closeForm();
+          if (!busy) cancelForm();
         }}
         onClose={closeForm}
       >
@@ -191,7 +187,7 @@ export function Appointments() {
               className="icon-button"
               type="button"
               aria-label="Cerrar"
-              onClick={closeForm}
+              onClick={cancelForm}
               disabled={busy}
             >
               <svg className="icon" aria-hidden="true">
@@ -296,11 +292,16 @@ export function Appointments() {
                 Activar notificaciones
               </button>
             )}
+            {formOpen && message && (
+              <p className="form-error" role="alert">
+                {message}
+              </p>
+            )}
             <div className="dialog-actions">
               <button
                 className="button secondary"
                 type="button"
-                onClick={closeForm}
+                onClick={cancelForm}
                 disabled={busy}
               >
                 Cancelar
@@ -329,7 +330,7 @@ export function Appointments() {
         </label>
       </div>
 
-      {message && (
+      {!formOpen && message && (
         <p className="appointment-message" role="status">
           {message}
         </p>
@@ -386,36 +387,40 @@ export function Appointments() {
                     </span>
                   </div>
                   <p className="appointment-card-meta">
-                    {item.time} · {TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ?? item.timeZone}
+                    {item.time} ·{' '}
+                    {TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ??
+                      item.timeZone}
                   </p>
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   <AppointmentStudyList studyIds={item.studyIds} />
-                  <div className="appointment-tags">
-                    <span className="tag">
-                      Importe: {item.cost === null ? 'Desconocido' : item.cost}
-                    </span>
-                    <span className="tag">
-                      Cobertura:{' '}
-                      {item.coverage === 'all'
-                        ? 'Total'
-                        : item.coverage === 'partial'
-                          ? 'Parcial'
-                          : item.coverage === 'none'
-                            ? 'Sin cobertura'
-                            : 'Desconocida'}
-                    </span>
-                    {item.reminderMinutes && (
-                      <span className="tag">
-                        Recordatorio:{' '}
-                        {item.reminderMinutes === 1440
-                          ? '24 horas'
-                          : item.reminderMinutes === 60
-                            ? '1 hora'
-                            : '15 minutos'}{' '}
-                        antes
-                      </span>
-                    )}
-                  </div>
+                  {(item.cost !== null || item.coverage || item.reminderMinutes) && (
+                    <div className="appointment-tags">
+                      {item.cost !== null && (
+                        <span className="tag">Importe: {item.cost}</span>
+                      )}
+                      {item.coverage && (
+                        <span className="tag">
+                          Cobertura:{' '}
+                          {item.coverage === 'all'
+                            ? 'Total'
+                            : item.coverage === 'partial'
+                              ? 'Parcial'
+                              : 'Sin cobertura'}
+                        </span>
+                      )}
+                      {item.reminderMinutes && (
+                        <span className="tag">
+                          Recordatorio:{' '}
+                          {item.reminderMinutes === 1440
+                            ? '24 horas'
+                            : item.reminderMinutes === 60
+                              ? '1 hora'
+                              : '15 minutos'}{' '}
+                          antes
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {syncLabel && (
                     <span
                       className="status-pill"

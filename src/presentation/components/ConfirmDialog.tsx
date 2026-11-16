@@ -1,6 +1,6 @@
 /** Confirmación de eliminación y reconexión de Drive. */
 import {useEffect, useRef} from 'preact/hooks';
-import {deletingStudyId} from '../state/store';
+import {deletingStudyId, isLocalDemo} from '../state/store';
 import type {Study} from '@domain/models';
 import {useFocusTrap} from '../utils/focusTrap';
 
@@ -49,7 +49,7 @@ export function ConfirmDialog({
             }}>
                 <div className="dialog-heading">
                     <div><h2 id="confirm-title">Eliminar estudio</h2>
-                        <p id="delete-copy">{study ? `«${study.title}» se moverá a la papelera de Google Drive.` : ''}</p>
+                        <p id="delete-copy">{study ? (isLocalDemo.value ? `«${study.title}» se eliminará de esta sesión de prueba.` : `«${study.title}» se moverá a la papelera de Google Drive.`) : ''}</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}
                             onClick={onCancel}>

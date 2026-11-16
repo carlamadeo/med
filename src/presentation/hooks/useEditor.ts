@@ -29,8 +29,8 @@ import {useSignal} from '@preact/signals';
 import {analyzePdf, validateDocument} from '@data/pdf-analysis';
 import {driveAuth, driveOperationRepo, DriveSessionError} from '@data';
 import {isValidDate} from '@domain/utils';
-import type {Study, StudyDraft} from '@domain/models';
-import {operations, isEditorOpen, setEditorOpen, editingStudy} from '../state/store';
+import type {Operation, Study, StudyDraft} from '@domain/models';
+import {isLocalDemo, operations, isEditorOpen, setEditorOpen, editingStudy} from '../state/store';
 
 const ANALYSIS_TIMEOUT_MS = 45_000;
 
@@ -409,7 +409,7 @@ export function useEditor({
     const createOperation = useCallback(async () => {
         const form = formRef.current;
         if (!form || operationBusy) return;
-        if (!navigator.onLine) {
+        if (!isLocalDemo.value && !navigator.onLine) {
             setOperationError('Sin conexión, creá la operación desde la vista Operaciones y vinculala después de sincronizar.');
             return;
         }
@@ -420,6 +420,24 @@ export function useEditor({
         }
         if (!String(data.get('newOperationType') ?? '').trim()) {
             setOperationError('Ingresá el procedimiento.');
+            return;
+        }
+        if (isLocalDemo.value) {
+            const saved: Operation = {
+                id: `demo-op-${Date.now()}`,
+                name: String(data.get('newOperationName') ?? ''),
+                date: String(data.get('newOperationDate') ?? ''),
+                surgeon: String(data.get('newOperationSurgeon') ?? ''),
+                institution: String(data.get('newOperationInstitution') ?? ''),
+                type: String(data.get('newOperationType') ?? ''),
+                notes: String(data.get('newOperationNotes') ?? ''),
+                studyIds: [],
+                color: '',
+                revision: '1',
+            };
+            operations.value = [...operations.value, saved];
+            setOperationId(saved.id);
+            setCreatingOperation(false);
             return;
         }
         const generation = editorGeneration.current;

@@ -2,8 +2,9 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {validateAppointment} from '@domain/appointments';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {driveAuth} from '@data';
-import {editingAppointment, isAppointmentEditorOpen, setAppointmentEditorOpen} from '../state/store';
-import {deleteAppointment, saveAppointment} from '../utils/appointmentEditor';
+import {editingAppointment, isAppointmentEditorOpen, isLocalDemo, setAppointmentEditorOpen} from '../state/store';
+import {deleteAppointment, getTimeZoneOptions, saveAppointment} from '../utils/appointmentEditor';
+import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
@@ -28,6 +29,8 @@ export function AppointmentDialog() {
     const [error, setError] = useState<string | null>(null);
     const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
     const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+    useFocusTrap(dialogRef, open);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -146,6 +149,10 @@ export function AppointmentDialog() {
         setPermission(result);
     };
 
+    const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
+    const defaultTimeZone = appointment?.timeZone ?? resolvedTimeZone;
+    const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
+
     return (
         <>
             <dialog
@@ -184,17 +191,13 @@ export function AppointmentDialog() {
                     <label className="field wide">
                         <span>Zona horaria</span>
                         <select id="appointment-timezone" name="timeZone"
-                                defaultValue={appointment?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                defaultValue={defaultTimeZone}
                                 disabled={busy}>
-                            <option value="America/Argentina/Buenos_Aires">Buenos Aires (GMT-3)</option>
-                            <option value="America/Argentina/Cordoba">Córdoba (GMT-3)</option>
-                            <option value="America/Argentina/Mendoza">Mendoza (GMT-3)</option>
-                            <option value="America/Montevideo">Montevideo (GMT-3)</option>
-                            <option value="America/Santiago">Santiago (GMT-3)</option>
-                            <option value="America/Sao_Paulo">São Paulo (GMT-3)</option>
-                            <option value="America/New_York">Nueva York (GMT-5)</option>
-                            <option value="Europe/Madrid">Madrid (GMT+1)</option>
-                            <option value="UTC">UTC</option>
+                            {timeZoneOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
                         </select>
                     </label>
                     <label className="field wide">
@@ -218,9 +221,9 @@ export function AppointmentDialog() {
                                 defaultValue={appointment?.reminderMinutes ? String(appointment.reminderMinutes) : ''}
                                 disabled={busy}>
                             <option value="">Sin recordatorio</option>
-                            <option value="15">15 minutos antes</option>
+                            <option value="1440">24 horas antes</option>
                             <option value="60">1 hora antes</option>
-                            <option value="1440">1 día antes</option>
+                            <option value="15">15 minutos antes</option>
                         </select>
                     </label>
                     <label className="field">
@@ -232,10 +235,10 @@ export function AppointmentDialog() {
                         <span>Cobertura</span>
                         <select id="appointment-coverage" name="coverage" defaultValue={appointment?.coverage ?? ''}
                                 disabled={busy}>
-                            <option value="">Sin especificar</option>
+                            <option value="">Desconocida</option>
                             <option value="all">Total</option>
                             <option value="partial">Parcial</option>
-                            <option value="none">Ninguna</option>
+                            <option value="none">Sin cobertura</option>
                         </select>
                     </label>
                     <label className="field wide">
@@ -270,7 +273,7 @@ export function AppointmentDialog() {
                             turno</button>
                     )}
                     <button className="button secondary" type="button" onClick={close} disabled={busy}>Cancelar</button>
-                    <button className="button primary" type="submit" disabled={busy || !driveAuth.configured}>
+                    <button className="button primary" type="submit" disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>
                         {busy ? 'Guardando…' : 'Guardar turno'}
                     </button>
                 </div>

@@ -35,6 +35,8 @@ import {
     pendingChanges,
     offline,
     directoryWarning,
+    studiesReady,
+    directoriesReady,
 } from '../state/store';
 import {useAuth} from '../hooks/useAuth';
 import {useLibraryData} from '../hooks/useLibraryData';
@@ -140,6 +142,8 @@ export function LibraryPage() {
     const enterDemoMode = useCallback(() => {
         setIsLocalDemo(true);
         setIsSignedIn(true);
+        studiesReady.value = true;
+        directoriesReady.value = true;
         if (studies.value.length === 0) {
             setStudies([
                 {
@@ -440,6 +444,8 @@ export function LibraryPage() {
                     if (isLocalDemo.value) {
                         setIsLocalDemo(false);
                         setIsSignedIn(false);
+                        studiesReady.value = false;
+                        directoriesReady.value = false;
                     } else {
                         void driveAuth.signOut();
                     }

@@ -12,6 +12,7 @@ import type {Study, ViewMode} from '@domain/models';
 import {
     error,
     directoryFailures,
+    isLocalDemo,
     isSourceUnavailable,
     loading,
     offline,
@@ -392,18 +393,18 @@ export function Resumen({
                         <div className="side-head">
                             <h2 className="card-title" id="sync-title">Google Drive</h2>
                             <span className="sync-state">
-                <span className="status-dot" data-tone={offline.value ? 'warning' : 'success'} aria-hidden="true"/>
-                                {offline.value ? 'Sin conexión' : 'Conectado'}
+                <span className="status-dot" data-tone={isLocalDemo.value || offline.value ? 'warning' : 'success'} aria-hidden="true"/>
+                                {isLocalDemo.value ? 'Modo local' : offline.value ? 'Sin conexión' : 'Conectado'}
               </span>
                         </div>
                         <div className="sync-icon-row">
                             <span className="sync-icon"><svg className="icon"><use href="#i-drive"/></svg></span>
-                            <p className="sync-copy">Carpeta «Mis estudios»<br/><span>Cuenta privada y verificada</span>
+                            <p className="sync-copy">{isLocalDemo.value ? <>Sesión de prueba<br/><span>Sin conexión a Google Drive</span></> : <>Carpeta «Mis estudios»<br/><span>Cuenta privada y verificada</span></>}
                             </p>
                         </div>
                         <dl className="sync-list">
                             <div>
-                                <dt>Estudios en Drive</dt>
+                                <dt>{isLocalDemo.value ? 'Estudios en sesión' : 'Estudios en Drive'}</dt>
                                 <dd>{studies.value.length}</dd>
                             </div>
                             <div>
@@ -421,7 +422,14 @@ export function Resumen({
                                 <button className="button secondary button-sm" type="button" onClick={onRetryDirectories}>Reintentar carga</button>
                             </div>
                         )}
-                        {offline.value ? (
+                        {isLocalDemo.value ? (
+                            <p className="sync-alert" data-tone="warning">
+                                <svg className="icon">
+                                    <use href="#i-clock"/>
+                                </svg>
+                                Modo de prueba local: los cambios se guardan solo en esta sesión.
+                            </p>
+                        ) : offline.value ? (
                             <p className="sync-alert" data-tone="warning">
                                 <svg className="icon">
                                     <use href="#i-wifi-off"/>

@@ -32,8 +32,9 @@ import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
-import {portals, studies} from '../state/store';
+import {isLocalDemo, portals, studies} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
+import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
@@ -47,6 +48,8 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
     const [pendingDelete, setPendingDelete] = useState<Portal | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
+    useFocusTrap(dialogRef, formOpen);
+
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
@@ -55,11 +58,13 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
     }, [formOpen]);
 
     const openNew = () => {
+        setMessage('');
         setEditing(null);
         setFormOpen(true);
     };
 
     const openEdit = (portal: Portal) => {
+        setMessage('');
         setEditing(portal);
         setFormOpen(true);
     };
@@ -67,6 +72,11 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
     const close = () => {
         setFormOpen(false);
         setEditing(null);
+    };
+
+    const cancelForm = () => {
+        setMessage('');
+        close();
     };
 
     /**
@@ -82,7 +92,6 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
         setBusy(true);
         setMessage('');
         try {
-            const token = await driveAuth.getAccessToken();
             if (!displayName) {
                 setMessage('Ingresá un nombre para el portal.');
                 setBusy(false);
@@ -96,6 +105,22 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                 url: viewerURL(String(data.get('url') ?? '').trim()),
                 notes: String(data.get('notes') ?? ''),
             };
+            if (isLocalDemo.value) {
+                const saved: Portal = {
+                    id: draft.id || `demo-portal-${Date.now()}`,
+                    revision: '1',
+                    name: draft.name,
+                    displayName: draft.displayName,
+                    url: draft.url,
+                    notes: draft.notes,
+                };
+                portals.value = [...portals.value.filter((portal) => portal.id !== saved.id), saved];
+                setEditing(null);
+                form.reset();
+                setFormOpen(false);
+                return;
+            }
+            const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
                 setMessage('Conectate primero para verificar tu cuenta.');
@@ -154,6 +179,10 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
         setBusy(true);
         setMessage('');
         try {
+            if (isLocalDemo.value) {
+                portals.value = portals.value.filter((item) => item.id !== portal.id);
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId() ?? (navigator.onLine ? await driveAuth.getAccountId() : null);
             if (!owner) {
@@ -226,7 +255,7 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                 </label>
             </div>
 
-            {message && <p className="portals-message" role="alert">{message}</p>}
+            {!formOpen && message && <p className="portals-message" role="alert">{message}</p>}
 
             {filtered.length ? (
                 <ul id="portals-list" className="portal-grid">
@@ -282,7 +311,12 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
             )}
 
             <dialog ref={dialogRef} id="portal-dialog" className="dialog portal-dialog"
-                    aria-labelledby="portal-dialog-title" onClose={close}>
+                    aria-labelledby="portal-dialog-title"
+                    onCancel={(event) => {
+                        event.preventDefault();
+                        if (!busy) cancelForm();
+                    }}
+                    onClose={close}>
                 <form id="portal-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
                     event.preventDefault();
                     void save(event.currentTarget);
@@ -292,7 +326,7 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                             <p className="eyebrow">Directorio</p>
                             <h2 id="portal-dialog-title">{editing ? 'Editar portal' : 'Agregar portal'}</h2>
                         </div>
-                        <button className="icon-button" type="button" aria-label="Cerrar" onClick={close}
+                        <button className="icon-button" type="button" aria-label="Cerrar" onClick={cancelForm}
                                 disabled={busy}>
                             <svg className="icon">
                                 <use href="#i-close"/>
@@ -309,12 +343,13 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                             <label className="wide">Notas <textarea name="notes"
                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
+                        {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                         <div className="dialog-actions">
-                            <button className="button secondary" type="button" onClick={close}
+                            <button className="button secondary" type="button" onClick={cancelForm}
                                     disabled={busy}>Cancelar
                             </button>
                             <button className="button primary" type="submit"
-                                    disabled={busy || !driveAuth.configured}>{busy ? 'Guardando…' : 'Guardar portal'}</button>
+                                    disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar portal'}</button>
                         </div>
                     </fieldset>
                 </form>

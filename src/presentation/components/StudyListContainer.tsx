@@ -87,8 +87,8 @@ export function StudyListContainer({
                             />
                         </div>
                     </div>
-                    {libraryPortal.value && <p>Institución: {libraryPortal.value} <button type="button" className="button quiet" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}
-                    {libraryOperation.value && <p>Operación: {libraryOperation.value.name} <button type="button" className="button quiet" onClick={() => libraryOperation.value = null}>Quitar filtro</button></p>}
+                    {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value} <button type="button" className="button quiet button-sm" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}
+                    {libraryOperation.value && <p className="active-filter-pill">Operación: {libraryOperation.value.name} <button type="button" className="button quiet button-sm" onClick={() => libraryOperation.value = null}>Quitar filtro</button></p>}
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (
                         <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
                     )}

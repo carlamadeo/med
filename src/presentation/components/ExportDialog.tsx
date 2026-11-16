@@ -18,6 +18,7 @@ import {
     directoriesReady,
     studiesReady,
     syncing,
+    isLocalDemo,
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {driveAuth, driveStudyRepo, DriveSessionError} from '@data';
@@ -112,11 +113,6 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         dialogRef.current?.close();
         setExporting(false);
         setExportError(null);
-
-        if (pendingChanges.value.length || directoryWarning.value) {
-            setExportError('Sincronizá los cambios pendientes y cargá todos los registros antes de exportar.');
-            return;
-        }
     };
 
     const getStudiesToExport = () => {
@@ -150,6 +146,12 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         const snapshot = selectExportSnapshot(current, scope, new Set(selectedStudies.map(study => study.id)));
         try {
             setBusy(true);
+            if (isLocalDemo.value) {
+                const zip = await createExportZip(snapshot, scope, false, includeViewerLinks, '');
+                downloadBlob(zip, filename);
+                handleClose();
+                return;
+            }
             const token = await driveAuth.getAccessToken();
             const owner = await driveAuth.getAccountId();
             await assertExportReady(owner);
