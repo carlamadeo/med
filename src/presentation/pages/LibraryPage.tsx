@@ -31,6 +31,7 @@ import {
     setEditorOpen,
     setDeletingStudyId,
     setSharingStudyId,
+    setSharingStudyIds,
     pendingChanges,
     offline,
     directoryWarning,
@@ -442,6 +443,14 @@ export function LibraryPage() {
         setSharingStudyId(study.id);
     }
 
+    function openShareMultiple(selectedStudies: Study[]): void {
+        const shareableIds = selectedStudies
+            .filter((study) => !study.syncStatus && (hasStudyAttachment(study) || study.viewer || study.documentIds?.length))
+            .map((study) => study.id);
+        if (!shareableIds.length) return;
+        setSharingStudyIds(shareableIds);
+    }
+
     return (
         <>
             <AppShell
@@ -501,6 +510,7 @@ export function LibraryPage() {
                                 onEdit={openEditor}
                                 onDelete={(study: Study) => setDeletingStudyId(study.id)}
                                 onShare={openShare}
+                                onShareMultiple={openShareMultiple}
                                 onRetryLoad={loadStudies}
                                 onAddStudy={() => openEditor(null)}
                                 onOpenCandidate={openEditor}

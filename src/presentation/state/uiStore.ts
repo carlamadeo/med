@@ -18,6 +18,7 @@ export const isEditorOpen = signal(false);
 export const deletingStudyId = signal<string | null>(null);
 
 export const sharingStudyId = signal<string | null>(null);
+export const sharingStudyIds = signal<string[]>([]);
 export const shareSelection = signal<{ includeAttachment: boolean; includeViewer: boolean; filename: string } | null>(null);
 
 export const exporting = signal(false);
@@ -62,7 +63,17 @@ export function setDeletingStudyId(id: string | null): void {
 
 export function setSharingStudyId(id: string | null): void {
     sharingStudyId.value = id;
+    sharingStudyIds.value = id ? [id] : [];
     if (!id) {
+        shareSelection.value = null;
+    }
+}
+
+export function setSharingStudyIds(ids: readonly string[]): void {
+    const unique = [...new Set(ids.filter(Boolean))];
+    sharingStudyIds.value = unique;
+    sharingStudyId.value = unique[0] ?? null;
+    if (unique.length !== 1) {
         shareSelection.value = null;
     }
 }

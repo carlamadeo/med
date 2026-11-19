@@ -157,6 +157,34 @@ input[type='checkbox'], input[type='radio'] {
     margin: 0.75rem 0;
 }
 
+.share-study-group {
+    display: grid;
+    gap: 0.375rem;
+    padding-block: 0.5rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.share-study-group:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.share-study-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+}
+
+.share-study-date {
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
 .share-option-row {
     display: flex;
     gap: 0.5rem;

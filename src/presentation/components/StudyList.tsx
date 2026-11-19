@@ -1,8 +1,8 @@
 /** Lista de estudios en formato tabla. */
 import {useRef, useState} from 'preact/hooks';
 import {StudyPrintDialog} from './StudyPrintDialog';
-import {formatStudyDate, reportUrl, studyAttachmentLabel, type StudySortOrder} from '@domain/library';
-import {isSourceUnavailable} from '../state/store';
+import {formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel, type StudySortOrder} from '@domain/library';
+import {isSourceUnavailable, studies as allStudies} from '../state/store';
 import type {Study} from '@domain/models';
 
 type SortColumn = 'title' | 'date' | 'doctor' | 'portal';
@@ -15,10 +15,17 @@ const COLUMN_ORDERS: Record<SortColumn, { asc: StudySortOrder; desc: StudySortOr
     portal: {asc: 'portal', desc: 'portal-desc', defaultOrder: 'portal'},
 };
 
+function isShareableStudy(study: Study): boolean {
+    return !study.syncStatus && Boolean(
+        hasStudyAttachment(study) || study.viewer || study.documentIds?.length,
+    );
+}
+
 interface StudyListProps {
     onEdit: (study: Study) => void;
     onDelete: (study: Study) => void;
     onShare?: (study: Study) => void;
+    onShareMultiple?: (studies: Study[]) => void;
     sortOrder?: StudySortOrder;
     onSortChange?: (order: StudySortOrder) => void;
     studies: Study[];
@@ -29,17 +36,51 @@ export function StudyList({
                                onDelete,
                                onShare = () => {
     },
+                               onShareMultiple,
                                sortOrder = 'date-desc',
                                onSortChange,
                                studies: studiesList
                            }: StudyListProps) {
     const [printing, setPrinting] = useState<Study | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [pagination, setPagination] = useState({studies: studiesList, page: 0});
     const table = useRef<HTMLTableElement>(null);
     const page = pagination.studies === studiesList ? pagination.page : 0;
     const start = page * PAGE_SIZE;
     const end = Math.min(start + PAGE_SIZE, studiesList.length);
     const pageStudies = studiesList.slice(start, end);
+
+    const shareableStudiesInList = studiesList.filter(isShareableStudy);
+    const availableById = new Map<string, Study>();
+    for (const study of allStudies.value) {
+        if (isShareableStudy(study)) availableById.set(study.id, study);
+    }
+    for (const study of shareableStudiesInList) {
+        availableById.set(study.id, study);
+    }
+    const activeSelectedStudies = selectedIds
+        .map((id) => availableById.get(id))
+        .filter((study): study is Study => study !== undefined);
+    const activeSelectedIds = new Set(activeSelectedStudies.map((study) => study.id));
+    const hasUnselectedShareable = shareableStudiesInList.some((study) => !activeSelectedIds.has(study.id));
+
+    const toggleSelect = (studyId: string, checked: boolean) => {
+        setSelectedIds((prev) =>
+            checked
+                ? (prev.includes(studyId) ? prev : [...prev, studyId])
+                : prev.filter((id) => id !== studyId),
+        );
+    };
+
+    const selectAllShareable = () => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            for (const study of shareableStudiesInList) {
+                next.add(study.id);
+            }
+            return [...next];
+        });
+    };
 
     const changePage = (next: number) => {
         if (next < 0 || next * PAGE_SIZE >= studiesList.length) return;
@@ -80,6 +121,38 @@ export function StudyList({
 
     return (
         <>
+        {activeSelectedStudies.length > 0 && (
+            <div className="library-selection-bar">
+                <span role="status" className="library-selection-count">
+                    {activeSelectedStudies.length}{' '}
+                    {activeSelectedStudies.length === 1 ? 'estudio seleccionado' : 'estudios seleccionados'}
+                </span>
+                <div className="library-selection-actions">
+                    {hasUnselectedShareable && (
+                        <button type="button" className="button secondary button-sm" onClick={selectAllShareable}>
+                            Seleccionar todos
+                        </button>
+                    )}
+                    <button type="button" className="button quiet button-sm" onClick={() => setSelectedIds([])}>
+                        Limpiar selección
+                    </button>
+                    <button
+                        type="button"
+                        id="share-selected-studies"
+                        className="button primary button-sm"
+                        onClick={() => {
+                            if (onShareMultiple) {
+                                onShareMultiple(activeSelectedStudies);
+                            } else if (activeSelectedStudies.length === 1) {
+                                onShare(activeSelectedStudies[0]!);
+                            }
+                        }}
+                    >
+                        Compartir seleccionados
+                    </button>
+                </div>
+            </div>
+        )}
         <div className="summary-table-scroll library-table">
             <table ref={table} role="table" tabIndex={-1}>
                 <caption className="sr-only">Estudios guardados en el archivo</caption>
@@ -102,7 +175,7 @@ export function StudyList({
                             </td>
                         </tr>
                     ) : pageStudies.flatMap((study, index) => {
-                        const hasAttachment = study.hasPdf || Boolean(study.attachmentMime);
+                        const hasAttachment = hasStudyAttachment(study);
                         const attachmentAvailable = hasAttachment && !isSourceUnavailable(study.driveFileId);
                         const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
                         const attachmentLabel = studyAttachmentLabel(study);
@@ -129,6 +202,14 @@ export function StudyList({
                             <tr key={study.id} role="row">
                                 <td role="cell">
                                     <div className="study-cell">
+                                        <input
+                                            type="checkbox"
+                                            className="study-select-checkbox"
+                                            checked={activeSelectedIds.has(study.id)}
+                                            disabled={pending || !canShare}
+                                            aria-label={`Seleccionar ${study.title} para compartir`}
+                                            onChange={(event) => toggleSelect(study.id, event.currentTarget.checked)}
+                                        />
                                         <span className="study-text">
                                             <span className="study-title">{study.title}</span>
                                             {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}

@@ -15,6 +15,7 @@ interface StudyListContainerProps {
     onEdit: (study: Study) => void;
     onDelete: (study: Study) => void;
     onShare?: (study: Study) => void;
+    onShareMultiple?: (studies: Study[]) => void;
     onRetryLoad: () => void;
     onAddStudy: () => void;
     onOpenCandidate: (draft: Partial<StudyDraft> & { _candidateId: string; _candidateName: string }) => void;
@@ -29,6 +30,7 @@ export function StudyListContainer({
                                          onEdit,
                                          onDelete,
                                          onShare,
+                                         onShareMultiple,
                                          onRetryLoad,
                                          onAddStudy,
                                          onOpenCandidate,
@@ -175,6 +177,7 @@ export function StudyListContainer({
                             onEdit={onEdit}
                             onDelete={onDelete}
                             onShare={onShare ?? (() => {})}
+                            onShareMultiple={onShareMultiple}
                             sortOrder={sortOrder.value}
                             onSortChange={order => sortOrder.value = order}
                             studies={studiesList}

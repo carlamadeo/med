@@ -10,6 +10,7 @@ beforeEach(() => {
 });
 afterEach(() => {
     render(null, root);
+    root.remove();
     setStudies([]);
     vi.restoreAllMocks();
 });
@@ -221,4 +222,61 @@ it('renders a year divider row between studies from different years when sorted 
         onEdit: () => {}, onDelete: () => {}, sortOrder: 'title', studies: visibleStudies.value,
     }), root));
     expect(root.querySelectorAll('.year-divider-row')).toHaveLength(0);
+});
+
+it('allows selecting multiple shareable studies while keeping single-study share available', async () => {
+    const base = {
+        date: '2024-01-01',
+        types: ['Otro'],
+        doctor: '',
+        portal: '',
+        reportName: '',
+        driveModifiedTime: '',
+        revision: '1',
+    };
+    setStudies([
+        {...base, id: 'one', driveFileId: 'one', title: 'Estudio PDF', hasPdf: true, viewer: ''},
+        {...base, id: 'two', driveFileId: 'two', title: 'Estudio Visor', hasPdf: false, viewer: 'https://example.org/v'},
+        {...base, id: 'three', driveFileId: 'three', title: 'Sin fuentes', hasPdf: false, viewer: ''},
+        {...base, id: 'four', driveFileId: 'four', title: 'Pendiente', hasPdf: true, viewer: '', syncStatus: 'pending'},
+    ]);
+    const onShare = vi.fn();
+    const onShareMultiple = vi.fn();
+    document.body.append(root);
+
+    await act(() => render(h(StudyList, {
+        onEdit: () => {},
+        onDelete: () => {},
+        onShare,
+        onShareMultiple,
+        studies: visibleStudies.value,
+    }), root));
+
+    const checkbox = (title: string) =>
+        root.querySelector<HTMLInputElement>(`input[aria-label="Seleccionar ${title} para compartir"]`)!;
+
+    expect(root.querySelector('.library-selection-bar')).toBeNull();
+    expect(checkbox('Estudio PDF').disabled).toBe(false);
+    expect(checkbox('Estudio Visor').disabled).toBe(false);
+    expect(checkbox('Sin fuentes').disabled).toBe(true);
+    expect(checkbox('Pendiente').disabled).toBe(true);
+
+    await act(() => checkbox('Estudio PDF').click());
+    expect(root.querySelector('.library-selection-count')?.textContent).toContain('1 estudio seleccionado');
+
+    const selectAll = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Seleccionar todos')!;
+    await act(() => selectAll.click());
+    expect(root.querySelector('.library-selection-count')?.textContent).toContain('2 estudios seleccionados');
+
+    await act(() => root.querySelector<HTMLButtonElement>('#share-selected-studies')!.click());
+    expect(onShareMultiple).toHaveBeenCalledOnce();
+    expect(onShareMultiple.mock.calls[0]![0].map((s: { id: string }) => s.id)).toEqual(['one', 'two']);
+
+    await act(() => root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Estudio PDF"]')!.click());
+    expect(onShare).toHaveBeenCalledOnce();
+    expect(onShare.mock.calls[0]![0].id).toBe('one');
+
+    const clearSelection = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Limpiar selección')!;
+    await act(() => clearSelection.click());
+    expect(root.querySelector('.library-selection-bar')).toBeNull();
 });

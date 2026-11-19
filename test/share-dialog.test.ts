@@ -1,8 +1,9 @@
 import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
+import JSZip from 'jszip';
 import {ShareDialog} from '@presentation/components/ShareDialog';
-import {setSharingStudyId, setStudies} from '@presentation/state/store';
+import {setSharingStudyId, setSharingStudyIds, setStudies} from '@presentation/state/store';
 import {driveAuth, driveStudyRepo} from '@data';
 import {mockAttachmentMetadata} from './mock-attachment-metadata';
 
@@ -222,4 +223,200 @@ it('shares a photo under its original image format', async () => {
     expect(shared.name).toBe('informe.png');
     expect(shared.type).toBe('image/png');
     expect(await shared.arrayBuffer()).toEqual(await image.arrayBuffer());
+});
+
+it('shares multiple selected studies, lets user toggle each source and deduplicates filenames', async () => {
+    const base = {
+        date: '2024-03-10',
+        types: ['Otro'],
+        doctor: '',
+        portal: '',
+        driveModifiedTime: '',
+        revision: '1',
+    };
+    setStudies([
+        {
+            ...base,
+            id: 'one',
+            driveFileId: 'one',
+            title: 'Análisis',
+            reportName: 'informe.pdf',
+            hasPdf: true,
+            viewer: 'https://visor.test/1',
+            documentIds: ['doc-1'],
+        },
+        {
+            ...base,
+            id: 'two',
+            driveFileId: 'two',
+            title: 'Ecografía',
+            reportName: 'informe.pdf',
+            hasPdf: true,
+            viewer: '',
+        },
+        {
+            ...base,
+            id: 'doc-1',
+            driveFileId: 'doc-1',
+            title: 'Anexo',
+            reportName: 'anexo.pdf',
+            hasPdf: true,
+            viewer: '',
+        },
+    ]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async (id) =>
+        new File([`%PDF-${id}`], `${id}.pdf`, {type: 'application/pdf'}),
+    );
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', {configurable: true, value: share});
+    Object.defineProperty(navigator, 'canShare', {configurable: true, value: () => true});
+    document.body.append(root);
+
+    await act(() => {
+        render(h(ShareDialog, {
+            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+        }), root);
+        setSharingStudyIds(['one', 'two']);
+    });
+
+    expect(root.querySelector('#share-title')?.textContent).toBe('Compartir estudios');
+    expect(root.querySelector('#share-copy')?.textContent).toBe('2 estudios seleccionados');
+
+    const viewerOne = root.querySelector<HTMLInputElement>('input[data-share-study="one"][data-share-kind="viewer"]')!;
+    const docOne = root.querySelector<HTMLInputElement>('input[value="one:doc-1"]')!;
+    expect(viewerOne.checked).toBe(false);
+    expect(docOne.checked).toBe(false);
+
+    await act(() => {
+        viewerOne.click();
+        docOne.click();
+    });
+
+    await act(async () => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+
+    await vi.waitFor(() => expect(root.textContent).toContain('Listo para compartir'));
+    expect(root.textContent).toContain('informe.pdf, anexo.pdf, informe-2.pdf');
+
+    await act(async () => root.querySelector<HTMLButtonElement>('#share-send')!.click());
+
+    expect(share).toHaveBeenCalledOnce();
+    const payload = share.mock.calls[0]![0];
+    expect(payload.url).toBe('https://visor.test/1');
+    expect(payload.files.map((file: File) => file.name)).toEqual(['informe.pdf', 'anexo.pdf', 'informe-2.pdf']);
+});
+
+it('creates a ZIP with all prepared files and viewer links when multiple files are prepared', async () => {
+    const base = {
+        date: '2024-03-10',
+        types: ['Otro'],
+        doctor: '',
+        portal: '',
+        driveModifiedTime: '',
+        revision: '1',
+    };
+    setStudies([
+        {
+            ...base,
+            id: 'one',
+            driveFileId: 'one',
+            title: 'Laboratorio',
+            reportName: 'uno.pdf',
+            hasPdf: true,
+            viewer: 'https://visor.test/1',
+        },
+        {
+            ...base,
+            id: 'two',
+            driveFileId: 'two',
+            title: 'Radiografía',
+            reportName: 'foto.png',
+            hasPdf: false,
+            attachmentMime: 'image/png',
+            viewer: '',
+        },
+    ]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    const pdfBytes = '%PDF-uno';
+    const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async (id) =>
+        id === 'one'
+            ? new File([pdfBytes], 'uno.pdf', {type: 'application/pdf'})
+            : new File([pngBytes], 'foto.png', {type: 'image/png'}),
+    );
+    const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:zip-test');
+    Object.defineProperty(URL, 'createObjectURL', {configurable: true, value: createUrl});
+    Object.defineProperty(URL, 'revokeObjectURL', {configurable: true, value: vi.fn()});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    document.body.append(root);
+
+    await act(() => {
+        render(h(ShareDialog, {
+            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+        }), root);
+        setSharingStudyIds(['one', 'two']);
+    });
+
+    await act(() => {
+        root.querySelector<HTMLInputElement>('input[data-share-study="one"][data-share-kind="viewer"]')!.click();
+    });
+
+    await act(async () => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+
+    await vi.waitFor(() => expect(root.querySelector('#share-download-zip')).not.toBeNull());
+    await act(async () => {
+        root.querySelector<HTMLButtonElement>('#share-download-zip')!.click();
+    });
+
+    await vi.waitFor(() => expect(createUrl).toHaveBeenCalledOnce());
+    const downloadedFile = createUrl.mock.calls[0]![0] as File;
+    expect(downloadedFile.name).toBe('estudios-compartidos.zip');
+    const zip = await JSZip.loadAsync(await downloadedFile.arrayBuffer());
+    expect(await zip.file('uno.pdf')!.async('text')).toBe(pdfBytes);
+    expect(new Uint8Array(await zip.file('foto.png')!.async('uint8array'))).toEqual(pngBytes);
+    expect(await zip.file('enlaces.txt')!.async('text')).toContain('Laboratorio: https://visor.test/1');
+});
+
+it('combines multiple selected viewer links in ShareData.text and WhatsApp/email links', async () => {
+    const base = {
+        date: '2024-03-10',
+        types: ['Otro'],
+        doctor: '',
+        portal: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1',
+    };
+    setStudies([
+        {...base, id: 'one', driveFileId: 'one', title: 'Estudio A', viewer: 'https://visor.test/1'},
+        {...base, id: 'two', driveFileId: 'two', title: 'Estudio B', viewer: 'https://visor.test/2'},
+    ]);
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', {configurable: true, value: share});
+    document.body.append(root);
+
+    await act(() => {
+        render(h(ShareDialog, {
+            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+        }), root);
+        setSharingStudyIds(['one', 'two']);
+    });
+
+    const expectedText = 'Estudio A: https://visor.test/1\nEstudio B: https://visor.test/2';
+    const links = [...root.querySelectorAll<HTMLAnchorElement>('.share-links a')];
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+        `https://wa.me/?text=${encodeURIComponent(expectedText)}`,
+        `mailto:?body=${encodeURIComponent(expectedText)}`,
+    ]);
+
+    await act(async () => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+
+    expect(share).toHaveBeenCalledExactlyOnceWith({text: expectedText});
 });
