@@ -112,7 +112,7 @@ it('shows empty state when no studies', async () => {
     expect(root.textContent).toContain('No hay estudios para mostrar');
 });
 
-it('shows the study date and names its PDF, image and viewer icon links', async () => {
+it('shows the study date and labels its PDF, image and viewer actions', async () => {
     const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '', driveModifiedTime: '', revision: '1'};
     setStudies([
         {...base, id: 'pdf', driveFileId: 'report', title: 'Informe', hasPdf: true, viewer: 'https://example.com/visor'},
@@ -129,7 +129,8 @@ it('shows the study date and names its PDF, image and viewer icon links', async 
         ['Abrir visor de Informe', 'https://example.com/visor'],
         ['Abrir imagen de Orden', 'https://drive.google.com/file/d/photo/view'],
     ]);
-    expect(links.every((link) => !link.textContent?.trim() && link.querySelector('svg'))).toBe(true);
+    expect(links.map(link => link.textContent?.trim())).toEqual(['Abrir PDF', 'Abrir visor', 'Abrir imagen']);
+    expect(links.every(link => link.querySelector('svg'))).toBe(true);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
 });
 

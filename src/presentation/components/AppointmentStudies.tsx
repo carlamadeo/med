@@ -1,6 +1,8 @@
 import {useState} from 'preact/hooks';
 import {filterStudiesByQuery, formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel} from '@domain/library';
-import {isSourceUnavailable, offline, pendingChanges, studies} from '../state/store';
+import type {Study} from '@domain/models';
+import {isLocalDemo, isSourceUnavailable, offline, pendingChanges, studies} from '../state/store';
+import {ConsultationPackageDialog, type ConsultationSource} from './ConsultationPackageDialog';
 
 interface AppointmentStudyPickerProps {
     studyIds?: readonly string[];
@@ -71,65 +73,102 @@ export function AppointmentStudyPicker({studyIds = [], disabled}: AppointmentStu
 }
 
 export function AppointmentStudyList({studyIds}: {studyIds?: readonly string[]}) {
+    const [preparing, setPreparing] = useState(false);
     if (!studyIds?.length) return null;
     const byId = new Map(studies.value.map(study => [study.id, study]));
     const pending = pendingChanges.value;
     const isOffline = offline.value;
+    const changedAttachments = new Set(pending.filter(entry => entry.kind === 'delete' ||
+        entry.attachment || entry.draft?.removeReport).map(entry => entry.studyId));
+    const deletedStudies = new Set(pending.filter(entry => entry.kind === 'delete').map(entry => entry.studyId));
+    const changedViewers = new Set(pending.filter(entry => entry.kind === 'save' && entry.studyId &&
+        entry.draft && entry.draft.viewer !== byId.get(entry.studyId)?.viewer).map(entry => entry.studyId));
+    const attachments = new Map<string, ConsultationSource>();
+    const viewers = new Map<string, ConsultationSource>();
+    const addAttachment = (document: Study) => {
+        const key = `attachment:${document.driveFileId}`;
+        if (attachments.has(key)) return false;
+        attachments.set(key, {
+            key, kind: 'attachment', study: document, title: document.title, href: reportUrl(document.driveFileId),
+        });
+        return true;
+    };
+    const rows = [...new Set(studyIds)].map(id => {
+        const study = byId.get(id);
+        if (!study) return <li key={id}>Estudio no disponible</li>;
+        if (deletedStudies.has(id)) return (
+            <li key={id}>
+                <span>{study.title}</span>
+                <span className="appointment-study-note">Eliminación pendiente de sincronización</span>
+            </li>
+        );
+
+        const pendingFileChange = changedAttachments.has(id);
+        const hasAttachment = hasStudyAttachment(study);
+        const associated = [...new Set(study.documentIds ?? [])];
+        const attachmentNote = pendingFileChange ? 'Archivo pendiente de sincronización'
+            : !hasAttachment ? (study.viewer || associated.length ? null : 'Sin archivo adjunto')
+                : isSourceUnavailable(study.driveFileId) ? 'Archivo no disponible'
+                    : isOffline ? 'Conectate para abrir el archivo' : null;
+        const viewerNote = changedViewers.has(id) ? 'Visor pendiente de sincronización'
+            : !study.viewer ? null
+                : isSourceUnavailable(study.viewer) ? 'Visor no disponible'
+                    : isOffline ? 'Conectate para abrir el visor' : null;
+        const showAttachment = hasAttachment && !attachmentNote && addAttachment(study);
+        const viewerKey = `viewer:${study.viewer}`;
+        const showViewer = study.viewer && !viewerNote && !viewers.has(viewerKey);
+        if (showViewer) {
+            viewers.set(viewerKey, {
+                key: viewerKey, kind: 'viewer', title: study.title, href: study.viewer,
+            });
+        }
+
+        return (
+            <li key={id}>
+                <span>{study.title}</span>
+                {attachmentNote && <span className="appointment-study-note">{attachmentNote}</span>}
+                {showAttachment && (
+                    <a href={reportUrl(study.driveFileId)} target="_blank" rel="noopener noreferrer"
+                       aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
+                        {studyAttachmentLabel(study)}
+                    </a>
+                )}
+                {viewerNote && <span className="appointment-study-note">{viewerNote}</span>}
+                {showViewer && (
+                    <a href={study.viewer} target="_blank" rel="noopener noreferrer"
+                       aria-label={`Abrir visor de ${study.title}`}>Abrir visor</a>
+                )}
+                {associated.map(documentId => {
+                    const document = byId.get(documentId);
+                    const pendingDocument = changedAttachments.has(documentId);
+                    const label = document?.title ?? 'Documento asociado';
+                    if (pendingDocument) return <span key={documentId} className="appointment-study-note">{label} · Pendiente de sincronización</span>;
+                    if (!document || !hasStudyAttachment(document) || isSourceUnavailable(document.driveFileId)) {
+                        return <span key={documentId} className="appointment-study-note">{label} · Archivo no disponible</span>;
+                    }
+                    if (isOffline) return <span key={documentId} className="appointment-study-note">{label} · Conectate para abrir el archivo</span>;
+                    if (!addAttachment(document)) return null;
+                    const action = studyAttachmentLabel(document);
+                    return <a key={documentId} href={reportUrl(document.driveFileId)} target="_blank"
+                              rel="noopener noreferrer" aria-label={`${action} de ${label}`}>{action} · {label}</a>;
+                })}
+            </li>
+        );
+    });
+    const sources = [...attachments.values(), ...viewers.values()];
 
     return (
         <div className="appointment-studies">
             <p>Estudios para llevar</p>
             <ul className="appointment-study-list">
-                {[...new Set(studyIds)].map(id => {
-                    const study = byId.get(id);
-                    if (!study) return <li key={id}>Estudio no disponible</li>;
-
-                    const pendingFileChange = pending.some(entry => entry.studyId === id && (
-                        entry.kind === 'delete' || entry.attachment || entry.draft?.removeReport
-                    ));
-                    const hasAttachment = hasStudyAttachment(study);
-                    const associated = [...new Set(study.documentIds ?? [])];
-                    const attachmentNote = pendingFileChange ? 'Archivo pendiente de sincronización'
-                        : !hasAttachment ? (study.viewer || associated.length ? null : 'Sin archivo adjunto')
-                            : isSourceUnavailable(study.driveFileId) ? 'Archivo no disponible'
-                                : isOffline ? 'Conectate para abrir el archivo' : null;
-                    const viewerNote = !study.viewer ? null
-                        : isSourceUnavailable(study.viewer) ? 'Visor no disponible'
-                            : isOffline ? 'Conectate para abrir el visor' : null;
-
-                    return (
-                        <li key={id}>
-                            <span>{study.title}</span>
-                            {attachmentNote && <span className="appointment-study-note">{attachmentNote}</span>}
-                            {hasAttachment && !attachmentNote && (
-                                <a href={reportUrl(study.driveFileId)} target="_blank" rel="noopener noreferrer"
-                                   aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
-                                    {studyAttachmentLabel(study)}
-                                </a>
-                            )}
-                            {viewerNote && <span className="appointment-study-note">{viewerNote}</span>}
-                            {study.viewer && !viewerNote && (
-                                <a href={study.viewer} target="_blank" rel="noopener noreferrer"
-                                   aria-label={`Abrir visor de ${study.title}`}>Abrir visor</a>
-                            )}
-                            {associated.map(documentId => {
-                                const document = byId.get(documentId);
-                                const pendingDocument = pending.some(entry => entry.studyId === documentId &&
-                                    (entry.kind === 'delete' || entry.attachment || entry.draft?.removeReport));
-                                const label = document?.title ?? 'Documento asociado';
-                                if (pendingDocument) return <span key={documentId} className="appointment-study-note">{label} · Pendiente de sincronización</span>;
-                                if (!document || !hasStudyAttachment(document) || isSourceUnavailable(document.driveFileId)) {
-                                    return <span key={documentId} className="appointment-study-note">{label} · Archivo no disponible</span>;
-                                }
-                                if (isOffline) return <span key={documentId} className="appointment-study-note">{label} · Conectate para abrir el archivo</span>;
-                                const action = studyAttachmentLabel(document);
-                                return <a key={documentId} href={reportUrl(document.driveFileId)} target="_blank"
-                                          rel="noopener noreferrer" aria-label={`${action} de ${label}`}>{action} · {label}</a>;
-                            })}
-                        </li>
-                    );
-                })}
+                {rows}
             </ul>
+            {sources.length > 0 && !isLocalDemo.value && (
+                <button type="button" className="button secondary button-sm" onClick={() => setPreparing(true)}>
+                    Preparar consulta
+                </button>
+            )}
+            {preparing && <ConsultationPackageDialog sources={sources} onClose={() => setPreparing(false)}/>}
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {appointmentStatus, appointmentInstant, reminderDue, validateAppointment} from '@domain/appointments';
+import {appointmentStatus, appointmentInstant, createAppointmentCalendar, reminderDue, validateAppointment} from '@domain/appointments';
 import type {AppointmentDraft} from '@domain/models';
 
 const draft: AppointmentDraft = {
@@ -14,6 +14,23 @@ const draft: AppointmentDraft = {
 };
 
 describe('appointments', () => {
+    it('exports a private calendar copy with the correct instant and a stable opaque ID', async () => {
+        const appointment = {...draft, id: 'drive-qa-123', revision: '1', professional: 'Profesional reservado',
+            notes: 'Información privada', studyIds: ['private-study'], reminderMinutes: 60 as const};
+        const now = new Date('2026-11-19T10:03:02Z');
+        const calendar = await createAppointmentCalendar(appointment, null, now);
+        expect(calendar).toContain('DTSTART:20261120T133000Z\r\n');
+        expect(calendar).toContain('DTSTAMP:20261119T100302Z\r\n');
+        expect(calendar).toContain('SUMMARY:Turno\r\n');
+        expect(calendar).not.toMatch(/drive-qa-123|private-study|Profesional reservado|Información privada|VALARM/);
+
+        const moved = await createAppointmentCalendar({...appointment, time: '12:00'}, 15, now);
+        expect(moved).toContain('DTSTART:20261120T150000Z\r\n');
+        expect(moved).toContain('BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\n');
+        expect(moved.match(/^UID:.+$/m)?.[0]).toBe(calendar.match(/^UID:.+$/m)?.[0]);
+        await expect(createAppointmentCalendar({...appointment, status: 'cancelled'}, null, now))
+            .rejects.toThrow('El turno no está disponible para exportar.');
+    });
     it('accepts optional details and distinguishes unknown cost from zero', () => {
         expect(validateAppointment(draft)).toEqual([]);
         expect(validateAppointment({...draft, cost: 0})).toEqual([]);

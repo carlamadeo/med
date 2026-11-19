@@ -114,6 +114,10 @@
     font-variant-numeric: tabular-nums;
 }
 
+.library-source-label {
+    display: none;
+}
+
 @media (max-width: 720px) {
     .library-search-head {
         flex-direction: column;
@@ -186,6 +190,19 @@
     .library-table .row-actions .icon-button {
         width: 2.75rem;
         height: 2.75rem;
+    }
+
+    .library-table .row-actions .library-source {
+        display: inline-flex;
+        gap: var(--space-1);
+        width: auto;
+        padding-inline: var(--space-2);
+        font-size: var(--text-xs);
+        font-weight: var(--font-weight-semibold);
+    }
+
+    .library-source-label {
+        display: inline;
     }
 }
 
@@ -534,6 +551,25 @@
 .library-pagination button[aria-disabled='true'] {
     opacity: 0.55;
     cursor: default;
+}
+
+.appointment-calendar {
+    margin-block: var(--space-2);
+}
+
+.appointment-calendar summary {
+    width: fit-content;
+    padding-block: var(--space-2);
+    color: var(--color-brand);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.appointment-calendar form {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+    padding-block-end: var(--space-2);
 }
 
 .editor-related {

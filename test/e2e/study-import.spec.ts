@@ -44,9 +44,22 @@ test('allows reviewing a batch containing a PDF and an invalid file', async ({pa
             expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
         }
     }
+    await dialog.getByRole('button', {name: 'Conservar borrador'}).click();
+    await expect(dialog.getByText('Borrador conservado en este dispositivo.')).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
+    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await expect(valid).toBeVisible();
+    await expect(invalid).toBeVisible();
+    page.once('dialog', confirmation => confirmation.accept());
+    await dialog.getByRole('button', {name: 'Descartar borrador local'}).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await expect(dialog.getByRole('button', {name: 'Elegir PDF'})).toBeEnabled();
+    await expect(valid).toHaveCount(0);
 });
 
-test('saves the complete multipage PDF in the selected account', async ({page, browserName}) => {
+test('restores a batch after reloading and saves the complete multipage PDF', async ({page, browserName}) => {
     test.skip(browserName === 'webkit', 'WebKit does not expose this multipart request body to Playwright.');
     const content = 'BT /F1 16 Tf 50 750 Td (Estudio: Ecografia) Tj 0 -30 Td (Fecha: 18/03/2020) Tj ET';
     const objects = [
@@ -105,6 +118,15 @@ test('saves the complete multipage PDF in the selected account', async ({page, b
     await firstStudy.getByLabel('Profesional').fill('Profesional de prueba');
     await secondStudy.getByRole('button', {name: /Revisar/}).click();
     await expect(firstStudy.getByLabel('Profesional')).toHaveCount(0);
+    await firstStudy.getByRole('button', {name: /Revisar/}).click();
+    await expect(firstStudy.getByLabel('Profesional')).toHaveValue('Profesional de prueba');
+    await dialog.getByRole('button', {name: 'Conservar borrador'}).click();
+    await expect(dialog.getByText('Borrador conservado en este dispositivo.')).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
+    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await expect(dialog.getByText('Restauramos el borrador conservado en este dispositivo.')).toBeVisible();
+    await expect(dialog.getByText('2 estudios listos para guardar')).toBeVisible();
     await firstStudy.getByRole('button', {name: /Revisar/}).click();
     await expect(firstStudy.getByLabel('Profesional')).toHaveValue('Profesional de prueba');
     await dialog.getByRole('button', {name: 'Guardar selección'}).click();

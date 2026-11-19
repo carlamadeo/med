@@ -1,4 +1,4 @@
-import type {AppointmentDraft} from './models';
+import type {Appointment, AppointmentDraft} from './models';
 import {isValidDate} from './utils';
 
 export function validateAppointment(appointment: AppointmentDraft): string[] {
@@ -40,6 +40,43 @@ export function appointmentInstant(appointment: AppointmentDraft): Date | null {
     const offsets = [-86400000, 0, 86400000].map(delta => localValue(wall + delta) - (wall + delta));
     const matches = offsets.map(offset => wall - offset).filter(instant => localValue(instant) === wall);
     return matches.length ? new Date(Math.min(...matches)) : null;
+}
+
+export async function createAppointmentCalendar(
+    appointment: Appointment,
+    reminder: 15 | 60 | 1440 | null,
+    now = new Date(),
+): Promise<string> {
+    const start = appointmentInstant(appointment);
+    if (!start || appointment.status !== 'scheduled' || appointment.syncStatus) {
+        throw new Error('El turno no está disponible para exportar.');
+    }
+    const utc = (date: Date) => date.toISOString().replace(/[-:]|\.\d{3}/g, '');
+    const bytes = new TextEncoder().encode(`mis-estudios:calendar:${appointment.id}`);
+    const hash = await crypto.subtle.digest('SHA-256', bytes);
+    const id = Array.from(new Uint8Array(hash, 0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
+    const alarm = reminder ? [
+        'BEGIN:VALARM',
+        'ACTION:DISPLAY',
+        `TRIGGER:${reminder === 1440 ? '-P1D' : `-PT${reminder}M`}`,
+        'DESCRIPTION:Recordatorio de turno',
+        'END:VALARM',
+    ] : [];
+    return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Mis estudios//Calendario//ES',
+        'BEGIN:VEVENT',
+        `UID:${id}@mis-estudios`,
+        `DTSTAMP:${utc(now)}`,
+        `DTSTART:${utc(start)}`,
+        'SUMMARY:Turno',
+        'CLASS:PRIVATE',
+        ...alarm,
+        'END:VEVENT',
+        'END:VCALENDAR',
+        '',
+    ].join('\r\n');
 }
 
 export function reminderDue(appointment: AppointmentDraft, now: Date): boolean {
