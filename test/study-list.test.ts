@@ -14,6 +14,26 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
+it('limits mounted rows and lets keyboard users open a later page', async () => {
+    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const records = Array.from({length: 125}, (_, index) => ({
+        ...base, id: String(index), driveFileId: String(index), title: `Informe ${index + 1}`,
+    }));
+    const draw = (studies: typeof records) => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies}), root);
+    await act(() => draw(records));
+    expect(root.querySelectorAll('.study-title')).toHaveLength(50);
+    expect(root.textContent).toContain('1–50 de 125 estudios');
+    const next = [...root.querySelectorAll('button')].find(button => button.textContent === 'Siguiente');
+    expect(next).toBeDefined();
+    await act(() => next?.click());
+    expect(root.textContent).toContain('51–100 de 125 estudios');
+    expect(root.querySelector('.study-title')?.textContent).toBe('Informe 51');
+    await act(() => draw(records.slice(112)));
+    expect(root.querySelectorAll('.study-title')).toHaveLength(13);
+    expect(root.querySelector('.study-title')?.textContent).toBe('Informe 113');
+});
+
 it('shows loaded studies instead of remaining on the loading placeholder', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800);

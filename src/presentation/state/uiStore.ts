@@ -10,6 +10,7 @@ import type {Appointment, Study} from '@domain/models';
 
 export const loading = signal(false);
 export const studiesReady = signal(false);
+export const studyLoadSkipped = signal(0);
 export const directoriesReady = signal(false);
 export const error = signal<string | null>(null);
 export const editingStudy = signal<Study | null>(null);

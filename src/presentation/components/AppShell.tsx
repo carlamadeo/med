@@ -14,6 +14,7 @@ import {
     visibleStudies,
 } from '../state/store';
 import {ThemeToggle} from './ThemeToggle';
+import {useFocusTrap} from '../utils/focusTrap';
 import {FolderPickerDialog} from './FolderPickerDialog';
 
 interface AppShellProps {
@@ -47,6 +48,7 @@ const labels: Record<ViewMode, string> = {
 
 export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
+    const sidebarRef = useRef<HTMLElement>(null);
     const menuRef = useRef<HTMLButtonElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const wasOpen = useRef(false);
@@ -58,17 +60,21 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
     ).length;
     const pendingCount = pendingChanges.value.length;
 
-    useEffect(() => {
-        setOpen(false);
-    }, [view.value]);
+    useFocusTrap(sidebarRef, open);
 
     useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpen(false);
+        setOpen(false);
+    }, [view.value, isSignedIn]);
+
+    useEffect(() => {
+        if (!open) return;
+        const desktop = window.matchMedia('(min-width: 1025px)');
+        const closeOnDesktop = () => {
+            if (desktop.matches) setOpen(false);
         };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
+        desktop.addEventListener('change', closeOnDesktop);
+        return () => desktop.removeEventListener('change', closeOnDesktop);
+    }, [open]);
 
     useEffect(() => {
         if (open) {
@@ -138,10 +144,20 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
 
     return (
         <div className="app-shell" data-signed-in={isSignedIn}>
-            <aside className="sidebar" id="sidebar" aria-label="Navegación principal" hidden={!isSignedIn}
-                   data-open={open}>
+            <aside ref={sidebarRef} className="sidebar" id="sidebar" aria-label="Navegación principal" hidden={!isSignedIn}
+                   role={open ? 'dialog' : undefined} aria-modal={open || undefined} data-open={open}
+                   onKeyDown={event => {
+                       if (open && event.key === 'Escape' && !event.defaultPrevented &&
+                           !(event.target instanceof Element && event.target.closest('dialog[open]'))) {
+                           event.stopPropagation();
+                           setOpen(false);
+                       }
+                   }}>
                 <div className="sidebar-head">
-                    <a className="brand" href="#main" aria-label="Mis estudios, inicio">
+                    <a className="brand" href="#main" onClick={() => {
+                        setOpen(false);
+                        view.value = 'resumen';
+                    }}>
                         <span className="brand-mark"><svg className="icon"><use href="#i-file"/></svg></span>
                         <span className="brand-text">
               <span className="brand-name">Mis estudios</span>
@@ -202,9 +218,9 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
             </aside>
 
             <button className="sidebar-scrim" type="button" aria-label="Cerrar menú" data-open={open}
-                    hidden={!isSignedIn} onClick={() => setOpen(false)}/>
+                    tabIndex={-1} aria-hidden="true" hidden={!isSignedIn} onClick={() => setOpen(false)}/>
 
-            <div className="app-main">
+            <div className="app-main" inert={open}>
                 <header className="topbar">
                     <button ref={menuRef} id="menuBtn" className="icon-button topbar-menu" type="button"
                             aria-label="Abrir menú"

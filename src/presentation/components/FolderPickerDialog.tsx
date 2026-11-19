@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
+import {CONFIG} from '@core/config';
 import {driveAuth, driveClient} from '@data';
 import {approvedFolderId, isFolderPickerOpen, setApprovedFolderId, setFolderPickerOpen} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
@@ -9,6 +10,7 @@ interface DriveFolder {
     id: string;
     name: string;
     modifiedTime?: string;
+    appProperties?: Record<string, string>;
 }
 
 export function FolderPickerDialog() {
@@ -47,7 +49,7 @@ export function FolderPickerDialog() {
         setLoading(true);
         setError(null);
         try {
-            await driveAuth.getAccessToken();
+            const token = await driveAuth.getAccessToken();
             const allFolders: DriveFolder[] = [];
             let pageToken = '';
             const query = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
@@ -57,16 +59,19 @@ export function FolderPickerDialog() {
                         q: query,
                         spaces: 'drive',
                         pageSize: '100',
-                        fields: 'nextPageToken,files(id,name,modifiedTime)',
+                        fields: 'nextPageToken,files(id,name,modifiedTime,appProperties)',
                         orderBy: 'modifiedTime desc',
                         ...(pageToken ? {pageToken} : {}),
-                    })
+                    }), {}, token,
                 ).then((r: Response) => r.json() as Promise<{ files?: DriveFolder[]; nextPageToken?: string }>);
-                if (response.files) allFolders.push(...response.files);
+                if (response.files) allFolders.push(...response.files.filter(folder =>
+                    folder.appProperties?.misEstudios !== CONFIG.DRIVE_APP_PROPERTIES.FOLDER,
+                ));
                 pageToken = response.nextPageToken ?? '';
             } while (pageToken);
+            await driveClient.assertSession(token);
             setFolders(allFolders);
-            setSelectedId(currentFolderId);
+            setSelectedId(allFolders.some(folder => folder.id === currentFolderId) ? currentFolderId : null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudieron cargar las carpetas');
         } finally {

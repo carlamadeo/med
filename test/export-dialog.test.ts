@@ -2,13 +2,14 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import JSZip from 'jszip';
-import {driveAuth, driveStudyRepo} from '@data';
+import {driveAuth, driveClient, driveStudyRepo} from '@data';
 import {Outbox} from '@data/outbox';
+import {mockAttachmentMetadata} from './mock-attachment-metadata';
 import type {Study} from '@domain/models';
 import {ExportDialog} from '@presentation/components/ExportDialog';
 import {
     appointments, categoryTypes, directoryWarning, episodes, medicalEvents, operations,
-    portals, directoriesReady, studiesReady, setExportError, setExporting, setStudies,
+    portals, directoriesReady, studiesReady, studyLoadSkipped, setExportError, setExporting, setStudies,
 } from '@presentation/state/store';
 
 const root = document.createElement('div');
@@ -51,6 +52,7 @@ async function downloadedZip(createUrl: ReturnType<typeof captureDownload>) {
 }
 
 beforeEach(() => {
+    mockAttachmentMetadata();
     studiesReady.value = true;
     directoriesReady.value = true;
     vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
@@ -65,6 +67,7 @@ afterEach(async () => {
     setStudies([]);
     categoryTypes.value = [];
     studiesReady.value = false;
+    studyLoadSkipped.value = 0;
     directoriesReady.value = false;
     directoryWarning.value = false;
     operations.value = [];
@@ -92,18 +95,53 @@ it('exports every study and preserves the legacy PDF path and bytes', async () =
         study('one', {types: ['Ecografía'], hasPdf: true, reportName: 'informe.pdf'}),
         study('two', {types: ['Otro']}),
     ]);
-    vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['contenido'], 'informe.pdf', {type: 'application/pdf'}));
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'}));
     const createUrl = captureDownload();
     await openDialog();
     expect(root.querySelector('#export-summary')?.textContent).toContain('2 estudios');
     await submit();
 
     const zip = await downloadedZip(createUrl);
-    expect(await zip.file('pdfs/one.pdf')!.async('text')).toBe('contenido');
+    expect(await zip.file('pdfs/one.pdf')!.async('text')).toBe('%PDF-contenido');
     expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
         version: 1, scope: 'all', totalStudies: 2, studies: [{id: 'one'}, {id: 'two'}],
     });
     expect(zip.file('operations.json')).not.toBeNull();
+});
+
+it('blocks delivery when the selected PDF revision changes during retrieval', async () => {
+    setStudies([study('one', {hasPdf: true})]);
+    let version = '1';
+    const loadFile = async () => {
+        version = '2';
+        return new File(['%PDF-nueva revisión'], 'archivo.pdf', {type: 'application/pdf'});
+    };
+    vi.spyOn(driveClient, 'request').mockImplementation(async () => Response.json({
+        id: 'one', version, mimeType: 'application/pdf', trashed: false,
+        appProperties: {misEstudios: 'estudio-v1'},
+    }));
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(loadFile);
+    const createUrl = captureDownload();
+    await openDialog();
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('#export-error')?.textContent).toContain('cambió en Drive'));
+    expect(createUrl).not.toHaveBeenCalled();
+});
+
+it('blocks delivery if bytes do not match the selected PDF despite a matching MIME and revision', async () => {
+    setStudies([study('one', {hasPdf: true, viewer: 'https://example.com/viewer'})]);
+    vi.spyOn(driveClient, 'request').mockImplementation(async () => Response.json({
+        id: 'one', version: '1', mimeType: 'application/pdf', trashed: false,
+        appProperties: {misEstudios: 'estudio-v1'},
+    }));
+    const invalid = new File(['{"viewer":"https://example.com/viewer"}'], 'archivo.pdf', {type: 'application/pdf'});
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(invalid);
+    const createUrl = captureDownload();
+    await openDialog();
+    await act(() => root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1]?.click());
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('#export-error')?.textContent).toContain('formato'));
+    expect(createUrl).not.toHaveBeenCalled();
 });
 
 it('keeps one snapshot of related records while fetching attachments', async () => {
@@ -119,13 +157,13 @@ it('keeps one snapshot of related records while fetching attachments', async () 
         id: 'appointment1', revision: '1', date: '2024-01-01', time: '12:00', timeZone: 'America/Argentina/Buenos_Aires',
         professional: 'Profesional', notes: '', status: 'scheduled', cost: null, coverage: null,
     }];
-    vi.spyOn(driveStudyRepo, 'getPdfFile').mockImplementation(async () => {
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async () => {
         operations.value = [];
         portals.value = [];
         medicalEvents.value = [];
         episodes.value = [];
         appointments.value = [];
-        return new File(['contenido'], 'informe.pdf', {type: 'application/pdf'});
+        return new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'});
     });
     const createUrl = captureDownload();
     await openDialog();
@@ -190,6 +228,17 @@ it('blocks download after a partial directory load', async () => {
     expect(createUrl).not.toHaveBeenCalled();
 });
 
+it('blocks export if the library has skipped unreadable study records', async () => {
+    setStudies([study('one')]);
+    studyLoadSkipped.value = 1;
+    const createUrl = captureDownload();
+    await openDialog();
+    expect(root.querySelector<HTMLButtonElement>('#export-confirm')?.disabled).toBe(true);
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('#export-error')?.textContent).toContain('fichas que no se pudieron leer'));
+    expect(createUrl).not.toHaveBeenCalled();
+});
+
 it('blocks download for a pending change in the account even before its outbox UI is ready', async () => {
     setStudies([study('one')]);
     await outbox.enqueueEpisodeDelete('owner', 'episode1', '1');
@@ -217,9 +266,9 @@ const zip = await downloadedZip(createUrl);
 
 it('does not download an export when the account changes while preparing it', async () => {
     setStudies([study('one', {hasPdf: true}), study('two', {hasPdf: true})]);
-    const getPdf = vi.spyOn(driveStudyRepo, 'getPdfFile').mockImplementation(async () => {
+    const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async () => {
         vi.mocked(driveAuth.getAccessToken).mockResolvedValue('second');
-        return new File(['contenido'], 'informe.pdf', {type: 'application/pdf'});
+        return new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'});
     });
     const createUrl = captureDownload();
     await openDialog();
@@ -227,14 +276,14 @@ it('does not download an export when the account changes while preparing it', as
 
     await vi.waitFor(() => expect(root.textContent).toContain('La cuenta cambió'));
     expect(createUrl).not.toHaveBeenCalled();
-    expect(getPdf).toHaveBeenCalledExactlyOnceWith('one', 'token');
+    expect(loadAttachment).toHaveBeenCalledExactlyOnceWith('one', 'token');
 });
 
 it('blocks download when a change is queued during attachment retrieval', async () => {
     setStudies([study('one', {hasPdf: true})]);
-    vi.spyOn(driveStudyRepo, 'getPdfFile').mockImplementation(async () => {
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async () => {
         await outbox.enqueueEpisodeDelete('owner', 'episode1', '1');
-        return new File(['contenido'], 'informe.pdf', {type: 'application/pdf'});
+        return new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'});
     });
     const createUrl = captureDownload();
     await openDialog();
@@ -270,7 +319,7 @@ it('exports only filtered studies and directly related records', async () => {
         {id: 'linked', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['one', 'two'], documentIds: ['two'], revision: '1'},
         {id: 'other', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['two'], documentIds: [], revision: '1'},
     ];
-    const getPdf = vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['contenido'], 'informe.pdf', {type: 'application/pdf'}));
+    const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'}));
     const createUrl = captureDownload();
     await openDialog();
     expect(root.querySelector<HTMLInputElement>('input[value=filtered]')?.checked).toBe(true);
@@ -279,7 +328,7 @@ it('exports only filtered studies and directly related records', async () => {
     expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({scope: 'filtered', totalStudies: 1, studies: [{id: 'one', documentIds: []}]});
     expect(JSON.parse(await zip.file('medical-events.json')!.async('text'))).toMatchObject([{id: 'linked', studyIds: ['one'], documentIds: []}]);
     expect(zip.file('pdfs/two.pdf')).toBeNull();
-    expect(getPdf).toHaveBeenCalledOnce();
+    expect(loadAttachment).toHaveBeenCalledOnce();
     store.resetLibraryFilters();
     store.view.value = 'resumen';
 });

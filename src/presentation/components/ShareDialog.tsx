@@ -10,22 +10,14 @@ import {
     markSourceUnavailable
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
-import {driveAuth, driveStudyRepo} from '@data';
+import {driveAuth, DriveConflictError, DriveSessionError} from '@data';
+import {readVerifiedStudyAttachment, StudyAttachmentFormatError} from '@data/verified-study-attachment';
 
 interface ShareDialogProps {
     onReconnect: () => void;
     error: string | null;
     busy: boolean;
     sessionLost: boolean;
-}
-
-function getFileNameFromUrl(url: string): string {
-    try {
-        const u = new URL(url);
-        return u.pathname.split('/').pop() || 'archivo';
-    } catch {
-        return 'archivo';
-    }
 }
 
 function sanitizeFilename(name: string): string {
@@ -38,9 +30,7 @@ function sanitizeFilename(name: string): string {
 }
 
 async function downloadStudyAttachment(study: Study, basename: string, token: string): Promise<File> {
-    const file = study.attachmentMime
-        ? await driveStudyRepo.getDocumentFile(study.driveFileId, token)
-        : await driveStudyRepo.getPdfFile(study.driveFileId, token);
+    const file = await readVerifiedStudyAttachment(study, token);
     const extension = file.type === 'image/jpeg' ? '.jpg' : file.type === 'image/png' ? '.png' : '.pdf';
     const normalized = basename.toLowerCase();
     const hasExtension = normalized.endsWith(extension) || (extension === '.jpg' && normalized.endsWith('.jpeg'));
@@ -50,9 +40,9 @@ async function downloadStudyAttachment(study: Study, basename: string, token: st
 export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const id = sharingStudyId.value;
-    const study = studies.value.find((s) => s.id === id);
     const selection = shareSelection.value;
 
+    const [preview, setPreview] = useState<{study: Study; associated: Study[]} | null>(null);
     const [includeAttachment, setIncludeAttachment] = useState(false);
     const [includeViewer, setIncludeViewer] = useState(false);
     const [documentIds, setDocumentIds] = useState<string[]>([]);
@@ -61,6 +51,8 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
     const [prepared, setPrepared] = useState<ShareData | null>(null);
     const [preparing, setPreparing] = useState(false);
     const generation = useRef(0);
+    const study = preview?.study;
+    const associatedDocuments = preview?.associated ?? [];
 
     useFocusTrap(dialogRef, Boolean(id));
 
@@ -68,6 +60,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
         if (!signedIn) {
             generation.current += 1;
             setPrepared(null);
+            setPreparing(false);
             setSharingStudyId(null);
             setShareSelection(null);
         }
@@ -76,8 +69,16 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
     useEffect(() => {
         const element = dialogRef.current;
         if (!element) return;
-        if (id && !element.open) {
-            const s = study;
+        generation.current += 1;
+        setPrepared(null);
+        setPreparing(false);
+        if (id) {
+            const archive = studies.peek();
+            const s = archive.find(item => item.id === id);
+            const associated = (s?.documentIds ?? [])
+                .map(docId => archive.find(item => item.id === docId && hasStudyAttachment(item) && !item.pendingAttachment))
+                .filter(item => item !== undefined);
+            setPreview(s ? {study: s, associated} : null);
             if (s) {
                 setDocumentIds([]);
                 setFilenameError('');
@@ -85,17 +86,20 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 const viewerAvailable = Boolean(s.viewer);
                 setIncludeAttachment(attachmentAvailable);
                 setIncludeViewer(viewerAvailable && !attachmentAvailable);
-                const baseName = (attachmentAvailable ? s.reportName || s.title : getFileNameFromUrl(s.viewer || '')) || 'estudio';
-                setFilename(sanitizeFilename(baseName));
+                const baseName = sanitizeFilename(s.reportName || s.title) || 'estudio';
+                setFilename(baseName);
                 setShareSelection({
                     includeAttachment: attachmentAvailable,
                     includeViewer: viewerAvailable && !attachmentAvailable,
-                    filename: sanitizeFilename(baseName),
+                    filename: baseName,
                 });
             }
-            element.showModal();
+            if (!element.open) element.showModal();
             element.querySelector<HTMLElement>('#share-title')?.focus();
-        } else if (!id && element.open) element.close();
+        } else {
+            setPreview(null);
+            if (element.open) element.close();
+        }
     }, [id]);
 
     useEffect(() => {
@@ -106,13 +110,13 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
         }
     }, [selection]);
 
-    const associatedDocuments = (study?.documentIds ?? []).map(docId => studies.value.find(item => item.id === docId && hasStudyAttachment(item) && !item.pendingAttachment)).filter(item => item !== undefined);
     const attachmentAvailable = Boolean(study && hasStudyAttachment(study) && !study.pendingAttachment);
     const hasShareableContent = Boolean(attachmentAvailable || study?.viewer || associatedDocuments.length);
 
     const handleClose = () => {
         generation.current += 1;
         setPrepared(null);
+        setPreparing(false);
         dialogRef.current?.close();
         setSharingStudyId(null);
         setShareSelection(null);
@@ -129,15 +133,13 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             return;
         }
         const safeFilename = sanitizeFilename(filename);
-        if (!safeFilename) {
+        if (includeAttachment && !safeFilename) {
             setFilenameError('Ingresá un nombre para el archivo');
             return;
         }
         const selection = {includeAttachment, includeViewer, filename: safeFilename};
 
         const files: File[] = [];
-        const urls: string[] = [];
-
         const selectedDocuments = associatedDocuments.filter(document => documentIds.includes(document.id));
         if (selectedDocuments.length !== documentIds.length) {
             setFilenameError('Un documento seleccionado ya no está disponible.');
@@ -148,34 +150,35 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             setPreparing(true);
             try {
                 const token = await driveAuth.getAccessToken();
+                if (currentGeneration !== generation.current) return;
                 if (selection.includeAttachment && attachmentAvailable) {
                     files.push(await downloadStudyAttachment(study, selection.filename, token));
                 }
                 for (const document of selectedDocuments) {
+                    if (currentGeneration !== generation.current) return;
                     const base = sanitizeFilename(document.reportName || document.title) || 'documento';
                     files.push(await downloadStudyAttachment(document, `${document.id}-${base}`, token));
                 }
-                if (currentGeneration !== generation.current || await driveAuth.getAccessToken() !== token) return;
-            } catch {
+                if (await driveAuth.getAccessToken() !== token || currentGeneration !== generation.current) return;
+            } catch (err) {
                 if (currentGeneration !== generation.current) return;
-                markSourceUnavailable(study.id);
-                setFilenameError('No se pudo descargar el archivo. Revisá la conexión y la sesión.');
+                if (err instanceof DriveConflictError) {
+                    setFilenameError('Un archivo seleccionado cambió en Drive. Cerrá el diálogo y actualizá la lista.');
+                } else if (err instanceof StudyAttachmentFormatError || err instanceof DriveSessionError) {
+                    setFilenameError(err.message);
+                } else {
+                    markSourceUnavailable(study.id);
+                    setFilenameError('No se pudo descargar el archivo. Revisá la conexión y la sesión.');
+                }
                 return;
             } finally {
                 if (currentGeneration === generation.current) setPreparing(false);
             }
         }
 
-        if (selection.includeViewer && study.viewer) {
-            urls.push(study.viewer);
-        }
-
-        const shareData: ShareData & { files?: File[] } = {
-            title: study.title,
-            text: `Estudio médico: ${study.title} (${study.date})`,
-        };
+        const shareData: ShareData = {};
         if (files.length) shareData.files = files;
-        if (urls.length) shareData.url = urls[0];
+        if (selection.includeViewer && study.viewer) shareData.url = study.viewer;
         if (files.length) {
             setPrepared(shareData);
             return;
@@ -184,12 +187,14 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
     };
 
     const sendShare = async (shareData: ShareData) => {
+        const currentGeneration = generation.current;
         try {
             if (!navigator.share || (navigator.canShare && !navigator.canShare(shareData))) {
                 throw new Error('El navegador no soporta compartir nativo');
             }
             await navigator.share(shareData);
         } catch (err) {
+            if (currentGeneration !== generation.current) return;
             if ((err as Error).name === 'AbortError') {
                 // User cancelled the share dialog
             } else if ((err as Error).message.includes('soporta compartir')) {
@@ -200,6 +205,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
             return;
         }
 
+        if (currentGeneration !== generation.current) return;
         setFilenameError('');
         handleClose();
     };
@@ -221,7 +227,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
         <dialog id="share" ref={dialogRef} className="dialog" aria-labelledby="share-title"
                 data-busy={String(busy || preparing)}
                 onCancel={(event) => {
-                    if (busy || preparing) event.preventDefault(); else handleCancel();
+                    if (busy) event.preventDefault(); else handleCancel();
                 }}>
             <form id="share-form" onSubmit={(event) => {
                 event.preventDefault();
@@ -301,7 +307,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                         )}
                     </div>
                 </fieldset>
-                <label className="share-filename-field">
+                {includeAttachment && <label className="share-filename-field">
                     Nombre del archivo
                     <input
                         type="text"
@@ -315,9 +321,9 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                         disabled={busy || sessionLost || preparing || Boolean(prepared)}
                     />
                     <p className="hint">El nombre se usará para la copia que compartís.</p>
-                </label>
+                </label>}
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy || preparing}
+                    <button type="button" className="button quiet" disabled={busy}
                             onClick={handleCancel}>Cancelar
                     </button>
                     {!prepared && !includeAttachment && !documentIds.length && includeViewer && study?.viewer && (

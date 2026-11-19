@@ -5,7 +5,6 @@ import {reserveIntakeDestination, clearIntakeReservation, hasIntakeReservation} 
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
  */
 import {useEffect, useRef, useState, useCallback} from 'preact/hooks';
-import {todayLocal} from '@domain/utils';
 import {getStudyTypes} from '@data/study-types';
 import {validateDocument} from '@data/pdf-analysis';
 import {hasStudyAttachment} from '@domain/library';
@@ -36,6 +35,7 @@ import {
     offline,
     directoryWarning,
     studiesReady,
+    studyLoadSkipped,
     directoriesReady,
 } from '../state/store';
 import {useAuth} from '../hooks/useAuth';
@@ -197,7 +197,7 @@ export function LibraryPage() {
                 id: `pending-${Date.now()}`,
                 intakeSourceId: studyOrDraft._candidateId,
                 title: studyOrDraft.title ?? studyOrDraft._candidateName ?? '',
-                date: studyOrDraft.date ?? todayLocal(),
+                date: studyOrDraft.date ?? '',
                 types: studyOrDraft.types ?? [],
                 doctor: studyOrDraft.doctor ?? '',
                 portal: studyOrDraft.portal ?? '',
@@ -329,7 +329,9 @@ export function LibraryPage() {
                         throw new Error('Este documento ya tiene un cambio pendiente de sincronización.');
                     }
                     if (!hasIntakeReservation(pendingOwner, draft.intakeSourceId)) {
-                        const existing = (await driveStudyRepo.list({force: true})).find(study => study.intakeSourceId === draft.intakeSourceId);
+                        const existing = (await driveStudyRepo.list({force: true})).find(study =>
+                            study.intakeSourceId === draft.intakeSourceId || study.driveFileId === draft.intakeSourceId,
+                        );
                         if (existing) return existing;
                         const deleted = await driveStudyRepo.listDeleted();
                         if (deleted.some(study => study.recoverable && study.intakeSourceId === draft.intakeSourceId)) {
@@ -460,6 +462,16 @@ export function LibraryPage() {
                     <LibraryIntro onAddStudy={() => openEditor(null)} onImport={() => setImportOpen(true)}
                                   isSignedIn={isSignedIn.value} isLocalDemo={isLocalDemo.value}
                                   typesReady={typesReady} view={view.value}/>
+                    {isSignedIn.value && studyLoadSkipped.value > 0 && (
+                        <div className="offline-notice" role="status">
+                            {studyLoadSkipped.value === 1
+                                ? 'No se pudo leer una ficha de Drive.'
+                                : `No se pudieron leer ${studyLoadSkipped.value} fichas de Drive.`}
+                            {' Los estudios disponibles siguen visibles. '}
+                            <button className="button secondary button-sm" type="button"
+                                    disabled={offline.value} onClick={() => void loadStudies(true)}>Volver a consultar Drive</button>
+                        </div>
+                    )}
                     <section id="library" aria-label="Biblioteca"
                              className={view.value === 'resumen' ? 'library library-resumen' : 'library'}
                              hidden={!isSignedIn.value}>

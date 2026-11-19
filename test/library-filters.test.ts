@@ -2,7 +2,7 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it} from 'vitest';
 import {StudyListContainer} from '@presentation/components/StudyListContainer';
-import {categoryTypes, setStudies, view, visibleStudies} from '@presentation/state/store';
+import {categoryTypes, filteredStudies, setStudies, view, visibleStudies} from '@presentation/state/store';
 
 const root = document.createElement('div');
 afterEach(() => {
@@ -17,6 +17,7 @@ it('shows study type filters directly and filters the library', async () => {
     setStudies([
         {...base, id: '1', driveFileId: '1', title: 'Uno', types: ['Radiografía']},
         {...base, id: '2', driveFileId: '2', title: 'Dos', types: ['Análisis']},
+        {...base, id: '3', driveFileId: '3', title: 'Tres', types: ['radiografia']},
     ]);
     await act(() => render(h(StudyListContainer, {
         onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
@@ -31,12 +32,13 @@ it('shows study type filters directly and filters the library', async () => {
         [...root.querySelectorAll<HTMLLIElement>('#categories [role="option"]')]
             .find((el) => el.querySelector('span')?.textContent === name);
     await act(() => option('Radiografía')?.click());
-    expect(visibleStudies.value.map((study) => study.title)).toEqual(['Uno']);
+    expect(filteredStudies.value.map((study) => study.title)).toEqual(['Uno', 'Tres']);
+    expect(visibleStudies.value.map((study) => study.title)).toEqual(['Uno', 'Dos', 'Tres']);
     expect(option('Radiografía')?.getAttribute('aria-selected')).toBe('true');
     expect(root.querySelector('.related-heading')?.textContent).toContain('Estudios de Radiografía');
-    expect(root.querySelector('.related-heading')?.textContent).toContain('1 estudio');
+    expect(root.querySelector('.related-heading')?.textContent).toContain('2 estudios');
     await act(() => option('Radiografía')?.click());
-    expect(visibleStudies.value).toHaveLength(2);
+    expect(filteredStudies.value).toHaveLength(3);
 });
 
 it('combines accent-insensitive study search with multiple selected types', async () => {

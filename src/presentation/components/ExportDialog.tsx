@@ -17,12 +17,14 @@ import {
     directoryWarning,
     directoriesReady,
     studiesReady,
+    studyLoadSkipped,
     syncing,
     isLocalDemo,
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
-import {driveAuth, driveStudyRepo, DriveSessionError} from '@data';
+import {driveAuth, DriveConflictError, DriveSessionError} from '@data';
 import {Outbox} from '@data/outbox';
+import {readVerifiedStudyAttachment, StudyAttachmentFormatError} from '@data/verified-study-attachment';
 import {selectExportSnapshot, type ExportScope, type ExportSnapshot} from '@domain/export-scope';
 
 const outbox = new Outbox();
@@ -30,6 +32,9 @@ const pendingMessage = 'Sincronizá los cambios pendientes antes de exportar.';
 const accountChangedMessage = 'La cuenta cambió durante la exportación. Volvé a intentarlo.';
 
 function getExportBlocker(owner = driveAuth.cachedAccountId()): string | null {
+    if (studyLoadSkipped.value > 0) {
+        return 'Hay fichas que no se pudieron leer. Actualizá la biblioteca antes de exportar.';
+    }
     if (directoryWarning.value) {
         return 'No se pudieron cargar todos los registros. Actualizá la página antes de exportar.';
     }
@@ -362,16 +367,17 @@ async function createExportZip(
             if (!mime && !study.hasPdf) continue;
             await assertExportToken(token);
             try {
-                if (mime) {
-                    const image = await driveStudyRepo.getDocumentFile(study.driveFileId, token);
-                    if (image.type !== mime) throw new Error('Formato de imagen inesperado.');
-                    zip.file(`images/${study.id}.${mime === 'image/png' ? 'png' : 'jpg'}`, await image.arrayBuffer());
-                } else {
-                    const pdf = await driveStudyRepo.getPdfFile(study.driveFileId, token);
-                    zip.file(`pdfs/${study.id}.pdf`, await pdf.arrayBuffer());
-                }
+                const file = await readVerifiedStudyAttachment(study, token);
+                const path = mime ? `images/${study.id}.${mime === 'image/png' ? 'png' : 'jpg'}` : `pdfs/${study.id}.pdf`;
+                zip.file(path, await file.arrayBuffer());
             } catch (err) {
                 if (err instanceof DriveSessionError) throw err;
+                if (err instanceof DriveConflictError) {
+                    throw new Error(`El archivo de «${study.title}» cambió en Drive. Cerrá la exportación y actualizá la lista.`);
+                }
+                if (err instanceof StudyAttachmentFormatError) {
+                    throw new Error(`El archivo de «${study.title}» no coincide con el formato del informe.`);
+                }
                 throw new Error(`No se pudo incluir el archivo de «${study.title}». Revisá la conexión y volvé a intentar.`);
             }
         }

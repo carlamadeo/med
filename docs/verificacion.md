@@ -28,9 +28,9 @@ los bytes del PDF descargado, el cambio de cuenta durante la exportación y la s
 
 Al corregir el alcance o la completitud del ZIP, agregá casos al diálogo y descomprimí el archivo descargado.
 Compará el manifiesto, los adjuntos y las entidades incluidas con el alcance acordado. Usá registros relacionados
-y ajenos a la selección, enlaces desactivados, directorios incompletos y cambios pendientes. Comprobá que un
-cambio de cuenta durante la preparación impida la descarga. La inclusión de episodios y turnos ajenos al filtro
-y la descarga con directorios incompletos son brechas pendientes de corrección.
+y ajenos a la selección, enlaces desactivados, fichas ilegibles, directorios incompletos y cambios pendientes.
+Comprobá que un cambio de cuenta o de revisión del adjunto durante la preparación impida la entrega. Probá
+también retirar o reemplazar un PDF después de abrir la vista previa y cerrar el envío con una descarga en curso.
 [Pruebas de exportación](../test/export-dialog.test.ts) · [Pruebas de compartir](../test/share-dialog.test.ts)
 
 ## PDF, OCR y rutas de producción
@@ -50,7 +50,7 @@ y la descarga con directorios incompletos son brechas pendientes de corrección.
 ## Biblioteca e interfaz
 
 Para filtros y orden, empezá con `npx vitest run test/library.test.ts test/search.test.ts` y comprobá la vista que
-consume los resultados. Para cambios de navegación, foco o lista virtualizada, usá
+consume los resultados. Para cambios de navegación, foco o paginación, usá
 `npm run test:e2e -- test/e2e/shell.spec.ts`.
 `npm run test:a11y` cubre infracciones serias y críticas en varias vistas y el editor. Revisá el contraste
 en el navegador si cambia el diseño. [Prueba de navegación](../test/e2e/shell.spec.ts) ·

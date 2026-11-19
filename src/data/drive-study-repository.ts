@@ -60,22 +60,44 @@ export class DriveStudyRepository implements StudyRepository {
     }
 
     async list(options: { force?: boolean } = {}): Promise<Study[]> {
+        const {studies} = await this.readStudySnapshot(options, true);
+        return studies;
+    }
+
+    async listForLibrary(options: { force?: boolean } = {}): Promise<{studies: Study[]; skipped: number}> {
+        return this.readStudySnapshot(options, false);
+    }
+
+    private async readStudySnapshot(options: {force?: boolean}, requireComplete: boolean): Promise<{studies: Study[]; skipped: number}> {
         const token = await this.client.getAccessToken();
         const owner = await this.cacheOwner();
         if (!options.force || !navigator.onLine) {
-            const cached = await storage.readCompleteSessionStudies(owner);
-            if (cached && (!navigator.onLine || Date.now() - cached.lastSync <= 24 * 60 * 60 * 1000)) {
+            const cached = await storage.readSessionStudySnapshot(owner);
+            if (cached && (!navigator.onLine || (!cached.skipped && Date.now() - cached.lastSync <= 24 * 60 * 60 * 1000))) {
                 await this.client.assertSession(token);
-                return cached.records.map(this.recordToStudy);
+                if (requireComplete && cached.skipped) {
+                    throw new Error('Drive tiene fichas que no se pudieron leer. Revisalas para continuar.');
+                }
+                return {studies: cached.records.map(this.recordToStudy), skipped: cached.skipped};
             }
         }
 
-        const records = (await this.client.listFiles('estudio-v1', ENTRY_FIELDS, token)).map((file) => this.client.parseRecord(file));
+        const files = await this.client.listFiles('estudio-v1', ENTRY_FIELDS, token);
+        const studies: Study[] = [];
+        for (const file of files) {
+            try {
+                studies.push(this.client.parseRecord(file));
+            } catch (error) {
+                if (requireComplete) throw error;
+                // Keep the Drive original intact and continue reading the remaining files.
+            }
+        }
+        const skipped = files.length - studies.length;
 
         await this.client.assertSession(token);
-        await storage.writeSessionStudies(owner, records.map(this.studyToRecord), true);
+        await storage.writeSessionStudies(owner, studies.map(this.studyToRecord), {skipped});
         await this.client.assertSession(token);
-        return records;
+        return {studies, skipped};
     }
 
     private async fetchFile(id: string): Promise<Study> {

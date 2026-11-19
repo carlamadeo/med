@@ -2,6 +2,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {storage} from '@core/storage';
 import {DriveConflictError, driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo} from '@data';
 import {
+    addRemoteRaw,
     addRemoteStudy,
     clearFakeDrive,
     fakeDriveFile,
@@ -297,6 +298,25 @@ describe('DriveStudyRepository', () => {
             const fetchSpy = vi.spyOn(globalThis, 'fetch');
             expect(await driveStudyRepo.list({force: true})).toEqual([]);
             expect(fetchSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not treat a cached partial snapshot as a complete list', async () => {
+            addRemoteRaw('unreadable-study', {types: []});
+            await expect(driveStudyRepo.list({force: true})).rejects.toThrow(/ficha/i);
+            expect((await driveStudyRepo.listForLibrary({force: true})).skipped).toBe(1);
+            const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+            const fetchSpy = vi.spyOn(globalThis, 'fetch');
+            const snapshot = await driveStudyRepo.listForLibrary();
+            expect(snapshot.studies.map(study => study.id).sort()).toEqual([SEED_JSON_ID, SEED_PDF_ID].sort());
+            expect(snapshot.skipped).toBe(1);
+            await expect(driveStudyRepo.list()).rejects.toThrow(/ficha/i);
+            expect(fetchSpy).not.toHaveBeenCalled();
+            online.mockReturnValue(true);
+
+            addRemoteRaw('unreadable-study', {types: ['Ecografía']});
+            expect((await driveStudyRepo.list({force: true})).map(study => study.id)).toContain('unreadable-study');
+            online.mockReturnValue(false);
+            expect((await driveStudyRepo.listForLibrary()).skipped).toBe(0);
         });
 
         it('accepts a retry when the same study is already in the trash', async () => {

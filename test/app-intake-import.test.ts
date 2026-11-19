@@ -1,6 +1,7 @@
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAuth, driveIntakeRepo, driveStudyRepo} from '@data';
+import * as pdfAnalysis from '@data/pdf-analysis';
 import {approvedFolderId, intakeCandidates, pendingChanges, studiesReady, view} from '@presentation/state/store';
 import {reserveIntakeDestination} from '@presentation/utils/intakeReservation';
 import {mountPage} from './page';
@@ -30,6 +31,7 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
 
     vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate]);
     vi.spyOn(driveIntakeRepo, 'getPdfFile').mockResolvedValue(pdf);
+    const analyze = vi.spyOn(pdfAnalysis, 'analyzePdf').mockResolvedValue({date: '2020-11-10'});
 
     await act(() => {
         approvedFolderId.value = 'approved-folder';
@@ -55,12 +57,13 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
         titleInput.dispatchEvent(new Event('input', {bubbles: true}));
     });
     const dateInput = form.elements.namedItem('date') as HTMLInputElement;
-    if (!dateInput.value) {
-        await act(() => {
-            dateInput.value = '2026-11-10';
-            dateInput.dispatchEvent(new Event('input', {bubbles: true}));
-        });
-    }
+    expect(dateInput.value).toBe('');
+    const dateSuggestion = () => editor.querySelector<HTMLButtonElement>('[data-accept-suggestion="date"]');
+    await vi.waitFor(() => expect(dateSuggestion()).not.toBeNull());
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(dateInput.value).toBe('');
+    await act(() => dateSuggestion()!.click());
+    expect(dateInput.value).toBe('2020-11-10');
     const trigger = form.querySelector<HTMLButtonElement>('[role="combobox"]')!;
     await act(() => {
         trigger.click();
@@ -84,6 +87,7 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
     const imported = savedStudies.find(study => study.intakeSourceId === 'drive-src-1');
     expect(imported).toBeTruthy();
     expect(imported?.title).toBe('Informe QA Importado');
+    expect(imported?.date).toBe('2020-11-10');
 
     // Simulate an uncertain save for a second candidate where Drive already has the study
     const candidateTwo = {

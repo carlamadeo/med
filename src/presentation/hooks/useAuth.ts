@@ -11,6 +11,7 @@ import {
     pendingChanges,
     syncMessage,
     studiesReady,
+    studyLoadSkipped,
     directoriesReady,
     directoryWarning,
     directoryFailures,
@@ -55,6 +56,7 @@ export function useAuth({
         (signedIn: boolean) => {
             const sequence = ++authSequence.current;
             studiesReady.value = false;
+            studyLoadSkipped.value = 0;
             directoriesReady.value = false;
             directoryWarning.value = false;
             directoryFailures.value = [];

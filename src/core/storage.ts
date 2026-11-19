@@ -139,25 +139,32 @@ export const storage = {
         return records;
     },
 
-    async readCompleteSessionStudies(owner: string): Promise<{ records: StudyRecord[]; lastSync: number } | null> {
+    async readSessionStudySnapshot(owner: string): Promise<{ records: StudyRecord[]; lastSync: number; skipped: number } | null> {
         const db = await getDB();
         const tx = db.transaction(['studies', 'meta'], 'readonly');
         const meta = tx.objectStore('meta');
         const matches = (await meta.get('cacheOwner'))?.value === owner;
         const lastSync = matches ? (await meta.get('lastSync'))?.value : undefined;
         const records = typeof lastSync === 'number' ? await tx.objectStore('studies').getAll() : null;
+        const skipped = records ? (await meta.get('skippedStudies'))?.value : undefined;
         await tx.done;
-        return records && typeof lastSync === 'number' ? {records, lastSync} : null;
+        return records && typeof lastSync === 'number'
+            ? {records, lastSync, skipped: typeof skipped === 'number' ? skipped : 0}
+            : null;
     },
 
-    async writeSessionStudies(owner: string, records: StudyRecord[], replace = false): Promise<void> {
+    async writeSessionStudies(owner: string, records: StudyRecord[], snapshot?: {skipped: number}): Promise<void> {
         const db = await getDB();
         const tx = db.transaction(['studies', 'meta'], 'readwrite');
-        if ((await tx.objectStore('meta').get('cacheOwner'))?.value === owner) {
+        const meta = tx.objectStore('meta');
+        if ((await meta.get('cacheOwner'))?.value === owner) {
             const store = tx.objectStore('studies');
-            if (replace) await store.clear();
+            if (snapshot) await store.clear();
             await Promise.all(records.map((record) => store.put(record)));
-            if (replace) await tx.objectStore('meta').put({key: 'lastSync', value: Date.now()});
+            if (snapshot) {
+                await meta.put({key: 'lastSync', value: Date.now()});
+                await meta.put({key: 'skippedStudies', value: snapshot.skipped});
+            }
         }
         await tx.done;
     },

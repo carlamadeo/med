@@ -1,4 +1,5 @@
 import {storage} from '@core/storage';
+import {CONFIG} from '@core/config';
 import type {DriveClient, DriveFileResponse} from './drive-api';
 import type {IntakeCandidate} from '@domain/repository';
 
@@ -33,7 +34,9 @@ export class DriveIntakeRepository {
                 })
             ).then((r) => r.json() as Promise<DriveFileResponse>);
 
-            const files = (response.files ?? []).filter(f => f.mimeType === 'application/pdf');
+            const files = (response.files ?? []).filter(file =>
+                file.mimeType === 'application/pdf' && file.appProperties?.misEstudios !== CONFIG.DRIVE_APP_PROPERTIES.STUDY,
+            );
             candidates.push(...files.map((f) => this.parseCandidate(f)));
             pageToken = response.nextPageToken ?? '';
         } while (pageToken);

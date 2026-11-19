@@ -122,58 +122,14 @@ export function Resumen({
 
     return (
         <div className="resumen" id="resumen">
-            <p className="resumen-opening">Tu historia, en perspectiva.</p>
-            <div className="kpi-grid">
-                <article className="card kpi-card">
-                    <div className="kpi-top">
-                        <span className="kpi-label">Estudios totales</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-file"/></svg></span>
-                    </div>
-                    <p className="kpi-value">{total.toLocaleString('es-AR')}</p>
-                    <div className="kpi-foot">
-                        <span className="delta"><svg className="icon"><use href="#i-trend"/></svg> +{thisMonth} este mes</span>
-                        <span className="kpi-note">archivo privado</span>
-                    </div>
-                </article>
-
-                <article className="card kpi-card">
-                    <div className="kpi-top">
-                        <span className="kpi-label">Último estudio</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-clock"/></svg></span>
-                    </div>
-                    <p className="kpi-value kpi-value-text">{latest ? relativeDayLabel(latest.date) : '—'}</p>
-                    <div className="kpi-foot">
-                        <span className="kpi-note">{latest ? latest.title : 'Sin registros'}</span>
-                    </div>
-                </article>
-
-                <article className="card kpi-card">
-                    <div className="kpi-top">
-                        <span className="kpi-label">Portales</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-globe"/></svg></span>
-                    </div>
-                    <p className="kpi-value">{portalCount}</p>
-                    <div className="kpi-foot">
-                        <span className="kpi-note">instituciones guardadas</span>
-                    </div>
-                </article>
-
-                <article className="card kpi-card">
-                    <div className="kpi-top">
-                        <span className="kpi-label">Pendientes de sincronizar</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-refresh"/></svg></span>
-                    </div>
-                    <p className="kpi-value">{pending.length}</p>
-                    <div className="kpi-foot">
-            <span className="delta" data-tone={pending.length ? 'warning' : 'neutral'}>
-              <svg className="icon"><use href={conflicts ? '#i-alert' : '#i-clock'}/></svg>
-                {conflicts ? `${conflicts} ${conflicts === 1 ? 'conflicto' : 'conflictos'}` : failed ? `${failed} con error` : pending.length ? 'pendiente' : 'todo al día'}
-            </span>
-                        <span className="kpi-note">{offline.value ? 'sin conexión' : 'Google Drive'}</span>
-                    </div>
-                </article>
-            </div>
-
+            {(offline.value || pending.length > 0) && (
+                <p className="offline-notice" role="status">
+                    {offline.value ? 'Sin conexión. ' : ''}
+                    {conflicts ? `${conflicts} ${conflicts === 1 ? 'cambio requiere' : 'cambios requieren'} revisión.`
+                        : pending.length ? `${pending.length} ${pending.length === 1 ? 'cambio pendiente' : 'cambios pendientes'} de sincronización.`
+                            : 'Mostrando la copia de este dispositivo.'}
+                </p>
+            )}
             <section className="card recent-card" aria-labelledby="recent-title">
                 <div className="recent-head">
                     <div>
@@ -247,21 +203,17 @@ export function Resumen({
                                     <td>
                                         <div className="row-actions">
                                             {attachmentAvailable && (
-                                                <a className="icon-button" href={reportUrl(study.driveFileId)}
+                                                <a className="button secondary button-sm summary-source" href={reportUrl(study.driveFileId)}
                                                    target="_blank" rel="noopener noreferrer"
                                                    aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
-                                                    <svg className="icon">
-                                                        <use href="#i-external"/>
-                                                    </svg>
+                                                    {studyAttachmentLabel(study)}
                                                 </a>
                                             )}
                                             {viewerAvailable && (
-                                                <a className="icon-button" href={study.viewer} target="_blank"
+                                                <a className="button secondary button-sm summary-source" href={study.viewer} target="_blank"
                                                    rel="noopener noreferrer"
                                                    aria-label={`Abrir visor de ${study.title}`}>
-                                                    <svg className="icon">
-                                                        <use href="#i-eye"/>
-                                                    </svg>
+                                                    Abrir visor
                                                 </a>
                                             )}
                                             <button className="icon-button" type="button"
@@ -305,6 +257,57 @@ export function Resumen({
                     <span className="recent-hint">Datos privados de este dispositivo</span>
                 </div>
             </section>
+
+            <div className="kpi-grid">
+                <article className="card kpi-card">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Estudios totales</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-file"/></svg></span>
+                    </div>
+                    <p className="kpi-value">{total.toLocaleString('es-AR')}</p>
+                    <div className="kpi-foot">
+                        <span className="delta"><svg className="icon"><use href="#i-trend"/></svg> +{thisMonth} este mes</span>
+                        <span className="kpi-note">archivo privado</span>
+                    </div>
+                </article>
+
+                <article className="card kpi-card">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Último estudio</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-clock"/></svg></span>
+                    </div>
+                    <p className="kpi-value kpi-value-text">{latest ? relativeDayLabel(latest.date) : '—'}</p>
+                    <div className="kpi-foot">
+                        <span className="kpi-note">{latest ? latest.title : 'Sin registros'}</span>
+                    </div>
+                </article>
+
+                <article className="card kpi-card">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Portales</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-globe"/></svg></span>
+                    </div>
+                    <p className="kpi-value">{portalCount}</p>
+                    <div className="kpi-foot">
+                        <span className="kpi-note">instituciones guardadas</span>
+                    </div>
+                </article>
+
+                <article className="card kpi-card">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Pendientes de sincronizar</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-refresh"/></svg></span>
+                    </div>
+                    <p className="kpi-value">{pending.length}</p>
+                    <div className="kpi-foot">
+            <span className="delta" data-tone={pending.length ? 'warning' : 'neutral'}>
+              <svg className="icon"><use href={conflicts ? '#i-alert' : '#i-clock'}/></svg>
+                {conflicts ? `${conflicts} ${conflicts === 1 ? 'conflicto' : 'conflictos'}` : failed ? `${failed} con error` : pending.length ? 'pendiente' : 'todo al día'}
+            </span>
+                        <span className="kpi-note">{offline.value ? 'sin conexión' : 'Google Drive'}</span>
+                    </div>
+                </article>
+            </div>
 
             <div className="resumen-grid">
                 <section className="card chart-card" aria-labelledby="activity-title">

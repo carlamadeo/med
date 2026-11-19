@@ -59,7 +59,7 @@ export function AccessSection({onConnect, onEnterDemo, error, bootFailed, config
                         <svg className="icon"><use href="#i-lock"/></svg>
                     </span>
                     <div>
-                        <strong>100% privado y en tu nube</strong>
+                        <strong>Tus archivos en tu Google Drive</strong>
                         <p>Tus archivos se guardan en Google Drive. La aplicación conserva una copia de las fichas y los cambios pendientes en este navegador.</p>
                     </div>
                 </div>

@@ -219,6 +219,7 @@ export function useEditor({
                 }
                 const operation = formRef.current?.querySelector<HTMLSelectElement>('#operation-id');
                 if (operation) operation.value = current?.operationId ?? '';
+                if (candidateFile && !current?.date) void processFile(candidateFile);
             } else {
                 dialog.close();
             }
@@ -240,7 +241,6 @@ export function useEditor({
         formRef.current?.addEventListener('input', markTouched, true);
         dialog.addEventListener('close', closed);
         const unsubscribe = isEditorOpen.subscribe(handleOpenChange);
-        handleOpenChange();
 
         return () => {
             editorGeneration.current += 1;

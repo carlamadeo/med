@@ -6,6 +6,7 @@ import {editingAppointment, isAppointmentEditorOpen, isLocalDemo, setAppointment
 import {deleteAppointment, getTimeZoneOptions, saveAppointment} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
+import {AppointmentReminderNote} from './AppointmentReminderNote';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 function parseCost(value: FormDataEntryValue | null): number | null {
@@ -42,7 +43,7 @@ export function AppointmentDialog() {
         setMessage('');
         setError(null);
         setBusy(false);
-        if ('Notification' in window) setPermission(Notification.permission);
+        setPermission('Notification' in window ? Notification.permission : 'unsupported');
     }, [open, appointment]);
 
     useEffect(() => {
@@ -249,6 +250,7 @@ export function AppointmentDialog() {
                 </div>
 
                 <AppointmentStudyPicker studyIds={appointment?.studyIds} disabled={busy}/>
+                <AppointmentReminderNote permission={permission}/>
 
                 {permission !== 'unsupported' && permission !== 'granted' && (
                     <button className="button secondary" type="button" onClick={enableNotifications} disabled={busy}>

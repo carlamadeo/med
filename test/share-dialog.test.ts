@@ -1,11 +1,13 @@
 import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
-import {afterEach, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {ShareDialog} from '@presentation/components/ShareDialog';
 import {setSharingStudyId, setStudies} from '@presentation/state/store';
 import {driveAuth, driveStudyRepo} from '@data';
+import {mockAttachmentMetadata} from './mock-attachment-metadata';
 
 const root = document.createElement('div');
+beforeEach(() => { mockAttachmentMetadata(); });
 afterEach(() => {
     render(null, root);
     root.remove();
@@ -50,8 +52,7 @@ it('shares only the selected link when the study has an associated PDF', async (
     await act(async () => {
         root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    expect(share).toHaveBeenCalledWith(expect.objectContaining({url: 'https://example.org'}));
-    expect(share.mock.calls[0]![0]).not.toHaveProperty('files');
+    expect(share).toHaveBeenCalledExactlyOnceWith({url: 'https://example.org'});
 });
 
 it('prepares the PDF before a separate user action invokes the share menu', async () => {
@@ -70,7 +71,7 @@ it('prepares the PDF before a separate user action invokes the share menu', asyn
         revision: '1'
     }]);
     vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
-    vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['PDF'], 'source.pdf', {type: 'application/pdf'}));
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(new File(['%PDF-prueba'], 'source.pdf', {type: 'application/pdf'}));
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'share', {configurable: true, value: share});
     Object.defineProperty(navigator, 'canShare', {configurable: true, value: () => true});
@@ -94,6 +95,29 @@ it('prepares the PDF before a separate user action invokes the share menu', asyn
     expect(share.mock.calls[0]![0].files[0].name).toBe('informe.pdf');
 });
 
+it('requires reviewing the selected version if the study refreshes while the dialog is open', async () => {
+    const original = {
+        id: 'one', driveFileId: 'one', title: 'Estudio', date: '2024-01-01',
+        types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: 'informe.pdf',
+        hasPdf: true, driveModifiedTime: '', revision: '1',
+    };
+    setStudies([original]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile');
+    document.body.append(root);
+    await act(() => {
+        render(h(ShareDialog, {onReconnect: () => {}, error: null, busy: false, sessionLost: false}), root);
+        setSharingStudyId('one');
+    });
+    await act(() => setStudies([{...original, revision: '2', reportName: 'otro.pdf'}]));
+    await act(() => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await vi.waitFor(() => expect(root.querySelector('#share-error')?.textContent).toContain('cambió en Drive'));
+    expect(loadAttachment).not.toHaveBeenCalled();
+    expect(root.querySelector('#share-send')).toBeNull();
+});
+
 it('prepares only associated documents explicitly selected by the user', async () => {
     const base = {
         date: '2024-01-01',
@@ -111,7 +135,7 @@ it('prepares only associated documents explicitly selected by the user', async (
         {...base, id: 'three', driveFileId: 'three', title: 'No elegido', reportName: 'otro.pdf', hasPdf: true},
     ]);
     vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
-    const getPdf = vi.spyOn(driveStudyRepo, 'getPdfFile').mockResolvedValue(new File(['PDF'], 'source.pdf', {type: 'application/pdf'}));
+    const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(new File(['%PDF-prueba'], 'source.pdf', {type: 'application/pdf'}));
     document.body.append(root);
     await act(() => {
         render(h(ShareDialog, {
@@ -128,9 +152,43 @@ it('prepares only associated documents explicitly selected by the user', async (
         root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect(root.textContent).toContain('Listo para compartir'));
-    expect(getPdf).toHaveBeenCalledTimes(1);
-    expect(getPdf).toHaveBeenCalledWith('two', 'token');
+    expect(loadAttachment).toHaveBeenCalledTimes(1);
+    expect(loadAttachment).toHaveBeenCalledWith('two', 'token');
     expect(root.textContent).toContain('elegido.pdf');
+});
+
+it('can prepare another study after closing while retrieval is in progress', async () => {
+    const base = {
+        title: 'Estudio', date: '2024-01-01', types: ['Otro'], doctor: '', portal: '',
+        viewer: '', hasPdf: true, driveModifiedTime: '', revision: '1',
+    };
+    setStudies([
+        {...base, id: 'one', driveFileId: 'one', reportName: 'uno.pdf'},
+        {...base, id: 'two', driveFileId: 'two', reportName: 'dos.pdf'},
+    ]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    const pdf = new File(['%PDF-prueba'], 'archivo.pdf', {type: 'application/pdf'});
+    const delayed = Promise.withResolvers<File>();
+    const retrieve = async (id: string) => id === 'one' ? delayed.promise : pdf;
+    vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(retrieve);
+    document.body.append(root);
+    await act(() => {
+        render(h(ShareDialog, {onReconnect: () => {}, error: null, busy: false, sessionLost: false}), root);
+        setSharingStudyId('one');
+    });
+    const submit = () => act(() => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('#share-confirm')?.textContent).toContain('Preparando'));
+    await act(() => root.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')!.click());
+    await act(() => setSharingStudyId('two'));
+    const confirm = root.querySelector<HTMLButtonElement>('#share-confirm')!;
+    expect(confirm.disabled).toBe(false);
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('[role="status"]')?.textContent).toContain('dos.pdf'));
+    await act(() => delayed.resolve(pdf));
+    expect(root.querySelector('[role="status"]')?.textContent).toContain('dos.pdf');
 });
 
 it('shares a photo under its original image format', async () => {

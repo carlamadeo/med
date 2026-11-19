@@ -55,7 +55,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
     const uncertainCandidates = intakeCandidates.value.filter(candidate => owner && hasIntakeReservation(owner, candidate.id));
     const deletedCandidates = intakeCandidates.value.filter(candidate => deletedSources.includes(candidate.id));
     const candidates = intakeCandidates.value.filter(candidate => !uncertainCandidates.includes(candidate) && !deletedCandidates.includes(candidate)).map(candidate => {
-        if (studies.value.some(study => study.intakeSourceId === candidate.id)) {
+        if (studies.value.some(study => study.intakeSourceId === candidate.id || study.driveFileId === candidate.id)) {
             return {...candidate, status: 'imported' as const};
         }
         if (pendingChanges.value.some(entry => entry.kind === 'save' && entry.draft?.intakeSourceId === candidate.id)) {

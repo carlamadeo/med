@@ -117,9 +117,28 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
     await expect(page.locator('#sidebar')).toBeHidden();
     await page.locator('#menuBtn').click();
     await expect(page.locator('#sidebar')).toBeVisible();
+    await expect(page.getByRole('dialog', {name: 'Navegación principal'})).toBeVisible();
+    await expect(page.locator('.app-main')).toHaveAttribute('inert', '');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#menuBtn')).toBeFocused();
+    await page.locator('#menuBtn').click();
     await page.locator('#nav-resumen').click();
     await expect(page.locator('#resumen')).toBeVisible();
     await expect(page.locator('.kpi-card')).toHaveCount(4);
+});
+
+test('prioriza abrir y buscar un informe en la primera pantalla de Resumen', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 844});
+    await page.goto('/');
+    const link = page.locator('#resumen').getByRole('link', {name: 'Abrir PDF de Mamografía bilateral'});
+    await expect(link).toBeInViewport();
+    const search = page.getByRole('searchbox', {name: 'Buscar un estudio'});
+    await search.fill('rodilla');
+    await search.press('Enter');
+    const library = page.getByRole('searchbox', {name: 'Buscar estudios'});
+    await expect(library).toHaveValue('rodilla');
+    await expect(library).toBeFocused();
+    await expect(page.locator('.library-table .study-title')).toHaveText(['Resonancia de rodilla']);
 });
 
 test('busca en la Biblioteca móvil y muestra la fecha y los iconos de acceso', async ({page}) => {

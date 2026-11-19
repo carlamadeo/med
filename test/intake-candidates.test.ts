@@ -1,15 +1,17 @@
 import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
-import {driveAuth, driveIntakeRepo} from '@data';
+import {driveAuth, driveClient, driveIntakeRepo} from '@data';
 import {IntakeCandidates} from '@presentation/components/IntakeCandidates';
-import {approvedFolderId, intakeCandidates, setIntakeCandidates} from '@presentation/state/store';
+import {FolderPickerDialog} from '@presentation/components/FolderPickerDialog';
+import {approvedFolderId, intakeCandidates, isFolderPickerOpen, setIntakeCandidates} from '@presentation/state/store';
 
 const root = document.createElement('div');
 afterEach(() => {
     render(null, root);
     root.remove();
     approvedFolderId.value = null;
+    isFolderPickerOpen.value = false;
     setIntakeCandidates([]);
     vi.restoreAllMocks();
 });
@@ -141,6 +143,35 @@ it('muestra el nombre y tamaño devueltos por Drive aunque la descripción sea t
     }};
     const repo = new DriveIntakeRepository(client as never);
     await expect(repo.listCandidates('folder')).resolves.toEqual([expect.objectContaining({name: 'estudio.pdf', size: 624})]);
+});
+
+it('excluye los PDF ya guardados por la aplicación de una carpeta de origen', async () => {
+    const {DriveIntakeRepository} = await import('@data/drive-intake-repository');
+    const {storage} = await import('@core/storage');
+    vi.spyOn(storage, 'readSessionDirectory').mockResolvedValue(null);
+    const pdf = {name: 'informe.pdf', mimeType: 'application/pdf', size: '624'};
+    const request = vi.fn().mockResolvedValue({json: async () => ({files: [
+        {...pdf, id: 'own-file', appProperties: {misEstudios: 'estudio-v1'}},
+        {...pdf, id: 'external-file'},
+    ]})});
+    const client = {cacheOwner: async () => 'owner', request, url: () => 'https://example.com'};
+    const repo = new DriveIntakeRepository(client as never);
+    await expect(repo.listCandidates('folder')).resolves.toEqual([expect.objectContaining({id: 'external-file'})]);
+});
+
+it('ofrece carpetas externas y excluye la carpeta de destino marcada por la aplicación', async () => {
+    vi.spyOn(driveAuth, 'isSignedIn').mockReturnValue(true);
+    vi.spyOn(driveClient, 'getAccessToken').mockResolvedValue('token');
+    vi.spyOn(driveAuth, 'getAccountId').mockResolvedValue('owner');
+    vi.spyOn(driveClient, 'request').mockResolvedValue(Response.json({files: [
+        {id: 'destination', name: 'Archivo', appProperties: {misEstudios: 'carpeta-v1'}},
+        {id: 'external', name: 'Archivo'},
+    ]}));
+    document.body.append(root);
+    await act(() => render(h(FolderPickerDialog, {}), root));
+    await act(() => { isFolderPickerOpen.value = true; });
+    await vi.waitFor(() => expect(root.querySelector('[role="option"]')).not.toBeNull());
+    expect(root.querySelectorAll('[role="option"]')).toHaveLength(1);
 });
 
 it('verifica una reserva antigua contra el estudio guardado en Drive', async () => {

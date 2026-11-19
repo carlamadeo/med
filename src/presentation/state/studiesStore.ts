@@ -61,7 +61,6 @@ export const intakeError = signal<string | null>(null);
 
 export const visibleStudies = computed<Study[]>(() => {
     const result = [...studies.value];
-    const selectedTypes = categoryTypes.value;
     for (const entry of pendingChanges.value) {
         if (entry.kind !== 'save' || !entry.draft || entry.id === undefined) continue;
         const draft = entry.draft;
@@ -82,16 +81,14 @@ export const visibleStudies = computed<Study[]>(() => {
         if (index >= 0) result[index] = local;
         else result.push(local);
     }
-    // Filter by selected category types
-    if (selectedTypes.length > 0) {
-        return result.filter((study) => study.types.some((type) => selectedTypes.includes(type)));
-    }
     return result;
 });
 
 export const libraryHasFilters = computed(() => Boolean(libraryQuery.value.trim() || libraryPortal.value || libraryOperation.value || categoryTypes.value.length));
 export const filteredStudies = computed(() => {
+    const selectedTypes = new Set(categoryTypes.value.map(normalize));
     const items = visibleStudies.value.filter(study =>
+        (!selectedTypes.size || study.types.some(type => selectedTypes.has(normalize(type)))) &&
         (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
         (!libraryOperation.value || study.operationId === libraryOperation.value.id)
     );

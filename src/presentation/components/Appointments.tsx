@@ -10,6 +10,7 @@ import {
   TIMEZONE_OPTIONS,
 } from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
+import {AppointmentReminderNote} from './AppointmentReminderNote';
 import {AppointmentStudyList, AppointmentStudyPicker} from './AppointmentStudies';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
@@ -18,7 +19,7 @@ export function Appointments() {
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [permission, setPermission] = useState(() =>
+  const [permission, setPermission] = useState<NotificationPermission | 'unavailable'>(() =>
     typeof Notification === 'undefined' ? 'unavailable' : Notification.permission
   );
   const [query, setQuery] = useState('');
@@ -263,24 +264,7 @@ export function Appointments() {
               </label>
             </div>
             <AppointmentStudyPicker studyIds={editing?.studyIds} />
-            <p className="appointment-note">
-              Los avisos requieren la aplicación abierta, una sesión activa y el turno sincronizado.
-              Permiso:{' '}
-              {permission === 'granted'
-                ? 'concedido'
-                : permission === 'denied'
-                  ? 'denegado'
-                  : permission === 'unavailable'
-                    ? 'no disponible'
-                    : 'pendiente'}
-              .
-            </p>
-            {(!navigator.locks || !navigator.serviceWorker?.controller) && (
-              <p className="appointment-note" role="status">
-                Los avisos no están disponibles en este navegador o todavía se está iniciando la
-                aplicación.
-              </p>
-            )}
+            <AppointmentReminderNote permission={permission}/>
             {permission === 'default' && (
               <button
                 className="button secondary button-sm"

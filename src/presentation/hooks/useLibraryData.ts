@@ -6,7 +6,7 @@ import {
 import {
     isSignedIn, deletingStudyId, isEditorOpen, setLoading, setError, setIsSignedIn,
     setStudies, operations, portals, medicalEvents, episodes, appointments, directoryWarning,
-    studiesReady, directoriesReady, directoryFailures,
+    studiesReady, studyLoadSkipped, directoriesReady, directoryFailures,
 } from '../state/store';
 
 export function useLibraryData() {
@@ -21,9 +21,10 @@ export function useLibraryData() {
         let token: string | undefined;
         try {
             token = await driveAuth.getAccessToken();
-            const list = await driveStudyRepo.list({force});
+            const {studies, skipped} = await driveStudyRepo.listForLibrary({force});
             if (await driveAuth.getAccessToken() !== token || seq !== loadSequence.current || !isSignedIn.value) return;
-            setStudies(list);
+            studyLoadSkipped.value = skipped;
+            setStudies(studies);
             studiesReady.value = true;
         } catch (err) {
             if (token && await driveAuth.getAccessToken().catch(() => null) !== token) return;

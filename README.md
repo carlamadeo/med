@@ -10,7 +10,8 @@ encuentra allí. Podés seleccionar uno o varios tipos para el mismo informe: po
 Cada estudio aparece al filtrar por cualquiera de sus tipos. Los estudios guardados con un solo tipo siguen funcionando.
 Si falta información, intenta leer con OCR en español las páginas escaneadas entre las primeras tres y los sellos de
 firma que aparecen como imágenes en las primeras seis. Revisá los datos antes de guardar. Si no encuentra un dato, el
-campo queda disponible para completarlo a mano. El PDF se sube a Drive al pulsar **Guardar estudio**.
+campo queda disponible para completarlo a mano. También podés leer archivos JPEG o PNG, o tomar una foto desde
+el celular. El adjunto se sube a Drive al pulsar **Guardar estudio**.
 
 El campo **Portal o institución** permite escribir un nombre nuevo o elegir entre las instituciones de todos tus
 estudios guardados. Las sugerencias se ordenan alfabéticamente y no repiten nombres por diferencias de mayúsculas,
@@ -28,14 +29,14 @@ cada portal se pueden consultar los estudios que coinciden con el nombre de la i
 portales también se sincronizan al conectar la misma cuenta en otro dispositivo. Si otra sesión modifica una ficha
 mientras la estás editando, actualizá los datos antes de volver a guardar.
 
-La biblioteca permite filtrar por categoría, operación, portal, fechas y disponibilidad de PDF o visor; también se puede
-ordenar por fecha, nombre o tipo. Los atajos `/` y `n` enfocan la búsqueda y abren un estudio nuevo; `Esc` limpia los
-filtros cuando no hay un diálogo abierto. Al imprimir se incluyen todas las fichas filtradas, incluso las que no están
-visibles en la lista.
+En **Resumen** podés abrir estudios recientes y buscar por nombre, profesional o institución. En **Biblioteca**
+podés combinar esa búsqueda con uno o varios tipos y ordenar por fecha, nombre, profesional o institución.
+Desde Portales y Operaciones podés abrir la Biblioteca con el filtro correspondiente. La lista muestra hasta
+50 fichas por página. **Resultados filtrados** en la exportación incluye todas las coincidencias.
 
-En **Búsquedas** podés guardar el texto de una consulta para reutilizarlo o quitarlo después. Las búsquedas guardadas
-quedan en el almacenamiento local de ese navegador y se muestran solo para la cuenta verificada; las recientes duran la
-sesión de la pestaña.
+Usá **Buscar en el archivo** o `Ctrl+K` / `⌘K` para abrir la búsqueda global. El atajo `n` abre un estudio nuevo.
+Si Drive devuelve una ficha ilegible, las demás quedan disponibles y la interfaz avisa cuántas faltan. La
+exportación espera a que se pueda leer el historial completo.
 
 ## Publicar
 

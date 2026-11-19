@@ -1,11 +1,12 @@
 /** Lista de estudios en formato tabla. */
-import {useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {StudyPrintDialog} from './StudyPrintDialog';
 import {formatStudyDate, reportUrl, studyAttachmentLabel, type StudySortOrder} from '@domain/library';
 import {isSourceUnavailable} from '../state/store';
 import type {Study} from '@domain/models';
 
 type SortColumn = 'title' | 'date' | 'doctor' | 'portal';
+const PAGE_SIZE = 50;
 
 const COLUMN_ORDERS: Record<SortColumn, { asc: StudySortOrder; desc: StudySortOrder; defaultOrder: StudySortOrder }> = {
     title: {asc: 'title', desc: 'title-desc', defaultOrder: 'title'},
@@ -33,6 +34,18 @@ export function StudyList({
                                studies: studiesList
                            }: StudyListProps) {
     const [printing, setPrinting] = useState<Study | null>(null);
+    const [pagination, setPagination] = useState({studies: studiesList, page: 0});
+    const table = useRef<HTMLTableElement>(null);
+    const page = pagination.studies === studiesList ? pagination.page : 0;
+    const start = page * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, studiesList.length);
+    const pageStudies = studiesList.slice(start, end);
+
+    const changePage = (next: number) => {
+        if (next < 0 || next * PAGE_SIZE >= studiesList.length) return;
+        setPagination({studies: studiesList, page: next});
+        table.current?.focus();
+    };
 
     const renderSortHeader = (column: SortColumn, label: string) => {
         const orders = COLUMN_ORDERS[column];
@@ -68,7 +81,7 @@ export function StudyList({
     return (
         <>
         <div className="summary-table-scroll library-table">
-            <table role="table">
+            <table ref={table} role="table" tabIndex={-1}>
                 <caption className="sr-only">Estudios guardados en el archivo</caption>
                 <thead role="rowgroup">
                     <tr role="row">
@@ -88,7 +101,7 @@ export function StudyList({
                                 </div>
                             </td>
                         </tr>
-                    ) : studiesList.flatMap((study, index) => {
+                    ) : pageStudies.flatMap((study, index) => {
                         const hasAttachment = study.hasPdf || Boolean(study.attachmentMime);
                         const attachmentAvailable = hasAttachment && !isSourceUnavailable(study.driveFileId);
                         const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
@@ -210,6 +223,15 @@ export function StudyList({
                 </tbody>
             </table>
         </div>
+        {studiesList.length > PAGE_SIZE && (
+            <nav className="library-pagination" aria-label="Páginas de estudios">
+                <button type="button" className="button secondary" aria-disabled={page === 0}
+                        onClick={() => changePage(page - 1)}>Anterior</button>
+                <span role="status">{start + 1}–{end} de {studiesList.length} estudios</span>
+                <button type="button" className="button secondary" aria-disabled={end === studiesList.length}
+                        onClick={() => changePage(page + 1)}>Siguiente</button>
+            </nav>
+        )}
         <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
         </>
     );

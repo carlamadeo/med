@@ -71,7 +71,9 @@ export function StudyListContainer({
                         <div className="library-head-main">
                             <div className="section-title">
                                 <h2 id="library-title">Estudios guardados</h2>
-                                <span id="count" className="count">{studiesList.length}</span>
+                                <span id="count" className="count" aria-live="polite" aria-atomic="true">
+                                    {studiesList.length}<span className="sr-only"> estudios</span>
+                                </span>
                             </div>
                             <LibraryTabs availableTypes={availableTypes}/>
                         </div>
