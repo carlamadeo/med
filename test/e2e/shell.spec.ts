@@ -324,3 +324,29 @@ test('el modo local conserva la biblioteca al cancelar el editor', async ({page}
     await expect(page.getByRole('region', {name: 'Biblioteca'})).toBeVisible();
     await expect(page.getByText('Ecografía abdominal completa')).toBeVisible();
 });
+
+test('mantiene las acciones del editor fuera del área desplazable', async ({page}) => {
+    await page.setViewportSize({width: Math.min(page.viewportSize()!.width, 800), height: 600});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const library = page.getByRole('region', {name: 'Biblioteca'});
+    const more = library.getByText('Más acciones', {exact: true}).first();
+    if (await more.isVisible()) await more.click();
+    await library.getByRole('button', {name: 'Editar Mamografía bilateral'}).click();
+    const editor = page.getByRole('dialog', {name: 'Editar estudio'});
+    const content = editor.locator('.editor-content');
+    const actions = editor.locator('.dialog-actions');
+    await expect(editor).toBeVisible();
+    const geometry = await content.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+        return {scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight};
+    });
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    expect(geometry.scrollTop).toBeGreaterThan(0);
+    const contentBounds = await content.boundingBox();
+    const actionsBounds = await actions.boundingBox();
+    expect(contentBounds!.y + contentBounds!.height).toBeLessThanOrEqual(actionsBounds!.y);
+    await expect(editor.getByLabel('Enlace al visor web')).toBeInViewport();
+    await expect(editor.getByRole('button', {name: 'Guardar cambios'})).toBeInViewport();
+});

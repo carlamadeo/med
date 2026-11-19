@@ -298,6 +298,7 @@ export function EditorDialog({
                     // suggested.current.delete(name) - handled by hook
                 }
             }} onSubmit={handleSubmit}>
+                <div className="editor-content">
                 <fieldset hidden={sessionLost} disabled={busy || operationBusy || sessionLost}
                           style={{border: 0, padding: 0, margin: 0}}>
                     <div className="dialog-heading">
@@ -637,6 +638,7 @@ export function EditorDialog({
                         </section>
                     )}
                 </fieldset>
+                </div>
                 {sessionLost && <h2 id="editor-session-title">Sesión desconectada</h2>}
                 <p className="form-error" id="form-error" role="alert" hidden={!error}>{error}</p>
                 <button type="button" className="button secondary reconnect" hidden={!sessionLost}
