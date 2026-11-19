@@ -154,6 +154,13 @@ export function StudyImportDialog({open, onClose, studies, onSaved}: Props) {
         if (rowsRef.current.some(row => row.status !== 'saved') && !window.confirm('¿Descartar los estudios pendientes de esta tanda?')) return;
         clear(); onClose();
     };
+    const savedCount = rows.filter(row => row.status === 'saved').length;
+    const pendingCount = rows.length - savedCount;
+    const summary = savedCount && !saving
+        ? pendingCount
+            ? `${savedCount} ${savedCount === 1 ? 'estudio guardado' : 'estudios guardados'}. ${pendingCount} ${pendingCount === 1 ? 'estudio pendiente' : 'estudios pendientes'}.`
+            : savedCount === 1 ? 'Se guardó el estudio correctamente.' : `Se guardaron los ${savedCount} estudios correctamente.`
+        : '';
     return <dialog ref={dialog} className="dialog study-import-dialog" aria-labelledby="import-title" onCancel={event => {event.preventDefault(); close();}}>
         <div className="dialog-heading"><h2 id="import-title">Importar estudios</h2><button className="button quiet" type="button" onClick={close}>Cerrar</button></div>
         {sessionVisible ? <div onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); if (!saving && event.dataTransfer?.files) void add(event.dataTransfer.files);}}>
@@ -181,7 +188,10 @@ export function StudyImportDialog({open, onClose, studies, onSaved}: Props) {
             </section>;
             })}
             <div className="study-import-footer">
-                <p>{rows.filter(row => row.selected && (ready(row) || row.status === 'uncertain')).length} estudios listos para guardar</p>
+                <div>
+                    {summary && <p role="status">{summary}</p>}
+                    <p>{rows.filter(row => row.selected && (ready(row) || row.status === 'uncertain')).length} estudios listos para guardar</p>
+                </div>
                 <button className="button primary" type="button" disabled={saving || !rows.some(row => row.selected && (ready(row) || row.status === 'uncertain'))} onClick={() => void save()}>{saving ? 'Guardando…' : 'Guardar estudios seleccionados'}</button>
             </div>
         </div> : <p>Volvé a conectar la misma cuenta para continuar.</p>}

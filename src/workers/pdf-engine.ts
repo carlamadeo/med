@@ -7,6 +7,7 @@ import {extractFields, extractSignatureDoctor, type ExtractedFields} from '@doma
 
 import {signatureImages} from '@domain/pdf-signatures';
 import type {AnalysisProgress} from './protocol';
+import {pageText} from './pdf-text-layout';
 import type * as PdfJs from 'pdfjs-dist';
 import type {PDFDocumentProxy} from 'pdfjs-dist';
 import type {TextItem} from 'pdfjs-dist/types/src/display/api';
@@ -35,21 +36,6 @@ const vendor = (path: string): string => new URL(path, vendorBase).href;
 
 const isTextItem = (item: object): item is TextItem => 'str' in item;
 
-function pageText(items: Array<TextItem | object>): string {
-    let text = '';
-    let previous: { y: number; end: number } | undefined;
-    for (const item of items) {
-        if (!isTextItem(item)) continue;
-        const x = item.transform[4] as number;
-        const y = item.transform[5] as number;
-        if (previous && Math.abs(previous.y - y) > 4 && !text.endsWith('\n')) text += '\n';
-        else if (previous && x - previous.end > 18 && !text.endsWith('\n')) text += '  ';
-        text += item.str;
-        if (item.hasEOL) text += '\n';
-        previous = {y, end: x + item.width};
-    }
-    return text;
-}
 
 function signatureArea(item: TextItem, viewport: Viewport) {
     const x = item.transform[4] as number;

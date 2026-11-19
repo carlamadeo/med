@@ -32,6 +32,7 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(root.textContent).toContain('1 estudio guardado. 1 estudio pendiente.');
     expect(root.textContent).toContain('dos.pdf');
     const saved = save.mock.results[0]!.value;
     const savedStudy = await saved;
@@ -61,6 +62,7 @@ it('retries an uncertain save using the same ID and unchanged draft', async () =
     await vi.waitFor(() => expect(root.textContent).toContain('No se pudo confirmar el guardado'));
     await act(async () => { button.click(); });
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(root.textContent).toContain('Se guardó el estudio correctamente.');
     expect(reserve).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledTimes(2);
     expect(save.mock.calls[0]?.[0]).toEqual(save.mock.calls[1]?.[0]);
