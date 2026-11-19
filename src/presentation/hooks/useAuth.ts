@@ -1,5 +1,6 @@
 import {useEffect, useRef, useCallback} from 'preact/hooks';
 import {driveAuth} from '@data';
+import {listIntakeReservationSources} from '@data/intake-reservations';
 import {
     isSignedIn,
     studies,
@@ -112,6 +113,8 @@ if (!signedIn) {
                     editorOwner.current = Promise.resolve(owner);
                     // Clear editor error on successful reconnect
                     onEditorReconnect?.();
+                    // Retry a failed migration when the account opens Bandeja.
+                    void listIntakeReservationSources(owner).catch(() => {});
                     await loadStudies();
                     if (sequence !== authSequence.current) return;
                     await loadDirectories();

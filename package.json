@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
-    "@lhci/cli": "^0.15.1",
+    "@lhci/cli": "^0.16.1",
     "@playwright/test": "^1.46.0",
     "@types/node": "^26.6.6",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -45,7 +45,6 @@
     "@vitest/coverage-v8": "^5.1.0",
     "axe-core": "^4.14.0",
     "eslint": "^9.9.0",
-    "eslint-plugin-preact": "^0.1.0",
     "fake-indexeddb": "^6.2.8",
     "idb": "^8.0.4",
     "jsdom": "^29.1.1",

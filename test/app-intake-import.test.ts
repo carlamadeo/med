@@ -1,9 +1,10 @@
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAuth, driveIntakeRepo, driveStudyRepo} from '@data';
+import {Outbox} from '@data/outbox';
 import * as pdfAnalysis from '@data/pdf-analysis';
 import {approvedFolderId, intakeCandidates, pendingChanges, studiesReady, view} from '@presentation/state/store';
-import {reserveIntakeDestination} from '@presentation/utils/intakeReservation';
+import {reserveIntakeDestination} from '@data/intake-reservations';
 import {mountPage} from './page';
 
 afterEach(() => {
@@ -115,6 +116,30 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
         () => driveStudyRepo.reserveId(),
     );
 
+    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate, candidateTwo]);
+    const refresh = () => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('Actualizar'))!;
+    const retry = () => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('Verificar y reintentar'))!;
+    await act(() => refresh().click());
+    await vi.waitFor(() => expect(retry()).toBeTruthy());
+    await act(() => retry().click());
+    await vi.waitFor(() => expect(editor.open).toBe(true));
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const previousLocks = Object.getOwnPropertyDescriptor(navigator, 'locks');
+    Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: {request: (_: string, callback: () => Promise<unknown>) => callback()},
+    });
+    try {
+        await act(async () => { form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})); });
+        await vi.waitFor(() => expect(editor.textContent).toContain('confirmar el guardado anterior'));
+        expect(await new Outbox().list(owner)).toEqual([]);
+    } finally {
+        online.mockRestore();
+        if (previousLocks) Object.defineProperty(navigator, 'locks', previousLocks);
+        else Reflect.deleteProperty(navigator, 'locks');
+    }
+    await act(() => editor.close());
+
     await driveStudyRepo.save({
         id: reservedId,
         title: 'Pendiente QA',
@@ -128,17 +153,10 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
         intakeSourceId: candidateTwo.id,
     });
 
-    vi.spyOn(driveIntakeRepo, 'listCandidates').mockResolvedValue([candidate, candidateTwo]);
-    await act(() => {
-        const refreshButton = [...document.querySelectorAll('button')].find(button => button.textContent?.includes('Actualizar'));
-        refreshButton!.click();
-    });
+    await act(() => refresh().click());
 
     await vi.waitFor(() => expect(document.body.textContent).toContain('Guardados sin confirmar'));
-    await act(async () => {
-        const retryButton = [...document.querySelectorAll('button')].find(button => button.textContent?.includes('Verificar y reintentar'));
-        retryButton!.click();
-    });
+    await act(() => retry().click());
 
     await vi.waitFor(() => expect(document.body.textContent).not.toContain('Guardados sin confirmar'));
     const allWithSourceTwo = (await driveStudyRepo.list({force: true})).filter(study => study.intakeSourceId === candidateTwo.id);

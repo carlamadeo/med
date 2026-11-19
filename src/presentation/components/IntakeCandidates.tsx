@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
-import {clearIntakeReservation, hasIntakeReservation, readIntakeDraft, readIntakeReservationId} from '../utils/intakeReservation';
+import {clearIntakeReservation, listIntakeReservationSources, readIntakeReservation} from '@data/intake-reservations';
 import {normalize} from '@domain/utils';
 import {driveAuth, driveIntakeRepo, driveStudyRepo} from '@data';
 import {
@@ -52,7 +52,10 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
     const generation = useRef(0);
     const owner = driveAuth.cachedAccountId();
     const [deletedSources, setDeletedSources] = useState<string[]>([]);
-    const uncertainCandidates = intakeCandidates.value.filter(candidate => owner && hasIntakeReservation(owner, candidate.id));
+    const [reservations, setReservations] = useState<{owner: string; sourceIds: string[]; error?: string} | null>(null);
+    const reservationState = reservations?.owner === owner ? reservations : null;
+    const editorOpen = isEditorOpen.value;
+    const uncertainCandidates = intakeCandidates.value.filter(candidate => reservationState?.sourceIds.includes(candidate.id));
     const deletedCandidates = intakeCandidates.value.filter(candidate => deletedSources.includes(candidate.id));
     const candidates = intakeCandidates.value.filter(candidate => !uncertainCandidates.includes(candidate) && !deletedCandidates.includes(candidate)).map(candidate => {
         if (studies.value.some(study => study.intakeSourceId === candidate.id || study.driveFileId === candidate.id)) {
@@ -63,21 +66,39 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
         }
         return candidate;
     });
-    const loading = intakeLoading.value;
-    const error = intakeError.value;
+    const loading = intakeLoading.value || Boolean(owner && !reservationState);
+    const error = intakeError.value || reservationState?.error;
     const folderId = approvedFolderId.value;
     const [query, setQuery] = useState('');
     const [refreshVersion, setRefreshVersion] = useState(0);
 
     useEffect(() => {
-        const unsubscribe = driveAuth.onAuthChange(() => {
+        const unsubscribe = driveAuth.onAuthChange(signedIn => {
             generation.current += 1;
+            if (!signedIn) setReservations(null);
         });
         return () => {
             generation.current += 1;
             unsubscribe();
         };
     }, []);
+
+    useEffect(() => {
+        if (!owner) return;
+        let cancelled = false;
+        const currentGeneration = generation.current;
+        void listIntakeReservationSources(owner).then(sourceIds => {
+            if (!cancelled && generation.current === currentGeneration && driveAuth.cachedAccountId() === owner) {
+                setReservations({owner, sourceIds});
+            }
+        }).catch(error => {
+            if (!cancelled && generation.current === currentGeneration && driveAuth.cachedAccountId() === owner) {
+                const message = error instanceof Error ? error.message : 'No se pudieron leer los guardados sin confirmar.';
+                setReservations({owner, sourceIds: [], error: message});
+            }
+        });
+        return () => { cancelled = true; };
+    }, [owner, folderId, editorOpen, refreshVersion]);
 
     useEffect(() => {
         if (!folderId) return;
@@ -130,32 +151,39 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
             const token = await driveAuth.getAccessToken();
             const owner = driveAuth.cachedAccountId();
             if (!owner) throw new Error('Conectate primero para verificar tu cuenta.');
-            const reservedId = readIntakeReservationId(owner, candidate.id);
-            if (reservedId) {
+            const reservation = await readIntakeReservation(owner, candidate.id);
+            const isCurrent = async () => await driveAuth.getAccessToken() === token &&
+                currentGeneration === generation.current && driveAuth.cachedAccountId() === owner;
+            if (!await isCurrent()) return;
+            if (reservation) {
                 const currentStudies = await driveStudyRepo.list({force: true});
-                if (currentGeneration !== generation.current || driveAuth.cachedAccountId() !== owner || await driveAuth.getAccessToken() !== token) return;
-                const saved = currentStudies.find(study => study.id === reservedId && study.intakeSourceId === candidate.id);
+                if (!await isCurrent()) return;
+                const saved = currentStudies.find(study => study.id === reservation.id && study.intakeSourceId === candidate.id);
                 if (saved) {
-                    clearIntakeReservation(owner, candidate.id);
+                    await clearIntakeReservation(owner, candidate.id, saved.id);
+                    if (!await isCurrent()) return;
+                    setReservations(current => current?.owner === owner
+                        ? {...current, sourceIds: current.sourceIds.filter(id => id !== candidate.id)}
+                        : current);
                     setStudies(currentStudies);
                     updateCandidateStatus(candidate.id, 'imported');
                     return;
                 }
             }
             const file = await driveIntakeRepo.getPdfFile(candidate.id, candidate.name);
-            if (currentGeneration !== generation.current || driveAuth.cachedAccountId() !== owner || await driveAuth.getAccessToken() !== token) return;
+            if (!await isCurrent()) return;
 
             onOpenEditor({
-                ...readIntakeDraft(owner, candidate.id),
+                ...reservation?.draft,
                 _candidateId: candidate.id,
                 _candidateName: candidate.name,
                 file,
             });
             updateCandidateStatus(candidate.id, 'new');
-        } catch {
+        } catch (error) {
             if (currentGeneration !== generation.current) return;
             updateCandidateStatus(candidate.id, 'new');
-            setIntakeError('No se pudo abrir el documento. Revisá la conexión y volvé a intentar.');
+            setIntakeError(error instanceof Error ? error.message : 'No se pudo abrir el documento. Volvé a intentar.');
         }
     };
 
@@ -270,6 +298,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
             {uncertainCandidates.length > 0 && (
                 <section className="intake-group" aria-label="Guardados sin confirmar">
                     <h3>Guardados sin confirmar</h3>
+                    <p>Los datos revisados quedan en este navegador al salir. Conectá la misma cuenta para confirmar el guardado o reintentarlo.</p>
                     <ul className="intake-list">
                         {uncertainCandidates.filter(matches).map(candidate => (
                             <li key={candidate.id} className="intake-card">
@@ -277,7 +306,9 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                                     <p className="intake-name">{candidate.name}</p>
                                     <p>Revisá los mismos datos y volvé a intentar.</p>
                                 </div>
-                                <button type="button" className="button secondary button-sm" onClick={() => void handleImport(candidate)}>Verificar y reintentar</button>
+                                <button type="button" className="button secondary button-sm"
+                                        disabled={editorOpen || candidate.status === 'pending'}
+                                        onClick={() => void handleImport(candidate)}>Verificar y reintentar</button>
                             </li>
                         ))}
                     </ul>

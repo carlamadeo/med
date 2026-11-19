@@ -2,6 +2,7 @@ import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAuth, driveClient, driveIntakeRepo} from '@data';
+import {clearIntakeReservation, readIntakeReservation} from '@data/intake-reservations';
 import {IntakeCandidates} from '@presentation/components/IntakeCandidates';
 import {FolderPickerDialog} from '@presentation/components/FolderPickerDialog';
 import {approvedFolderId, intakeCandidates, isFolderPickerOpen, setIntakeCandidates} from '@presentation/state/store';
@@ -192,6 +193,7 @@ it('verifica una reserva antigua contra el estudio guardado en Drive', async () 
     await act(() => [...root.querySelectorAll('button')].find(button => button.textContent === 'Verificar y reintentar')!.click());
     await vi.waitFor(() => expect(studies.value.some(item => item.id === 'reserved-old')).toBe(true));
     expect(localStorage.getItem('mis-estudios:intake-reservation:owner:source-old')).toBeNull();
+    expect(await readIntakeReservation('owner', 'source-old')).toBeUndefined();
     expect(open).not.toHaveBeenCalled();
     studies.value = [];
 });
@@ -217,10 +219,12 @@ it('conserva la reserva y no abre el editor si cambia la cuenta al verificar Dri
     await vi.waitFor(() => expect(list).toHaveBeenCalled());
     account = 'second';
     await act(async () => finish([{id: 'reserved', driveFileId: 'reserved', intakeSourceId: candidate.id, title: 'Informe', date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]));
-    expect(localStorage.getItem(reservationKey)).not.toBeNull();
+    expect(localStorage.getItem(reservationKey)).toBeNull();
+    expect(await readIntakeReservation('first', candidate.id)).toMatchObject({id: 'reserved'});
+    expect(await readIntakeReservation('second', candidate.id)).toBeUndefined();
     expect(studies.value.some(study => study.id === 'reserved')).toBe(false);
     expect(open).not.toHaveBeenCalled();
-    localStorage.removeItem(reservationKey);
+    await clearIntakeReservation('first', candidate.id, 'reserved');
 });
 
 it('no confirma una ficha cuyo origen difiere del archivo reservado', async () => {
@@ -241,7 +245,8 @@ it('no confirma una ficha cuyo origen difiere del archivo reservado', async () =
     await vi.waitFor(() => expect(root.textContent).toContain('Verificar y reintentar'));
     await act(() => [...root.querySelectorAll('button')].find(button => button.textContent === 'Verificar y reintentar')!.click());
     await vi.waitFor(() => expect(open).toHaveBeenCalled());
-    expect(localStorage.getItem(reservationKey)).not.toBeNull();
+    expect(localStorage.getItem(reservationKey)).toBeNull();
+    expect(await readIntakeReservation('owner', candidate.id)).toMatchObject({id: 'reserved-mismatch'});
     expect(studies.value.some(study => study.id === 'reserved-mismatch')).toBe(false);
-    localStorage.removeItem(reservationKey);
+    await clearIntakeReservation('owner', candidate.id, 'reserved-mismatch');
 });

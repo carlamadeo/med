@@ -168,18 +168,20 @@ export function StudyList({
                                 <td role="cell">
                                     <div className="row-actions">
                                         {attachmentAvailable && (
-                                            <a className="icon-button" href={reportUrl(study.driveFileId)}
+                                            <a className="icon-button library-source" href={reportUrl(study.driveFileId)}
                                                target="_blank" rel="noopener noreferrer"
                                                title={attachmentLabel} aria-label={`${attachmentLabel} de ${study.title}`}>
                                                 <svg className="icon" aria-hidden="true">
                                                     <use href={study.attachmentMime ? '#i-scan' : '#i-file'}/>
                                                 </svg>
+                                                <span className="library-source-label">{attachmentLabel}</span>
                                             </a>
                                         )}
                                         {viewerAvailable && (
-                                            <a className="icon-button" href={study.viewer} target="_blank" rel="noopener noreferrer"
+                                            <a className="icon-button library-source" href={study.viewer} target="_blank" rel="noopener noreferrer"
                                                title="Abrir visor" aria-label={`Abrir visor de ${study.title}`}>
                                                 <svg className="icon" aria-hidden="true"><use href="#i-eye"/></svg>
+                                                <span className="library-source-label">Abrir visor</span>
                                             </a>
                                         )}
                                         <button className="icon-button desktop-study-action" type="button" title="Editar" disabled={pending}

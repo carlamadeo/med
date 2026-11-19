@@ -11,6 +11,7 @@ import {
 } from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentReminderNote} from './AppointmentReminderNote';
+import {AppointmentCalendar} from './AppointmentCalendar';
 import {AppointmentStudyList, AppointmentStudyPicker} from './AppointmentStudies';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
@@ -377,6 +378,7 @@ export function Appointments() {
                   </p>
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   <AppointmentStudyList studyIds={item.studyIds} />
+                  {status === 'upcoming' && <AppointmentCalendar appointment={item} />}
                   {(item.cost !== null || item.coverage || item.reminderMinutes) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (

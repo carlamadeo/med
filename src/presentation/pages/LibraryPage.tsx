@@ -1,5 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {reserveIntakeDestination, clearIntakeReservation, hasIntakeReservation} from '../utils/intakeReservation';
+import {reserveIntakeDestination, clearIntakeReservation, readIntakeReservation} from '@data/intake-reservations';
 /**
  * Página principal: lista de estudios, filtros, editor y borrado.
  * Orquesta el estado reactivo (store) con los repositorios de Drive.
@@ -313,6 +313,9 @@ export function LibraryPage() {
                     if (draft.intakeSourceId && current.some(item => item.kind === 'save' && item.draft?.intakeSourceId === draft.intakeSourceId)) {
                         throw new Error('Este documento ya tiene un cambio pendiente de sincronización.');
                     }
+                    if (draft.intakeSourceId && await readIntakeReservation(owner, draft.intakeSourceId)) {
+                        throw new Error('Conectate a Drive para confirmar el guardado anterior de este documento.');
+                    }
                     await outbox.enqueueSave(owner, draft);
                 }, token);
                 const queued = await outbox.list(owner);
@@ -328,7 +331,7 @@ export function LibraryPage() {
                     if (queued.some(item => item.kind === 'save' && item.draft?.intakeSourceId === draft.intakeSourceId)) {
                         throw new Error('Este documento ya tiene un cambio pendiente de sincronización.');
                     }
-                    if (!hasIntakeReservation(pendingOwner, draft.intakeSourceId)) {
+                    if (!await readIntakeReservation(pendingOwner, draft.intakeSourceId)) {
                         const existing = (await driveStudyRepo.list({force: true})).find(study =>
                             study.intakeSourceId === draft.intakeSourceId || study.driveFileId === draft.intakeSourceId,
                         );
@@ -338,7 +341,7 @@ export function LibraryPage() {
                             throw new Error('Este informe ya fue importado y está en la papelera. Usá Recuperar informe para restaurarlo.');
                         }
                     }
-                    draft.id = await reserveIntakeDestination(pendingOwner, draft.intakeSourceId, draft, () => driveStudyRepo.reserveId());
+                    draft.id = await reserveIntakeDestination(pendingOwner, draft.intakeSourceId, draft, () => driveStudyRepo.reserveId(token));
                 } else if (!draft.driveFileId) {
                     const id = pendingId.current || await driveStudyRepo.reserveId();
                     if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
@@ -346,13 +349,17 @@ export function LibraryPage() {
                     draft.id = id;
                 }
                 if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
-                return driveStudyRepo.save(draft);
+                return driveStudyRepo.save(draft, token);
             };
             const saved = draft.intakeSourceId && pendingOwner && navigator.locks
                 ? await navigator.locks.request(`mis-estudios-outbox:${pendingOwner}`, save)
                 : await save();
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
-            if (draft.intakeSourceId && pendingOwner) clearIntakeReservation(pendingOwner, draft.intakeSourceId);
+            if (draft.intakeSourceId && pendingOwner) {
+                // If storage is unavailable, Bandeja can still reconcile the confirmed upload later.
+                await clearIntakeReservation(pendingOwner, draft.intakeSourceId, saved.id).catch(() => {});
+                if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+            }
             invalidateStudies();
             setStudies([...studies.value.filter((item) => item.id !== saved.id), saved]);
             pendingId.current = '';

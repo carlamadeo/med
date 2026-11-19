@@ -3,10 +3,80 @@ import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAuth, driveStudyRepo} from '@data';
 import * as analysis from '@data/pdf-analysis';
+import {readImportBatch, replaceImportBatch, type ImportRow} from '@data/import-batch-repository';
+import type {Study} from '@domain/models';
 import {StudyImportDialog} from '@presentation/components/StudyImportDialog';
 
 const root = document.createElement('div');
 afterEach(() => { render(null, root); root.remove(); vi.restoreAllMocks(); });
+
+it('rejects a stale tab without overwriting or discarding a newer local batch', async () => {
+    const file = new File(['%PDF-test'], 'prueba.pdf', {type: 'application/pdf'});
+    const row: ImportRow = {
+        key: 'local-study', file, status: 'ready', message: '', selected: true, duplicateConfirmed: '',
+        draft: {title: 'Primera versión', date: '2020-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: file.name, file},
+    };
+    const account = 'batch-race-account';
+    const first = await replaceImportBatch(account, null, [row]);
+    const next = {...row, draft: {...row.draft, title: 'Versión actual'}};
+    await replaceImportBatch(account, first.revision, [next]);
+    await expect(replaceImportBatch(account, first.revision, [])).rejects.toThrow('otra pestaña');
+    expect((await readImportBatch(account)).rows[0]?.draft.title).toBe('Versión actual');
+});
+
+it('restores an opted-in batch and retries an uncertain upload with the retained ID', async () => {
+    document.body.append(root);
+    let account = 'batch-retention-account';
+    vi.spyOn(driveAuth, 'cachedAccountId').mockImplementation(() => account);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('verified-token');
+    vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
+    vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
+    const reserve = vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('retained-id');
+    const save = vi.spyOn(driveStudyRepo, 'save').mockRejectedValueOnce(new Error('lost response'))
+        .mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+    const original = new File(['%PDF-synthetic'], 'histórico.pdf', {type: 'application/pdf'});
+    const onSaved = vi.fn();
+    let studies: Study[] = [];
+    const mount = () => act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies, onSaved}), root));
+    const unmount = () => act(() => render(null, root));
+    const button = (name: string) => Array.from(root.querySelectorAll('button')).find(element => element.textContent?.trim() === name);
+    await mount();
+    const input = root.querySelector('input[type=file]')!;
+    Object.defineProperty(input, 'files', {value: [original]});
+    await act(() => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
+    expect(button('Conservar borrador')).toBeDefined();
+    await act(() => button('Conservar borrador')?.click());
+    await vi.waitFor(() => expect(root.textContent).toContain('Borrador conservado en este dispositivo.'));
+    await act(() => button('Guardar selección')?.click());
+    await vi.waitFor(() => expect(root.textContent).toContain('No se pudo confirmar el guardado.'));
+    await unmount();
+    account = 'different-account';
+    await mount();
+    await vi.waitFor(() => expect(root.querySelector<HTMLInputElement>('input[type=file]')?.disabled).toBe(false));
+    expect(root.textContent).not.toContain('histórico.pdf');
+    await unmount();
+    account = 'batch-retention-account';
+    await mount();
+    await vi.waitFor(() => expect(root.textContent).toContain('histórico.pdf'));
+    expect(root.textContent).toContain('Guardado sin confirmar');
+    await act(() => button('Reintentar guardado')?.click());
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[1]?.[0].id).toBe('retained-id');
+    expect(await save.mock.calls[1]?.[0].file?.text()).toBe('%PDF-synthetic');
+    studies = [onSaved.mock.calls[0]![0]];
+    await vi.waitFor(() => expect(root.textContent).toContain('Borrar huellas de importación'));
+    await unmount();
+    await mount();
+    const renamed = root.querySelector('input[type=file]')!;
+    Object.defineProperty(renamed, 'files', {value: [new File(['%PDF-synthetic'], 'otro-nombre.pdf', {type: 'application/pdf'})]});
+    await act(() => { renamed.dispatchEvent(new Event('change', {bubbles: true})); });
+    await vi.waitFor(() => expect(root.textContent).toContain('El PDF coincide con un informe importado: histórico.'));
+    expect((button('Guardar selección') as HTMLButtonElement).disabled).toBe(true);
+    await act(() => button('Borrar huellas de importación')?.click());
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
+});
 
 it('saves a ready study and leaves a study without a date pending', async () => {
     document.body.append(root);
@@ -35,9 +105,9 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo para guardar'));
     const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
     await act(async () => { button.click(); });
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
-    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(root.textContent).toContain('1 estudio guardado. 1 estudio pendiente.');
     expect(root.textContent).toContain('dos.pdf');
     const saved = save.mock.results[0]!.value;

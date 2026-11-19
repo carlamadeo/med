@@ -21,7 +21,11 @@ estará disponible allí.
 Para incorporar estudios anteriores, elegí **Importar estudios** y seleccioná varios PDF. Prepará un archivo por
 estudio, con todas las páginas del informe. La aplicación lee cada PDF y muestra una ficha para revisar y corregir.
 Podés asignar una institución a varias fichas seleccionadas y guardar juntas las que tengan nombre, fecha y tipo.
-Las fichas pendientes permanecen disponibles mientras la página siga abierta.
+Las fichas pendientes permanecen disponibles mientras la página siga abierta. Elegí **Conservar borrador** para
+retomar la tanda con la misma cuenta en ese navegador. Antes de recargar, usá **Actualizar borrador** para conservar
+los últimos cambios. La opción guarda los PDF, los datos editados y las huellas de los informes importados con esa
+opción activa. Las huellas permiten advertir si volvés a elegir el mismo informe con otro nombre. Podés administrar
+el borrador y las huellas desde el diálogo de importación.
 
 Las vistas de **Operaciones** y **Portales** permiten guardar fichas independientes en la misma carpeta de Drive. Una
 operación puede agrupar estudios mediante el selector de su ficha; para eliminarla primero hay que desvincularlos. Desde
@@ -37,6 +41,15 @@ Desde Portales y Operaciones podés abrir la Biblioteca con el filtro correspond
 Usá **Buscar en el archivo** o `Ctrl+K` / `⌘K` para abrir la búsqueda global. El atajo `n` abre un estudio nuevo.
 Si Drive devuelve una ficha ilegible, las demás quedan disponibles y la interfaz avisa cuántas faltan. La
 exportación espera a que se pueda leer el historial completo.
+
+Desde **Próximo turno** en Resumen o desde **Turnos**, usá **Preparar consulta** para revisar los adjuntos de los
+estudios vinculados y descargarlos juntos en un ZIP. Los enlaces a visores se incluyen cuando los marcás.
+**Agregar al calendario** descarga un archivo `.ics` con la fecha y la hora del turno, un título neutro y un
+aviso opcional. Si reprogramás el turno, reemplazá el evento anterior en tu calendario.
+
+Si una importación desde **Bandeja de entrada** queda sin confirmar, la reserva del archivo se conserva en este
+navegador para la cuenta que inició el guardado. Volvé a conectarte para que la aplicación revise el estado del
+archivo en Drive y reutilice el identificador original cuando haga falta.
 
 ## Publicar
 
