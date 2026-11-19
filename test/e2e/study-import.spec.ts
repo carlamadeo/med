@@ -1,5 +1,4 @@
 import {expect, test} from '@playwright/test';
-import {navigateTo} from './nav';
 
 test('allows reviewing a batch containing a PDF and an invalid file', async ({page}) => {
     await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
@@ -21,21 +20,28 @@ test('allows reviewing a batch containing a PDF and an invalid file', async ({pa
     const xref = Buffer.byteLength(pdf);
     pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
     await page.goto('/');
-    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
     await page.getByRole('button', {name: 'Importar estudios'}).click();
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
-    await dialog.locator('input[type=file]').setInputFiles([{name: 'estudio.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf)}, {name: 'incorrecto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid')}]);
+    const chooser = page.waitForEvent('filechooser');
+    await dialog.getByRole('button', {name: 'Elegir PDF'}).click();
+    await (await chooser).setFiles([{name: 'estudio.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf)}, {name: 'incorrecto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid')}]);
     await expect(dialog.getByText('No se pudo abrir el PDF.')).toBeVisible();
-    await expect(dialog.getByLabel('Fecha').first()).toHaveValue('2020-03-18');
-    await expect(dialog.getByText('1 estudios listos para guardar')).toBeVisible();
+    const valid = dialog.getByRole('region', {name: 'estudio.pdf', exact: true});
+    const invalid = dialog.getByRole('region', {name: 'incorrecto.pdf', exact: true});
+    await expect(dialog.getByText('1 estudio listo para guardar')).toBeVisible();
+    await expect(dialog.getByLabel('Fecha')).toHaveCount(0);
+    await expect(invalid.getByRole('button', {name: /Revisar/})).toHaveCount(0);
+    await valid.getByRole('button', {name: /Revisar/}).click();
+    await expect(valid.getByLabel('Fecha')).toHaveValue('2020-03-18');
+    await expect(invalid.getByLabel('Fecha')).toHaveCount(0);
     for (const width of [320, 390]) {
         await page.setViewportSize({width, height: 700});
         for (const theme of ['light', 'dark']) {
-            if (await page.locator('html').getAttribute('data-theme') !== theme) {
-                await page.getByRole('button', {name: /Cambiar a modo/}).click({force: true});
-            }
-            await expect(dialog.getByRole('button', {name: 'Guardar estudios seleccionados'})).toBeInViewport();
-            expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+            await page.locator('html').evaluate((html, value) => html.setAttribute('data-theme', value), theme);
+            await valid.getByLabel('Institución').scrollIntoViewIfNeeded();
+            await expect(dialog.getByRole('button', {name: 'Guardar selección'})).toBeInViewport({ratio: 1});
+            expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
         }
     }
 });
@@ -87,13 +93,21 @@ test('saves the complete multipage PDF in the selected account', async ({page, b
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
-    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
     await page.getByRole('button', {name: 'Importar estudios'}).click();
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
     const second = Buffer.concat([original, Buffer.from('\n')]);
     await dialog.locator('input[type=file]').setInputFiles([{name: 'multipagina.pdf', mimeType: 'application/pdf', buffer: original}, {name: 'segundo.pdf', mimeType: 'application/pdf', buffer: second}]);
     await expect(dialog.getByText('2 estudios listos para guardar')).toBeVisible();
-    await dialog.getByRole('button', {name: 'Guardar estudios seleccionados'}).click();
+    const firstStudy = dialog.getByRole('region', {name: 'multipagina.pdf', exact: true});
+    const secondStudy = dialog.getByRole('region', {name: 'segundo.pdf', exact: true});
+    await firstStudy.getByRole('button', {name: /Revisar/}).click();
+    await firstStudy.getByLabel('Profesional').fill('Profesional de prueba');
+    await secondStudy.getByRole('button', {name: /Revisar/}).click();
+    await expect(firstStudy.getByLabel('Profesional')).toHaveCount(0);
+    await firstStudy.getByRole('button', {name: /Revisar/}).click();
+    await expect(firstStudy.getByLabel('Profesional')).toHaveValue('Profesional de prueba');
+    await dialog.getByRole('button', {name: 'Guardar selección'}).click();
     await expect(dialog.getByText('Guardado', {exact: true})).toHaveCount(2);
     expect(stored).toEqual([original, second]);
     expect(savedDescriptions.map(description => JSON.parse(description).date)).toEqual(['2020-03-18', '2020-03-18']);

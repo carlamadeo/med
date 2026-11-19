@@ -26,8 +26,14 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [first, second]});
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
-    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos para guardar'));
-    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await vi.waitFor(() => expect(root.textContent).toContain('Ingresá una fecha válida'));
+    expect(root.querySelectorAll('input[type=date]')).toHaveLength(0);
+    const pending = root.querySelector('section[aria-label="dos.pdf"]')!;
+    const review = pending.querySelector<HTMLButtonElement>('button[aria-expanded=false]')!;
+    await act(() => { review.click(); });
+    expect(pending.querySelector('input[type=date]')).not.toBeNull();
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo para guardar'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
     await act(async () => { button.click(); });
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
@@ -56,8 +62,8 @@ it('retries an uncertain save using the same ID and unchanged draft', async () =
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
-    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
-    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
     await act(async () => { button.click(); });
     await vi.waitFor(() => expect(root.textContent).toContain('No se pudo confirmar el guardado'));
     await act(async () => { button.click(); });
@@ -88,8 +94,8 @@ it('does not expose a late save to a different account', async () => {
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
-    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
-    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar estudios seleccionados')!;
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
+    const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
     await act(async () => { button.click(); });
     await vi.waitFor(() => expect(complete).toBeDefined());
     account = 'another-account';
@@ -115,12 +121,14 @@ it('selects only ready rows and requires confirmation for normalized library mat
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
     await vi.waitFor(() => expect(root.textContent).toContain('Archivo idéntico'));
     expect(root.textContent).toContain('Posible duplicado de');
-    const confirmation = [...root.querySelectorAll('label')].find(label => label.textContent?.includes('Posible duplicado'))!.querySelector('input')!;
+    const review = root.querySelector<HTMLButtonElement>('button[aria-label="Revisar eco.pdf"]')!;
+    await act(() => { review.click(); });
+    const confirmation = [...root.querySelectorAll('label')].find(label => label.textContent?.includes('Es otro estudio'))!.querySelector('input')!;
     await act(() => { confirmation.click(); });
     const select = [...root.querySelectorAll('button')].find(button => button.textContent === 'Seleccionar estudios listos')!;
     await act(() => { select.click(); });
-    const sections = [...root.querySelectorAll('section.form-section')];
-    expect(sections.map(section => section.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked)).toEqual([true, false, false]);
+    const selections = [...root.querySelectorAll<HTMLInputElement>('input[aria-label^="Seleccionar "]')];
+    expect(selections.filter(input => input.checked).map(input => input.getAttribute('aria-label'))).toEqual(['Seleccionar eco.pdf']);
 });
 
 it('hides a batch on disconnect and restores it only for the same account', async () => {
@@ -139,7 +147,7 @@ it('hides a batch on disconnect and restores it only for the same account', asyn
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
-    await vi.waitFor(() => expect(root.textContent).toContain('1 estudios listos'));
+    await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
     await act(() => notify(false));
     expect(root.textContent).not.toContain('privado.pdf');
     await act(async () => { notify(true); });
@@ -147,7 +155,7 @@ it('hides a batch on disconnect and restores it only for the same account', asyn
     await act(() => notify(false));
     account = 'other';
     await act(async () => { notify(true); });
-    await vi.waitFor(() => expect(root.textContent).toContain('Elegí los PDF'));
+    await vi.waitFor(() => expect(root.textContent).toContain('Arrastrá los PDF acá'));
     expect(root.textContent).not.toContain('privado.pdf');
 });
 
@@ -168,9 +176,9 @@ it('allows removing an invalid PDF without removing the other rows', async () =>
     Object.defineProperty(input, 'files', {configurable: true, value: [good, invalid]});
     await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
     await vi.waitFor(() => expect(root.textContent).toContain('No se pudo abrir el PDF.'));
-    const remove = [...root.querySelectorAll('button')].find(button => button.textContent === 'Quitar invalido.pdf')!;
+    const remove = root.querySelector<HTMLButtonElement>('button[aria-label="Quitar invalido.pdf"]')!;
     await act(() => { remove.click(); });
     expect(root.textContent).not.toContain('invalido.pdf');
     expect(root.textContent).toContain('valido.pdf');
-    expect(root.textContent).toContain('1 estudios listos para guardar');
+    expect(root.textContent).toContain('1 estudio listo para guardar');
 });
