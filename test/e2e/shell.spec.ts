@@ -93,6 +93,17 @@ test.beforeEach(async ({page}) => {
     }, sessionKey);
 });
 
+test('muestra la pantalla de acceso completa en un móvil de 320 píxeles', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await expect(page.getByRole('heading', {name: 'Abrí tu archivo'})).toBeVisible();
+    const demo = page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'});
+    await expect(demo).toBeVisible();
+    expect(await demo.evaluate(button => button.scrollWidth - button.clientWidth)).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
+});
+
 test('abre en Resumen y navega por las secciones', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
@@ -564,6 +575,47 @@ test('muestra registros largos completos en las secciones secundarias', async ({
         expect(await title.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe('ellipsis');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
+});
+
+test('abre la ficha de una operación sin desborde horizontal en móvil', async ({page}) => {
+    const name = 'ProcedimientoDePrueba'.repeat(5);
+    await page.route('https://www.googleapis.com/drive/v3/files?**', (route) => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        if (!query.includes('operacion-v1')) return route.fallback();
+        return route.fulfill({json: {files: [{
+            id: 'operation-1', version: '1', trashed: false, modifiedTime: '2024-01-01T00:00:00Z',
+            mimeType: 'application/json', appProperties: {misEstudios: 'operacion-v1'},
+            description: JSON.stringify({name, date: '2024-01-01', type: 'Cirugía de prueba'}),
+        }]}});
+    });
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'operaciones');
+    await page.getByRole('button', {name: 'Ver ficha'}).click();
+    await expect(page.getByRole('heading', {name})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Estudios vinculados'})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
+});
+
+test('usa campos de 16 píxeles en la búsqueda global y en Operaciones en móvil', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 844});
+    await page.goto('/');
+    await page.getByRole('button', {name: 'Buscar en el archivo'}).click();
+    const globalSearch = page.getByRole('combobox', {name: 'Buscar estudios, portales y turnos'});
+    await expect(globalSearch).toBeFocused();
+    await expect(globalSearch).toHaveCSS('font-size', '16px');
+    await page.keyboard.press('Escape');
+
+    await navigateTo(page, 'operaciones');
+    const operationSearch = page.getByRole('searchbox', {name: 'Buscar operaciones'});
+    await operationSearch.click();
+    await expect(operationSearch).toHaveCSS('font-size', '16px');
+    await page.locator('.operations-head').getByRole('button', {name: 'Agregar operación'}).click();
+    const form = page.getByRole('dialog', {name: 'Agregar operación'});
+    await expect(form.getByLabel('Nombre (obligatorio)')).toHaveCSS('font-size', '16px');
+    await expect(form.getByLabel('Notas')).toHaveCSS('font-size', '16px');
 });
 
 test('Escape cierra el selector de tipos y conserva el borrador', async ({page}) => {

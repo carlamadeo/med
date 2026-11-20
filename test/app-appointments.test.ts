@@ -25,8 +25,9 @@ it('creates a turn and preserves a zero cost', async () => {
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    await vi.waitFor(() => expect(document.querySelector('.appointments')?.textContent).toContain('Importe: 0'));
-    await vi.waitFor(() => expect(fakeCalendars()).toHaveLength(1));
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
+    expect(document.querySelector('.appointments')?.textContent).toContain('Importe: 0');
+    expect(fakeCalendars()).toHaveLength(1);
     const cal = fakeCalendars()[0]!;
     expect(cal.summary).toBe('Turnos');
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
@@ -50,7 +51,8 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    await vi.waitFor(() => expect($('.appointments').textContent).toContain('Av. Santa Fe 1234'));
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
+    expect($('.appointments').textContent).toContain('Av. Santa Fe 1234');
     expect($('.appointments').textContent).toContain('Dra. Perez');
 
     const cal = fakeCalendars()[0]!;
@@ -78,7 +80,8 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     await act(async () => {
         editForm.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    await vi.waitFor(() => expect($('.appointments').textContent).toContain('Sede Belgrano'));
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
+    expect($('.appointments').textContent).toContain('Sede Belgrano');
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
         location: 'Sede Belgrano',
         reminders: {
