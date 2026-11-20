@@ -7,7 +7,7 @@ import type {DriveFileMetadata, Study} from '@domain/repository';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_ROOT = 'https://www.googleapis.com/drive/v3/';
 const UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3/';
-const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';
+const ENTRY_FIELDS = 'id,name,description,version,modifiedTime,mimeType,trashed,appProperties';
 const TAG = 'misEstudios';
 const MARKER = 'estudio-v1';
 const FOLDER_MARKER = 'carpeta-v1';
@@ -363,6 +363,7 @@ export class DriveClient {
             hasPdf: file.mimeType === PDF_MIME,
             ...(file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? {attachmentMime: file.mimeType} : {}),
             driveFileId: file.id,
+            driveFileName: typeof file.name === 'string' && file.name.trim() ? file.name : undefined,
             driveModifiedTime: file.modifiedTime ?? '',
             revision: file.version,
             operationId: typeof entry.operationId === 'string' ? entry.operationId : '',

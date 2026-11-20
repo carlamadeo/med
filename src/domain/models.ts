@@ -10,6 +10,7 @@ export interface Study {
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
+    driveFileName?: string;
     driveModifiedTime: string;
     /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
     revision: string;

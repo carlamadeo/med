@@ -2581,6 +2581,7 @@
 
 .event-doc {
     color: var(--color-brand);
+    overflow-wrap: anywhere;
 }
 
 .event-foot {

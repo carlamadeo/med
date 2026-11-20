@@ -46,7 +46,7 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {doctorNames, formatStudyDate, portalNames, studyTypeNames} from '@domain/library';
+import {doctorNames, formatStudyDate, hasStudyAttachment, portalNames, studyAttachmentName, studyTypeNames} from '@domain/library';
 import {todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect, useRef, useState} from 'preact/hooks';
@@ -202,6 +202,7 @@ export function EditorDialog({
                              }: EditorDialogProps) {
     const study = editingStudy.value;
     const isEdit = !!study;
+    const currentReportName = study && hasStudyAttachment(study) && !study.pendingAttachment ? studyAttachmentName(study) : '';
     const relatedGroups = study ? study.types.map((type) => ({
         type,
         items: studies.value.filter((item) => item.id !== study.id && item.types.includes(type))
@@ -230,7 +231,6 @@ export function EditorDialog({
         progress,
         removeReport,
         setRemoveReport,
-        reportName,
         selectedReport,
         previewUrl,
         checkingReport,
@@ -480,9 +480,9 @@ export function EditorDialog({
                                 </button>
                             </div>
                         )}
-                        {reportName && (
+                        {currentReportName && (
                             <div id="current-report">
-                                <span id="current-report-name">{reportName}</span>
+                                <span id="current-report-name">{currentReportName}</span>
                                 <label className="checkbox">
                                     <input name="removeReport" type="checkbox" checked={removeReport}
                                            onChange={() => setRemoveReport(!removeReport)}/>

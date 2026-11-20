@@ -21,6 +21,7 @@ interface StudyRecord {
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
+    driveFileName?: string;
     driveModifiedTime: string;
     revision: string;
     operationId?: string;

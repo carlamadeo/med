@@ -190,6 +190,7 @@ input[type='checkbox'], input[type='radio'] {
     gap: 0.5rem;
     align-items: center;
     min-height: 2.25rem;
+    overflow-wrap: anywhere;
 }
 
 .share-option-row.share-option-disabled {

@@ -231,6 +231,7 @@ test('revisa estudios relacionados e impresión con teclado y conserva el tema',
     await page.keyboard.press('Enter');
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     await expect(editor).toBeVisible();
+    await expect(editor.locator('#current-report-name')).toHaveText('2026-11-12 Mamografía bilateral.pdf');
     await expect(editor.getByRole('region', {name: 'Estudios relacionados'})).toContainText('Resonancia de rodilla');
     await expect(editor.getByText('Otros estudios de Mamografía')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -347,6 +348,7 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     const extra = Array.from({length: 40}, (_, index) => ({
         ...template,
         id: `study-extra-${index}`,
+        name: `2026-11-12 Informe de control ${index}.pdf`,
         description: JSON.stringify({
             ...JSON.parse(template.description),
             title: `Estudio de prueba ${index}`,
@@ -379,7 +381,9 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     await dialog.getByText('Estudios relacionados', {exact: true}).click();
     await dialog.getByText('Documentos relacionados', {exact: true}).click();
     await dialog.getByLabel('Buscar documentos relacionados').fill('informe-38.pdf');
-    await dialog.getByRole('checkbox', {name: /informe-38\.pdf/}).check();
+    const documentOption = dialog.getByRole('checkbox', {name: '2026-11-12 Informe de control 38.pdf', exact: true});
+    await expect(documentOption).toBeVisible();
+    await documentOption.check();
     await dialog.getByText('Documentos relacionados', {exact: true}).click();
 
     const data = await dialog.locator('form').evaluate(form => [...new FormData(form as HTMLFormElement).entries()]);

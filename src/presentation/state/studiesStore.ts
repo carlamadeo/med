@@ -74,6 +74,7 @@ export const visibleStudies = computed<Study[]>(() => {
             hasPdf: Boolean(keepAttachment && previous?.hasPdf),
             attachmentMime: keepAttachment ? previous?.attachmentMime : undefined,
             driveFileId: previous?.driveFileId ?? '',
+            driveFileName: keepAttachment ? previous?.driveFileName : undefined,
             driveModifiedTime: previous?.driveModifiedTime ?? '', revision: draft.revision ?? '',
             operationId: draft.operationId, documentIds: draft.documentIds ?? previous?.documentIds,
             syncStatus: entry.status, pendingAttachment: Boolean(entry.attachment),

@@ -3,7 +3,7 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
+import {formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentName} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
@@ -281,7 +281,7 @@ export function MedicalEvents() {
                                             <svg className="icon">
                                                 <use href="#i-external"/>
                                             </svg>
-                                            {source.reportName || source.title}
+                                            {studyAttachmentName(source)}
                                         </a>
                                         : <span className="event-chip" key={`doc-${id}`}>Documento no disponible</span>;
                                 })}
@@ -371,8 +371,8 @@ export function MedicalEvents() {
                         }))}/>
                         <EventRelatedPicker name="documentId" initialIds={editing?.documentIds} options={studyAttachments.map(study => ({
                             id: study.id,
-                            label: `${study.reportName || study.title} · ${formatStudyDate(study.date)}`,
-                            keywords: `${study.title} ${study.doctor} ${study.portal} ${study.date}`,
+                            label: studyAttachmentName(study),
+                            keywords: `${study.reportName} ${study.title} ${study.doctor} ${study.portal} ${study.date} ${formatStudyDate(study.date)}`,
                         }))}/>
 
                         {message && <p className="form-error" role="alert">{message}</p>}

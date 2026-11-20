@@ -1,5 +1,5 @@
 import type {OutboxEntry} from '@data/outbox';
-import {hasStudyAttachment} from '@domain/library';
+import {hasStudyAttachment, studyAttachmentName} from '@domain/library';
 import {
     pendingChanges,
     syncMessage,
@@ -150,7 +150,7 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 {'portal' in remote && <p>Portal en Drive: {remote.portal || '—'}</p>}
                                 {'viewer' in remote && <p>Visor en Drive: {remote.viewer || '—'}</p>}
                                 {'hasPdf' in remote && <p>Informe en
-                                    Drive: {hasStudyAttachment(remote) ? remote.reportName || 'Disponible' : 'Sin informe'}</p>}
+                                    Drive: {hasStudyAttachment(remote) ? studyAttachmentName(remote) : 'Sin informe'}</p>}
                                 {'surgeon' in remote && <p>Cirujano en Drive: {remote.surgeon || '—'}</p>}
                                 {'institution' in remote && <p>Institución en Drive: {remote.institution || '—'}</p>}
                                 {'type' in remote && <p>Intervención en Drive: {remote.type || '—'}</p>}

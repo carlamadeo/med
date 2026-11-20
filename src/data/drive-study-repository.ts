@@ -2,6 +2,7 @@ import {isRecoverable} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage, type StudyRecord} from '@core/storage';
 import {documentAssociationIds} from '@domain/document-compatibility';
+import {studyFileName} from '@domain/library';
 import {validateStudyDraft} from '@domain/validation/study';
 import type {Study, StudyDraft, StudyRepository, DriveFileMetadata} from '@domain/repository';
 import {validateDocument} from './pdf-analysis';
@@ -28,6 +29,7 @@ export class DriveStudyRepository implements StudyRepository {
             hasPdf: study.hasPdf,
             attachmentMime: study.attachmentMime,
             driveFileId: study.driveFileId,
+            driveFileName: study.driveFileName,
             driveModifiedTime: study.driveModifiedTime,
             revision: study.revision,
             operationId: study.operationId,
@@ -51,6 +53,7 @@ export class DriveStudyRepository implements StudyRepository {
             hasPdf: record.hasPdf,
             attachmentMime: record.attachmentMime,
             driveFileId: record.driveFileId,
+            driveFileName: record.driveFileName,
             driveModifiedTime: record.driveModifiedTime,
             revision: record.revision,
             operationId: record.operationId,
@@ -169,8 +172,7 @@ export class DriveStudyRepository implements StudyRepository {
             intakeSourceId: draft.intakeSourceId ?? existing?.intakeSourceId,
         };
         const description = JSON.stringify(payload);
-        const extension = documentMime === 'image/jpeg' ? '.jpg' : documentMime === 'image/png' ? '.png' : documentMime === 'application/pdf' ? '.pdf' : '.json';
-        const fileName = `${draft.date} ${draft.title}`.replace(/[\\/]/g, '-') + extension;
+        const fileName = studyFileName(draft, documentMime);
 
         let response: DriveFileResponse;
         // Same rule as the original: no new file and no PDF to drop means only the ficha changes.
@@ -364,4 +366,4 @@ export class DriveStudyRepository implements StudyRepository {
     }
 }
 
-const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';
+const ENTRY_FIELDS = 'id,name,description,version,modifiedTime,mimeType,trashed,appProperties';

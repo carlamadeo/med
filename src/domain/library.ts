@@ -32,6 +32,17 @@ export function studyAttachmentLabel(study: Study): string {
     return study.attachmentMime ? 'Abrir imagen' : 'Abrir PDF';
 }
 
+export function studyFileName(study: Pick<Study, 'date' | 'title'>, mimeType?: string): string {
+    const extension = mimeType === 'image/jpeg' ? '.jpg'
+        : mimeType === 'image/png' ? '.png'
+            : mimeType === 'application/pdf' ? '.pdf' : '.json';
+    return `${study.date} ${study.title}`.replace(/[\\/]/g, '-') + extension;
+}
+
+export function studyAttachmentName(study: Study): string {
+    return study.driveFileName || studyFileName(study, study.attachmentMime ?? 'application/pdf');
+}
+
 /** Link that opens the stored report in Google Drive's own viewer. */
 export function reportUrl(driveFileId: string): string {
     return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;

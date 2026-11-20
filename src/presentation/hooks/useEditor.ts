@@ -104,7 +104,6 @@ export function useEditor({
     };
     const [reading, setReading] = useState(false);
     const [progress, setProgress] = useState<number | null>(null);
-    const [reportName, setReportName] = useState(study?.reportName ?? '');
     const [selectedReport, setSelectedReport] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [checkingReport, setCheckingReport] = useState(false);
@@ -207,7 +206,6 @@ export function useEditor({
                 if (reportInputRef.current) reportInputRef.current.value = '';
                 formRef.current?.querySelector<HTMLInputElement>('[name=types]')?.setCustomValidity('');
                 setRemoveReport(false);
-                setReportName(current?.reportName ?? '');
                 setStatus('Buscamos la fecha, los tipos y el médico en el informe.');
                 setStatusState('');
                 suggested.current = new Map();
@@ -589,8 +587,6 @@ export function useEditor({
         progress,
         removeReport,
         setRemoveReport,
-        reportName,
-        setReportName,
         selectedReport,
         previewUrl,
         checkingReport,

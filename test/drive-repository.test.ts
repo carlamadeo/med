@@ -395,7 +395,10 @@ describe('DriveStudyRepository', () => {
             const saved = await driveStudyRepo.save({...baseDraft, reportName: file.name, file});
 
             expect(uploadLog).toEqual(['multipart']);
-            expect(saved).toMatchObject({hasPdf: true, reportName: 'informe-nuevo.pdf'});
+            expect(saved).toMatchObject({
+                hasPdf: true, reportName: 'informe-nuevo.pdf', driveFileName: '2024-03-01 Nuevo estudio.pdf',
+            });
+            expect((await driveStudyRepo.get(saved.id)).driveFileName).toBe(saved.driveFileName);
             expect(fakeDriveFile(saved.id)).toMatchObject({mimeType: 'application/pdf', content: '%PDF-1.4 test'});
         });
 
