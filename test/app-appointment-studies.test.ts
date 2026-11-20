@@ -8,7 +8,7 @@ import {SEED_JSON_ID, SEED_PDF_ID, addRemoteRaw, fakeDriveFile} from './fake-dri
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function openConsultation(studyIds: string[]) {
+async function openConsultation(studyIds: string[], section: 'resumen' | 'turnos' = 'resumen') {
     await mountPage();
     const appointment = await driveAppointmentRepo.save({
         date: '2099-11-20', time: '10:30', timeZone: 'UTC', professional: 'Profesional externo',
@@ -17,9 +17,9 @@ async function openConsultation(studyIds: string[]) {
     });
     await act(() => {
         appointments.value = [appointment];
-        $('#nav-resumen').click();
+        $(`#nav-${section}`).click();
     });
-    const card = $('[aria-labelledby="next-appointment-title"]');
+    const card = $(section === 'turnos' ? '.appointment-card' : '[aria-labelledby="next-appointment-title"]');
     const prepare = () => [...card.querySelectorAll('button')].find(button => button.textContent === 'Preparar consulta');
     await vi.waitFor(() => expect(prepare()).toBeDefined());
     await act(() => prepare()!.click());
@@ -32,6 +32,65 @@ function captureDownload() {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     return download;
 }
+
+function consultationButton(dialog: HTMLDialogElement, label: string) {
+    const button = [...dialog.querySelectorAll('button')].find(item => item.textContent?.trim() === label);
+    expect(button).toBeDefined();
+    return button!;
+}
+
+function mockNativeShare(supported: boolean) {
+    const share = vi.fn<(data: ShareData) => Promise<void>>().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', new Proxy(navigator, {
+        get(target, property) {
+            if (property === 'share') return share;
+            if (property === 'canShare') return () => supported;
+            return Reflect.get(target, property, target);
+        },
+    }));
+    return share;
+}
+
+it('shares the selected reports as separate attachments and only sends explicitly selected viewer links', async () => {
+    fakeDriveFile(SEED_PDF_ID)!.content = '%PDF-ecografia';
+    addRemoteRaw('study-report', {
+        title: 'Segundo informe', types: ['Otro'], viewer: 'https://portal.example/segundo',
+    }, 'image/png');
+    const png = '\x89PNG\r\n\x1a\n';
+    fakeDriveFile('study-report')!.content = png;
+    const share = mockNativeShare(true);
+    const dialog = await openConsultation([SEED_PDF_ID, 'study-report'], 'turnos');
+    await act(() => dialog.querySelectorAll<HTMLInputElement>('[data-source="viewer"]')[1]!.click());
+    await act(() => consultationButton(dialog, 'Preparar para compartir').click());
+    await vi.waitFor(() => expect(consultationButton(dialog, 'Compartir archivos').disabled).toBe(false));
+    expect(share).not.toHaveBeenCalled();
+    await act(() => consultationButton(dialog, 'Compartir archivos').click());
+
+    await vi.waitFor(() => expect(share).toHaveBeenCalledOnce());
+    const payload = share.mock.calls[0]![0];
+    expect(payload.text).toBe('https://portal.example/segundo');
+    expect(payload.files?.map(file => [file.name, file.type])).toEqual([
+        ['archivo-1.pdf', 'application/pdf'], ['archivo-2.png', 'image/png'],
+    ]);
+    expect(await payload.files![0]!.text()).toBe('%PDF-ecografia');
+    expect(Buffer.from(await payload.files![1]!.arrayBuffer()).toString('latin1')).toBe(png);
+});
+
+it('lets the user download a standalone attachment when the browser rejects native sharing', async () => {
+    fakeDriveFile(SEED_PDF_ID)!.content = '%PDF-ecografia';
+    const share = mockNativeShare(false);
+    const dialog = await openConsultation([SEED_PDF_ID]);
+    const download = captureDownload();
+    await act(() => consultationButton(dialog, 'Preparar para compartir').click());
+    await vi.waitFor(() => expect(consultationButton(dialog, 'Descargar archivo-1.pdf').disabled).toBe(false));
+    await act(() => consultationButton(dialog, 'Descargar archivo-1.pdf').click());
+
+    expect(share).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(download).toHaveBeenCalledOnce());
+    const file = download.mock.calls[0]![0];
+    expect(file.type).toBe('application/pdf');
+    expect(await file.text()).toBe('%PDF-ecografia');
+});
 
 it('downloads one copy of each selected report and only explicitly selected viewer links', async () => {
     const bytes = '%PDF-consulta';
