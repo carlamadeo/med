@@ -202,7 +202,7 @@ export function MultiSelectCombobox({
                     ))}
                     {value.length === 0 && <span className="combobox-placeholder">{placeholder}</span>}
                 </div>
-                <svg className="combobox-chevron" aria-hidden="true">
+                <svg className="icon combobox-chevron" aria-hidden="true">
                     <use href="#i-chevron-down"/>
                 </svg>
             </div>

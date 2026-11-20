@@ -40,9 +40,8 @@ const labels: Record<ViewMode, string> = {
     categoria: 'Biblioteca',
     portales: 'Portales',
     operaciones: 'Operaciones',
-    eventos: 'Consultas y recetas',
     episodios: 'Episodios',
-    turnos: 'Turnos',
+    turnos: 'Turnos y consultas',
     intake: 'Bandeja de entrada',
 };
 
@@ -112,13 +111,12 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
             label: 'Seguimiento',
             items: [
                 {
-                    label: 'Turnos',
+                    label: 'Turnos y consultas',
                     icon: 'i-calendar',
                     view: 'turnos',
                     count: appointmentsCount || undefined,
                     tone: 'warning'
                 },
-                {label: 'Consultas y recetas', icon: 'i-stethoscope', view: 'eventos'},
                 {label: 'Episodios', icon: 'i-layers', view: 'episodios'},
             ],
         },

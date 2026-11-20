@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import {navigateTo} from './nav';
 
 test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async ({page, context}) => {
     const files: Array<Record<string, unknown>> = [];
@@ -31,32 +32,46 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
     });
     await page.goto('/');
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await context.setOffline(true);
-    await page.getByRole('button', {name: 'Agregar estudio'}).click();
+    await page.locator('[data-add]').click();
     const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Estudio pendiente QA');
-    await editor.getByRole('textbox', {name: 'Fecha del estudio'}).fill('2026-01-01');
+    await editor.locator('input[name="date"]').fill('2026-01-01');
     await editor.getByRole('combobox', {name: 'Tipos de estudio'}).click();
     await editor.getByRole('option', {name: 'Ecografía', exact: true}).click();
+    await editor.getByRole('textbox', {name: /Especialidad/}).fill('Endocrinología pediátrica');
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).click();
     await editor.getByRole('button', {name: 'Guardar estudio'}).click();
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Pendiente/})).toBeVisible();
+    const row = page.getByRole('row').filter({hasText: 'Estudio pendiente QA'});
+    await expect(row).toContainText('Pendiente de sincronización');
+    const specialty = page.getByRole('combobox', {name: 'Filtrar por especialidad'});
+    await specialty.selectOption({label: 'Endocrinología pediátrica'});
+    await expect(row).toContainText('Endocrinología pediátrica');
     expect(uploads).toBe(0);
     await context.setOffline(false);
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Sincronizado/})).toBeVisible({timeout: 15000});
+    await expect(row).not.toContainText('Pendiente de sincronización', {timeout: 15000});
     expect(uploads).toBe(1);
     await page.reload();
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Sincronizado/})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await specialty.selectOption({label: 'Endocrinología pediátrica'});
+    await expect(row).toContainText('Endocrinología pediátrica');
     expect(uploads).toBe(1);
 });
 
 test('conserva la cola para la cuenta original al conectar otra cuenta', async ({page, context}) => {
+    const reservationAccounts: string[] = [];
     await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
     await page.route('https://www.googleapis.com/**', async route => {
         const url = new URL(route.request().url());
+        const account = route.request().headers().authorization?.includes('account-b') ? 'account-b' : 'account-a';
         if (url.pathname === '/drive/v3/about') {
-            const account = route.request().headers().authorization?.includes('account-b') ? 'account-b' : 'account-a';
             return route.fulfill({json: {user: {me: true, permissionId: account}}});
+        }
+        if (url.pathname === '/drive/v3/files/generateIds') {
+            reservationAccounts.push(account);
+            return route.fulfill({status: 503});
         }
         if (url.pathname === '/drive/v3/files') return route.fulfill({json: {files: []}});
         return route.fulfill({status: 404});
@@ -72,12 +87,14 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     await page.getByRole('button', {name: 'Agregar estudio'}).click();
     const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Ficha privada A');
-    await editor.getByRole('textbox', {name: 'Fecha del estudio'}).fill('2026-01-01');
+    await editor.locator('input[name="date"]').fill('2026-01-01');
     await editor.getByRole('combobox', {name: 'Tipos de estudio'}).click();
     await editor.getByRole('option', {name: 'Ecografía', exact: true}).click();
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).click();
     await editor.getByRole('button', {name: 'Guardar estudio'}).click();
-    await expect(page.getByRole('row', {name: /Ficha privada A.*Pendiente/})).toBeVisible();
+    const pending = page.getByRole('region', {name: 'Cambios pendientes'});
+    const originalEntry = pending.getByRole('listitem').filter({hasText: 'Ficha privada A'});
+    await expect(originalEntry).toBeVisible();
     await page.getByRole('button', {name: 'Salir'}).click();
     await page.evaluate(() => {
         sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({accessToken: 'account-b-token', expires: Date.now() + 3600000}));
@@ -85,6 +102,9 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     await context.setOffline(false);
     await page.reload();
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await expect(page.getByRole('heading', {name: 'Tu archivo empieza acá'})).toBeVisible();
+    await expect(pending).toHaveCount(0);
     await expect(page.getByText('Ficha privada A')).toHaveCount(0);
     await context.setOffline(true);
     await page.getByRole('button', {name: 'Salir'}).click();
@@ -93,7 +113,9 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     });
     await context.setOffline(false);
     await page.reload();
-    await expect(page.getByText('Ficha privada A').first()).toBeVisible();
+    await expect(originalEntry).toBeVisible();
+    await expect.poll(() => reservationAccounts).toContain('account-a');
+    expect(reservationAccounts).not.toContain('account-b');
 });
 
 test('conserva el cambio pendiente cuando Drive tiene una revisión más reciente', async ({page, context}) => {
@@ -116,14 +138,19 @@ test('conserva el cambio pendiente cuando Drive tiene una revisión más recient
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
-    await expect(page.getByRole('button', {name: 'Editar Ficha original'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const edit = page.getByRole('button', {name: 'Editar Ficha original'});
+    await expect(edit).toBeVisible();
     await context.setOffline(true);
-    await page.getByRole('button', {name: 'Editar Ficha original'}).click();
+    await edit.click();
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Cambio sin conexión');
     await editor.getByRole('button', {name: 'Guardar cambios'}).click();
-    await expect(page.getByText('Cambio sin conexión').first()).toBeVisible();
+    const pending = page.getByRole('region', {name: 'Cambios pendientes'});
+    const editedEntry = pending.getByRole('listitem').filter({hasText: 'Cambio sin conexión'});
+    await expect(editedEntry).toBeVisible();
     await context.setOffline(false);
-    await expect(page.getByText(/requiere revisión/).first()).toBeVisible({timeout: 15000});
+    await expect(editedEntry).toContainText('requiere revisión', {timeout: 15000});
     expect(attemptedPatches).toBe(0);
 });

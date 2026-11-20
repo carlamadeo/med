@@ -69,6 +69,7 @@ describe('offline outbox', () => {
         expect(await queue.list(owner)).toHaveLength(1);
     });
     it('retries a conflicting appointment using the reviewed revision', async () => {
+        const prescriptionFile = new File(['%PDF-1.7'], 'receta.pdf', {type: 'application/pdf'});
         const draft = {
             id: 'turno-1',
             revision: '1',
@@ -76,6 +77,8 @@ describe('offline outbox', () => {
             time: '10:30',
             timeZone: 'America/Argentina/Buenos_Aires',
             professional: 'Dra. Paz',
+            specialty: 'Dermatología',
+            prescriptionFile,
             notes: '',
             status: 'scheduled' as const,
             cost: null,
@@ -92,8 +95,12 @@ describe('offline outbox', () => {
         expect(remote.saveAppointment).toHaveBeenLastCalledWith(expect.objectContaining({
             id: 'turno-1',
             revision: '2',
-            professional: 'Dra. Paz'
+            professional: 'Dra. Paz',
+            specialty: 'Dermatología',
         }));
+        const sent = vi.mocked(remote.saveAppointment).mock.lastCall?.[0].prescriptionFile;
+        expect(sent?.name).toBe('receta.pdf');
+        expect(await sent?.text()).toBe('%PDF-1.7');
         expect(await queue.list(owner)).toEqual([]);
     });
     it('preserves a queued restoration for its owner and retries failures', async () => {

@@ -5,6 +5,17 @@
 import type {Filters, Study} from './models';
 import {normalize} from './utils';
 
+export const COMMON_SPECIALTIES = [
+    'Cardiología', 'Clínica médica', 'Dermatología', 'Endocrinología', 'Gastroenterología',
+    'Ginecología', 'Hematología', 'Infectología', 'Medicina familiar', 'Nefrología', 'Neumonología',
+    'Neurología', 'Nutrición', 'Oftalmología', 'Oncología', 'Otorrinolaringología', 'Pediatría',
+    'Psiquiatría', 'Reumatología', 'Traumatología', 'Urología',
+] as const;
+
+export function cleanSpecialty(value: unknown): string | undefined {
+    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') || undefined : undefined;
+}
+
 export type StudySortOrder =
     | 'date-desc'
     | 'date-asc'
@@ -30,6 +41,17 @@ export function hasStudyAttachment(study: Study): boolean {
 
 export function studyAttachmentLabel(study: Study): string {
     return study.attachmentMime ? 'Abrir imagen' : 'Abrir PDF';
+}
+
+export function studyFileName(study: Pick<Study, 'date' | 'title'>, mimeType?: string): string {
+    const extension = mimeType === 'image/jpeg' ? '.jpg'
+        : mimeType === 'image/png' ? '.png'
+            : mimeType === 'application/pdf' ? '.pdf' : '.json';
+    return `${study.date} ${study.title}`.replace(/[\\/]/g, '-') + extension;
+}
+
+export function studyAttachmentName(study: Study): string {
+    return study.driveFileName || studyFileName(study, study.attachmentMime ?? 'application/pdf');
 }
 
 /** Link that opens the stored report in Google Drive's own viewer. */
@@ -58,7 +80,7 @@ function compareStudies(a: Study, b: Study): number {
 }
 
 function studyMatchesQuery(study: Study, normalizedQuery: string): boolean {
-    return [study.title, study.doctor, study.portal, study.reportName, ...study.types].some(
+    return [study.title, study.doctor, study.specialty ?? '', study.portal, study.reportName, ...study.types].some(
         (value) => normalize(value).includes(normalizedQuery),
     );
 }
@@ -136,6 +158,13 @@ function addNormalizedName(names: Map<string, string>, raw: unknown): void {
 
 function sortDisplayNames(names: Map<string, string>): string[] {
     return [...names.values()].sort((a, b) => a.localeCompare(b, 'es', {sensitivity: 'base'}));
+}
+
+export function specialtyNames(records: readonly {specialty?: string}[], defaults: readonly string[] = []): string[] {
+    const names = new Map<string, string>();
+    for (const name of defaults) addNormalizedName(names, name);
+    for (const record of records) addNormalizedName(names, record.specialty);
+    return sortDisplayNames(names);
 }
 
 /** Distinct institutions already used, ignoring case/accents/extra spaces, sorted for display. */

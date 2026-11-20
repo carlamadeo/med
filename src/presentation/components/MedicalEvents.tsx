@@ -3,21 +3,21 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
+import {COMMON_SPECIALTIES, formatStudyDate, hasStudyAttachment, reportUrl, specialtyNames, studyAttachmentName} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
+import {EventRelatedPicker} from './EventRelatedPicker';
 
 const outbox = new Outbox();
 
-export function MedicalEvents() {
+export function MedicalEvents({query}: {query: string}) {
     const studyAttachments = studies.value.filter(hasStudyAttachment);
     const [editing, setEditing] = useState<MedicalEvent | null>(null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [formOpen, setFormOpen] = useState(false);
-    const [query, setQuery] = useState('');
     const [pendingDelete, setPendingDelete] = useState<MedicalEvent | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -62,6 +62,7 @@ export function MedicalEvents() {
         const draft: MedicalEventDraft = {
             kind,
             date: String(data.get('date') ?? ''), doctor: String(data.get('doctor') ?? '').trim(),
+            specialty: String(data.get('specialty') ?? '').trim() || undefined,
             notes: String(data.get('notes') ?? '').trim(), studyIds: data.getAll('studyId').map(String),
             documentIds: data.getAll('documentId').map(String), id: editing?.id, revision: editing?.revision,
         };
@@ -183,49 +184,35 @@ export function MedicalEvents() {
         }
     }
 
-    const normalizedQuery = normalize(query);
-    const visible = [...visibleMedicalEvents.value]
+    const events = visibleMedicalEvents.value;
+    const specialties = specialtyNames(events, COMMON_SPECIALTIES);
+    const visible = events
         .filter((event) => {
-            if (!normalizedQuery) return true;
+            if (!query) return true;
             const relatedTitles = (event.studyIds ?? []).map((id) => studies.value.find((study) => study.id === id)?.title ?? '');
-            return [event.kind === 'consultation' ? 'consulta' : 'receta', event.date, event.doctor, event.notes, ...relatedTitles]
-                .some((value) => normalize(value ?? '').includes(normalizedQuery));
+            return [event.kind === 'consultation' ? 'consulta' : 'receta', event.date, event.doctor, event.specialty, event.notes, ...relatedTitles]
+                .some((value) => normalize(value ?? '').includes(query));
         })
         .sort((a, b) => b.date.localeCompare(a.date));
 
     return <section className="events" aria-labelledby="events-title">
         <div className="events-head">
             <div>
-                <p className="eyebrow">Seguimiento</p>
-                <h2 id="events-title">Consultas y recetas</h2>
-                <p className="events-desc">Consultas médicas, indicaciones y recetas con sus estudios y documentos.</p>
+                <h3 id="events-title">Consultas y recetas sin turno</h3>
             </div>
             <div className="events-head-actions">
-                <span className="count-badge">{visibleMedicalEvents.value.length}</span>
                 <button className="button primary" type="button" onClick={openNew}>
                     <svg className="icon">
                         <use href="#i-plus"/>
                     </svg>
-                    Agregar consulta
+                    Registrar sin turno
                 </button>
             </div>
         </div>
 
-        <div className="events-toolbar">
-            <label className="events-search">
-                <svg className="icon">
-                    <use href="#i-search"/>
-                </svg>
-                <span className="sr-only">Buscar consultas y recetas</span>
-                <input id="event-search" type="search" placeholder="Buscar por profesional, nota o estudio…"
-                       value={query}
-                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
-            </label>
-        </div>
-
         {!formOpen && message && <p className="events-message" role="status">{message}</p>}
 
-        {visible.length ? (
+        {visible.length > 0 && (
             <ul id="events-list" className="event-list">
                 {visible.map((event) => {
                     const studyIds = event.studyIds ?? [];
@@ -247,7 +234,8 @@ export function MedicalEvents() {
                             {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
                         </div>
 
-                        <h3 className="event-title">{event.doctor || 'Profesional sin nombre'}</h3>
+                        <h4 className="event-title">{event.doctor || 'Profesional sin nombre'}</h4>
+                        {event.specialty && <p className="event-specialty">{event.specialty}</p>}
                         {event.notes && <p className="event-notes">{event.notes}</p>}
 
                         {(studyIds.length > 0 || documentIds.length > 0) && (
@@ -267,7 +255,7 @@ export function MedicalEvents() {
                                             <svg className="icon">
                                                 <use href="#i-external"/>
                                             </svg>
-                                            {source.reportName || source.title}
+                                            {studyAttachmentName(source)}
                                         </a>
                                         : <span className="event-chip" key={`doc-${id}`}>Documento no disponible</span>;
                                 })}
@@ -290,18 +278,6 @@ export function MedicalEvents() {
                     </li>;
                 })}
             </ul>
-        ) : (
-            <div className="event-empty">
-                <span className="event-empty-icon"><svg className="icon"><use href="#i-stethoscope"/></svg></span>
-                <p>{normalizedQuery ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas.'}</p>
-                {normalizedQuery ? (
-                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
-                        búsqueda</button>
-                ) : (
-                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar
-                        consulta</button>
-                )}
-            </div>
         )}
 
         <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title"
@@ -310,7 +286,7 @@ export function MedicalEvents() {
                     if (!busy) cancelForm();
                 }}
                 onClose={closeForm}>
-            <form id="event-form" key={editing?.id ?? 'new'} onSubmit={(event) => {
+            {formOpen && <form id="event-form" onSubmit={(event) => {
                 event.preventDefault();
                 void save(event.currentTarget);
             }}>
@@ -327,53 +303,51 @@ export function MedicalEvents() {
                     </button>
                 </div>
 
-                <fieldset disabled={busy}>
-                    <div className="event-form-grid">
-                        <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
-                            <option value="consultation">Consulta</option>
-                            <option value="prescription">Receta</option>
-                        </select></label>
-                        <label>Fecha <input id="event-date" name="date" type="date" required
-                                            defaultValue={editing?.date ?? ''}/></label>
-                        <label className="wide">Médico o profesional <input name="doctor" maxLength={120}
-                                                                            defaultValue={editing?.doctor ?? ''}/></label>
-                        <label className="wide">Notas <textarea id="event-notes" name="notes"
-                                                                defaultValue={editing?.notes ?? ''}/></label>
-                    </div>
+                <div className="event-form-body">
+                    <fieldset disabled={busy}>
+                        <div className="event-form-grid">
+                            <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
+                                <option value="consultation">Consulta</option>
+                                <option value="prescription">Receta</option>
+                            </select></label>
+                            <label>Fecha <input id="event-date" name="date" type="date" required
+                                                defaultValue={editing?.date ?? ''}/></label>
+                            <label className="wide">Médico o profesional <input name="doctor" maxLength={120}
+                                                                                defaultValue={editing?.doctor ?? ''}/></label>
+                            <label className="wide">Especialidad <input name="specialty" list="event-specialties" maxLength={120}
+                                                                        placeholder="Elegí o escribí una especialidad"
+                                                                        defaultValue={editing?.specialty ?? ''}/></label>
+                            <datalist id="event-specialties">
+                                {specialties.map(name => (
+                                    <option key={name} value={name}/>
+                                ))}
+                            </datalist>
+                            <label className="wide">Notas <textarea id="event-notes" name="notes"
+                                                                    defaultValue={editing?.notes ?? ''}/></label>
+                        </div>
 
-                    <fieldset className="event-related">
-                        <legend>Estudios relacionados</legend>
-                        {studies.value.length ? studies.value.map((study) => <label key={study.id}>
-                            <input type="checkbox" name="studyId" data-event-study={study.id} value={study.id}
-                                   defaultChecked={editing?.studyIds.includes(study.id)}/>{study.title} · {formatStudyDate(study.date)}
-                        </label>) : <p className="event-related-empty">No hay estudios para vincular.</p>}
-                        {editing?.studyIds.filter((id) => !studies.value.some((study) => study.id === id)).map((id) =>
-                            <label key={id}><input type="checkbox" name="studyId" value={id} defaultChecked/> Estudio no
-                                disponible</label>)}
+                        <EventRelatedPicker name="studyId" initialIds={editing?.studyIds} options={studies.value.map(study => ({
+                            id: study.id,
+                            label: `${study.title} · ${formatStudyDate(study.date)}`,
+                            keywords: `${study.doctor} ${study.portal} ${study.date}`,
+                        }))}/>
+                        <EventRelatedPicker name="documentId" initialIds={editing?.documentIds} options={studyAttachments.map(study => ({
+                            id: study.id,
+                            label: studyAttachmentName(study),
+                            keywords: `${study.reportName} ${study.title} ${study.doctor} ${study.portal} ${study.date} ${formatStudyDate(study.date)}`,
+                        }))}/>
+
+                        {message && <p className="form-error" role="alert">{message}</p>}
                     </fieldset>
-
-                    <fieldset className="event-related">
-                        <legend>Documentos relacionados</legend>
-                        {studyAttachments.length ? studyAttachments.map((study) =>
-                            <label key={study.id}>
-                                <input type="checkbox" name="documentId" value={study.id}
-                                       defaultChecked={editing?.documentIds.includes(study.id)}/>{study.reportName || study.title}
-                            </label>) : <p className="event-related-empty">No hay documentos para vincular.</p>}
-                        {editing?.documentIds.filter((id) => !studyAttachments.some((study) => study.id === id)).map((id) =>
-                            <label key={id}><input type="checkbox" name="documentId" value={id}
-                                                   defaultChecked/> Documento no disponible</label>)}
-                    </fieldset>
-
-                    {formOpen && message && <p className="form-error" role="alert">{message}</p>}
-                    <div className="dialog-actions">
-                        <button className="button secondary" type="button" onClick={cancelForm}
-                                disabled={busy}>Cancelar
-                        </button>
-                        <button className="button primary" type="submit"
-                                disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar evento'}</button>
-                    </div>
-                </fieldset>
-            </form>
+                </div>
+                <div className="dialog-actions">
+                    <button className="button secondary" type="button" onClick={cancelForm}
+                            disabled={busy}>Cancelar
+                    </button>
+                    <button className="button primary" type="submit"
+                            disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>{busy ? 'Guardando…' : 'Guardar evento'}</button>
+                </div>
+            </form>}
         </dialog>
 
         <ConfirmActionDialog

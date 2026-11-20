@@ -15,12 +15,14 @@ interface StudyRecord {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
+    driveFileName?: string;
     driveModifiedTime: string;
     revision: string;
     operationId?: string;

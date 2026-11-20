@@ -1,9 +1,8 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryOperation, sortOrder, resetLibraryFilters} from '../state/store';
+import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
-import {MedicalEvents} from './MedicalEvents';
 import {Portals} from './Portals';
 import {IntakeCandidates} from './IntakeCandidates';
 import {Episodes} from './Episodes';
@@ -42,7 +41,7 @@ export function StudyListContainer({
                                      }: StudyListContainerProps) {
     const searchInput = useRef<HTMLInputElement>(null);
     const studiesList = filteredStudies.value;
-    const hasFilters = Boolean(libraryQuery.value || libraryPortal.value || libraryOperation.value || categoryTypes.value.length || sortOrder.value !== 'date-desc');
+    const hasFilters = libraryHasFilters.value || sortOrder.value !== 'date-desc';
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -56,7 +55,6 @@ export function StudyListContainer({
                 <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volvera a intentar al recuperar la conexion.</p>
             )}
             {view.value === 'operaciones' && <Operations/>}
-            {view.value === 'eventos' && <MedicalEvents/>}
             {view.value === 'episodios' && <Episodes/>}
             {view.value === 'turnos' && <Appointments/>}
             {view.value === 'portales' && <Portals onViewStudies={portal => {
@@ -67,7 +65,7 @@ export function StudyListContainer({
             {view.value === 'intake' && (
                 <IntakeCandidates onOpenEditor={onOpenCandidate}/>
             )}
-            {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
+            {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
                 <>
                     <div className="section-head library-search-head">
                         <div className="library-head-main">
@@ -136,7 +134,7 @@ export function StudyListContainer({
                         <EmptyState
                             variant="no-results"
                             title="No hay resultados"
-                            description="Probá con otro término o cambiá los tipos seleccionados."
+                            description="Probá con otro término o cambiá los filtros."
                             action={
                                 <button
                                     className="button secondary"

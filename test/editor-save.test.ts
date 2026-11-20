@@ -4,7 +4,7 @@ import {afterEach, expect, it, vi} from 'vitest';
 import {EditorDialog} from '@presentation/components/EditorDialog';
 import {portals, setEditingStudy, setEditorOpen, setStudies} from '@presentation/state/store';
 
-it('submits a new study with its selected type', async () => {
+it('submits a new study with its selected type and specialty', async () => {
     const root = document.createElement('div');
     document.body.append(root);
     const save = vi.fn().mockResolvedValue(undefined);
@@ -29,10 +29,17 @@ it('submits a new study with its selected type', async () => {
     const option = root.querySelector<HTMLLIElement>('[role="option"]')!;
     option.click();
     await act(async () => {});
+    const specialty = form.elements.namedItem('specialty') as HTMLInputElement;
+    expect(specialty).toBeInstanceOf(HTMLInputElement);
+    await act(() => specialty.focus());
+    const specialtyOption = [...root.querySelectorAll<HTMLButtonElement>('#study-specialty-options button')]
+        .find(button => button.textContent === 'Endocrinología');
+    expect(specialtyOption).toBeDefined();
+    await act(() => specialtyOption!.click());
     await act(() => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'Estudio', date: '2024-01-01', types: ['Otro']}));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'Estudio', date: '2024-01-01', types: ['Otro'], specialty: 'Endocrinología'}));
     render(null, root);
     root.remove();
 });

@@ -232,6 +232,7 @@ export function StudyList({
                                                     <span className="type-badge">Sin tipo</span>
                                                 )}
                                             </span>
+                                            {study.specialty && <span className="study-specialty">{study.specialty}</span>}
                                         </span>
                                     </div>
                                 </td>
@@ -315,7 +316,7 @@ export function StudyList({
                         onClick={() => changePage(page + 1)}>Siguiente</button>
             </nav>
         )}
-        <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
+        {printing && <StudyPrintDialog key={printing.id} study={printing} onClose={() => setPrinting(null)}/>}
         </>
     );
 }

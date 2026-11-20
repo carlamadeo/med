@@ -4,12 +4,14 @@ export interface Study {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
+    driveFileName?: string;
     driveModifiedTime: string;
     /** Drive `version` seen when this study was loaded; used to detect concurrent edits. */
     revision: string;
@@ -25,6 +27,7 @@ export interface StudyDraft {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;
@@ -47,6 +50,7 @@ export interface MedicalEvent {
     kind: 'consultation' | 'prescription';
     date: string;
     doctor: string;
+    specialty?: string;
     notes: string;
     studyIds: string[];
     documentIds: string[];
@@ -112,7 +116,6 @@ export type ViewMode =
     | 'categoria'
     | 'portales'
     | 'operaciones'
-    | 'eventos'
     | 'episodios'
     | 'turnos'
     | 'intake';
@@ -153,6 +156,7 @@ export interface Episode {
     observations: SymptomObservation[];
     medications: Medication[];
     closed?: boolean;
+    endDate?: string;
     revision: string;
     syncStatus?: 'pending' | 'conflict' | 'failed';
 }
@@ -162,6 +166,7 @@ export interface EpisodeDraft {
     observations?: SymptomObservation[];
     medications?: Medication[];
     closed?: boolean;
+    endDate?: string;
     id?: string;
     createId?: string;
     revision?: string;
@@ -172,18 +177,27 @@ export interface AppointmentDraft {
     time: string;
     timeZone: string;
     professional: string;
+    specialty?: string;
     notes: string;
     status: 'scheduled' | 'completed' | 'cancelled' | 'absent';
     cost: number | null;
     coverage: 'all' | 'partial' | 'none' | null;
     reminderMinutes?: 15 | 60 | 1440 | null;
     studyIds?: string[];
+    prescriptionFile?: File;
+    removePrescription?: boolean;
     id?: string;
     createId?: string;
     revision?: string;
 }
 
-export interface Appointment extends AppointmentDraft {
+export interface AppointmentPrescription {
+    name: string;
+    mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+}
+
+export interface Appointment extends Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> {
+    prescription?: AppointmentPrescription;
     id: string;
     revision: string;
     syncStatus?: 'pending' | 'conflict' | 'failed';

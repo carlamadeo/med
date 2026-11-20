@@ -72,7 +72,7 @@ export function searchArchive({
 
     const studyResults: ArchiveSearchResult[] = [];
     for (const study of studies) {
-        const fields = [study.title, study.doctor, study.portal, study.types.join(' '), study.reportName, study.date, formatStudyDate(study.date)];
+        const fields = [study.title, study.doctor, study.specialty ?? '', study.portal, study.types.join(' '), study.reportName, study.date, formatStudyDate(study.date)];
         const titleScore = bestScore([study.title], normalized);
         const fieldScore = bestScore(fields, normalized);
         if (titleScore < 0 && fieldScore < 0 && !matchesAllTerms(fields, terms)) continue;
@@ -107,14 +107,14 @@ export function searchArchive({
     const appointmentResults: ArchiveSearchResult[] = [];
     for (const appointment of appointments) {
         const status = appointmentStatus(appointment, now);
-        const fields = [appointment.professional, appointment.notes, appointment.date, appointment.time, appointment.timeZone, statusLabels[status]];
+        const fields = [appointment.professional, appointment.specialty ?? '', appointment.prescription?.name ?? '', appointment.notes, appointment.date, appointment.time, appointment.timeZone, statusLabels[status]];
         if (bestScore(fields, normalized) < 0 && !matchesAllTerms(fields, terms)) continue;
         appointmentResults.push({
             key: `appointment:${appointment.id}`,
             kind: 'appointment',
             title: appointment.professional || 'Turno médico',
             subtitle: `${appointment.date} · ${appointment.time}`,
-            meta: statusLabels[status],
+            meta: [appointment.specialty, statusLabels[status]].filter(Boolean).join(' · '),
             view: 'turnos',
             appointment,
         });

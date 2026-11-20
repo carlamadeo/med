@@ -389,13 +389,28 @@ describe('DriveStudyRepository', () => {
             expect((await driveStudyRepo.list()).map((s) => s.id)).toContain(saved.id);
         });
 
+        it('persists a specialty, preserves it on older edits, and clears it when requested', async () => {
+            await driveStudyRepo.list();
+            const saved = await driveStudyRepo.save({...baseDraft, specialty: '  Endocrinología  '});
+            expect((await driveStudyRepo.get(saved.id)).specialty).toBe('Endocrinología');
+            const updated = await driveStudyRepo.save({...baseDraft, driveFileId: saved.id, revision: saved.revision});
+            expect(updated.specialty).toBe('Endocrinología');
+            const listed = () => driveStudyRepo.list({force: true}).then(all => all.find(study => study.id === saved.id));
+            expect((await listed())?.specialty).toBe('Endocrinología');
+            await driveStudyRepo.save({...baseDraft, driveFileId: saved.id, revision: updated.revision, specialty: ''});
+            expect((await listed())?.specialty).toBeUndefined();
+        });
+
         it('creates a study with a PDF attached', async () => {
             const file = new File(['%PDF-1.4 test'], 'informe-nuevo.pdf', {type: 'application/pdf'});
 
             const saved = await driveStudyRepo.save({...baseDraft, reportName: file.name, file});
 
             expect(uploadLog).toEqual(['multipart']);
-            expect(saved).toMatchObject({hasPdf: true, reportName: 'informe-nuevo.pdf'});
+            expect(saved).toMatchObject({
+                hasPdf: true, reportName: 'informe-nuevo.pdf', driveFileName: '2024-03-01 Nuevo estudio.pdf',
+            });
+            expect((await driveStudyRepo.get(saved.id)).driveFileName).toBe(saved.driveFileName);
             expect(fakeDriveFile(saved.id)).toMatchObject({mimeType: 'application/pdf', content: '%PDF-1.4 test'});
         });
 

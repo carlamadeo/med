@@ -1,19 +1,15 @@
-import {useState} from 'preact/hooks';
-import {StudyPrintDialog} from './StudyPrintDialog';
-import {formatStudyDate, hasStudyAttachment, portalNames, reportUrl, studyAttachmentLabel} from '@domain/library';
+import {portalNames} from '@domain/library';
 import {
     latestStudy,
     monthlyStudyActivity,
     relativeDayLabel,
-    studySyncState,
     upcomingAppointment
 } from '@domain/summary';
-import type {Study, ViewMode} from '@domain/models';
+import type {ViewMode} from '@domain/models';
 import {
     error,
     directoryFailures,
     isLocalDemo,
-    isSourceUnavailable,
     loading,
     offline,
     pendingChanges,
@@ -28,21 +24,15 @@ import {AppointmentStudyList} from './AppointmentStudies';
 import {AppointmentCalendar} from './AppointmentCalendar';
 
 interface ResumenProps {
-    typesReady: boolean;
-    onAddStudy: () => void;
-    onEdit: (study: Study) => void;
-    onDelete: (study: Study) => void;
-    onShare: (study: Study) => void;
     onNavigate: (view: ViewMode) => void;
     onRetryLoad: () => void;
     onRetryDirectories: () => void;
 }
 
-const syncMeta = {
-    synced: {label: 'Sincronizado', tone: 'success', icon: 'i-check'},
-    pending: {label: 'Pendiente', tone: 'warning', icon: 'i-clock'},
-    conflict: {label: 'Conflicto', tone: 'danger', icon: 'i-alert'},
-    failed: {label: 'Sin sincronizar', tone: 'danger', icon: 'i-alert'},
+const syncLabels = {
+    pending: 'Pendiente',
+    conflict: 'Conflicto',
+    failed: 'Sin sincronizar',
 } as const;
 
 function monthDay(date: string): { month: string; day: string } {
@@ -53,16 +43,10 @@ function monthDay(date: string): { month: string; day: string } {
 }
 
 export function Resumen({
-                            typesReady,
-                            onAddStudy,
-                            onEdit,
-                            onDelete,
-                            onShare,
                             onNavigate,
                             onRetryLoad,
                             onRetryDirectories,
                         }: ResumenProps) {
-    const [printing, setPrinting] = useState<Study | null>(null);
     const all = visibleStudies.value;
     const latest = latestStudy(all);
     const activity = monthlyStudyActivity(all, 6);
@@ -73,9 +57,6 @@ export function Resumen({
     const failed = pending.filter((entry) => entry.status === 'failed').length;
     const appointment = upcomingAppointment(visibleAppointments.value);
     const appointmentDate = appointment ? monthDay(appointment.date) : null;
-    const recent = [...all]
-        .sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR'))
-        .slice(0, 5);
     const portalCount = portals.value.length || portalNames(all).length;
     const average = activity.length ? activity.reduce((sum, item) => sum + item.count, 0) / activity.length : 0;
     const best = activity.reduce((top, item) => (item.count > top.count ? item : top), activity[0] ?? {
@@ -131,134 +112,6 @@ export function Resumen({
                             : 'Mostrando la copia de este dispositivo.'}
                 </p>
             )}
-            <section className="card recent-card" aria-labelledby="recent-title">
-                <div className="recent-head">
-                    <div>
-                        <h2 className="card-title" id="recent-title">Estudios recientes</h2>
-                        <p className="card-desc">Los últimos cinco del archivo</p>
-                    </div>
-                    <div className="recent-actions">
-                        <span className="count-badge">{total}</span>
-                        <button className="button secondary button-sm" type="button"
-                                onClick={() => onNavigate('cronologia')}>Ver biblioteca
-                        </button>
-                    </div>
-                </div>
-
-                <div className="summary-table-scroll">
-                    <table>
-                        <caption className="sr-only">Últimos estudios guardados en el archivo</caption>
-                        <thead>
-                        <tr>
-                            <th scope="col">Estudio</th>
-                            <th scope="col">Fecha</th>
-                            <th scope="col">Profesional</th>
-                            <th scope="col">Portal</th>
-                            <th scope="col">Estado</th>
-                            <th scope="col"><span className="sr-only">Acciones</span></th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {recent.length === 0 ? (
-                            <tr>
-                                <td colSpan={6}>
-                                    <div className="table-empty">
-                                        <p>Tu archivo empieza acá.</p>
-                                        <button className="button secondary button-sm" type="button"
-                                                onClick={onAddStudy} disabled={!typesReady}>
-                                            <svg className="icon">
-                                                <use href="#i-plus"/>
-                                            </svg>
-                                            Agregar estudio
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : recent.map((study) => {
-                            const state = syncMeta[studySyncState(study)];
-                            const attachmentAvailable = hasStudyAttachment(study) && !isSourceUnavailable(study.driveFileId);
-                            const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
-                            return (
-                                <tr key={study.id}>
-<td>
-                                        <div className="study-cell">
-                                            <span className="study-icon"><svg className="icon"><use
-                                                href="#i-file"/></svg></span>
-                                            <span className="study-text">
-                                <span className="study-title">{study.title}</span>
-                            </span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <time className="date-cell"
-                                              dateTime={study.date}>{formatStudyDate(study.date)}</time>
-                                    </td>
-                                    <td className="person-cell">{study.doctor || '—'}</td>
-                                    <td className="portal-cell">{study.portal || '—'}</td>
-                                    <td>
-                      <span className="status-pill" data-tone={state.tone}>
-                        <svg className="icon"><use href={`#${state.icon}`}/></svg>
-                          {state.label}
-                      </span>
-                                    </td>
-                                    <td>
-                                        <div className="row-actions">
-                                            {attachmentAvailable && (
-                                                <a className="button secondary button-sm summary-source" href={reportUrl(study.driveFileId)}
-                                                   target="_blank" rel="noopener noreferrer"
-                                                   aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
-                                                    {studyAttachmentLabel(study)}
-                                                </a>
-                                            )}
-                                            {viewerAvailable && (
-                                                <a className="button secondary button-sm summary-source" href={study.viewer} target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   aria-label={`Abrir visor de ${study.title}`}>
-                                                    Abrir visor
-                                                </a>
-                                            )}
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus)}
-                                                    aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-edit"/>
-                                                </svg>
-                                            </button>
-                                            <button className="icon-button" type="button" title="Imprimir"
-                                                    aria-label={`Imprimir ${study.title}`} onClick={() => setPrinting(study)}>
-                                                <svg className="icon"><use href="#i-print"/></svg>
-                                            </button>
-                                            <button className="icon-button" type="button"
-                                                    disabled={Boolean(study.syncStatus) || !(hasStudyAttachment(study) || study.viewer || study.documentIds?.length)}
-                                                    aria-label={`Compartir ${study.title}`}
-                                                    onClick={() => onShare(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-share"/>
-                                                </svg>
-                                            </button>
-                                            <button className="icon-button row-action-danger" type="button"
-                                                    disabled={Boolean(study.syncStatus)}
-                                                    aria-label={`Eliminar ${study.title}`}
-                                                    onClick={() => onDelete(study)}>
-                                                <svg className="icon">
-                                                    <use href="#i-trash"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="recent-foot">
-                    <span>Mostrando {recent.length} de {total} estudios</span>
-                    <span className="recent-hint">Datos privados de este dispositivo</span>
-                </div>
-            </section>
-
             <div className="kpi-grid">
                 <article className="card kpi-card">
                     <div className="kpi-top">
@@ -350,7 +203,7 @@ export function Resumen({
                         <div className="side-head">
                             <h2 className="card-title" id="next-appointment-title">Próximo turno</h2>
                             {appointment && <span className="tag tag-primary">
-                                {appointment.syncStatus ? syncMeta[appointment.syncStatus].label : 'Confirmado'}
+                                {appointment.syncStatus ? syncLabels[appointment.syncStatus] : 'Confirmado'}
                             </span>}
                         </div>
 
@@ -471,7 +324,6 @@ export function Resumen({
                     </section>
                 </div>
             </div>
-            <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import type {OutboxEntry} from '@data/outbox';
-import {hasStudyAttachment} from '@domain/library';
+import {hasStudyAttachment, studyAttachmentName} from '@domain/library';
 import {
     pendingChanges,
     syncMessage,
@@ -19,6 +19,7 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
     return <>
         <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
         <p>Profesional: {value.professional || '—'}</p>
+        {value.specialty && <p>Especialidad: {value.specialty}</p>}
         <p>Detalles: {value.notes || '—'}</p>
         <p>Estado: {statuses[value.status]}</p>
         <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} ·
@@ -88,6 +89,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                         {entry.draft && (
                             <span> · {entry.draft.date} · {entry.draft.types.join(', ')} · {entry.draft.doctor}</span>
                         )}
+                        {entry.kind === 'appointment-save' && (entry.attachmentName || entry.appointmentDraft?.removePrescription) &&
+                            <p>Receta: {entry.attachmentName || 'Se quitará el archivo'}</p>}
                         {entry.lastError && <p>{entry.lastError}</p>}
                         {entry.draft && (
                             <details>
@@ -128,6 +131,7 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                     const remoteAppointment = appointments.value.find(item => item.id === entry.appointmentId);
                                     return remoteAppointment ? <>
                                         <p>Versión de Drive</p><AppointmentDetails value={remoteAppointment}/>
+                                        {remoteAppointment.prescription && <p>Receta: {remoteAppointment.prescription.name}</p>}
                                         <p>Revisión de Drive: {remoteAppointment.revision}</p>
                                         <button type="button" className="button secondary"
                                                 disabled={isSyncing || !navigator.onLine || !remoteAppointment.revision}
@@ -150,7 +154,7 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 {'portal' in remote && <p>Portal en Drive: {remote.portal || '—'}</p>}
                                 {'viewer' in remote && <p>Visor en Drive: {remote.viewer || '—'}</p>}
                                 {'hasPdf' in remote && <p>Informe en
-                                    Drive: {hasStudyAttachment(remote) ? remote.reportName || 'Disponible' : 'Sin informe'}</p>}
+                                    Drive: {hasStudyAttachment(remote) ? studyAttachmentName(remote) : 'Sin informe'}</p>}
                                 {'surgeon' in remote && <p>Cirujano en Drive: {remote.surgeon || '—'}</p>}
                                 {'institution' in remote && <p>Institución en Drive: {remote.institution || '—'}</p>}
                                 {'type' in remote && <p>Intervención en Drive: {remote.type || '—'}</p>}

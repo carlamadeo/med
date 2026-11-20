@@ -1,8 +1,11 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
-import {validateAppointment} from '@domain/appointments';
+import {COMMON_SPECIALTIES, specialtyNames} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {driveAuth} from '@data';
-import {editingAppointment, isAppointmentEditorOpen, isLocalDemo, setAppointmentEditorOpen} from '../state/store';
+import {
+    editingAppointment, isAppointmentEditorOpen, isLocalDemo, setAppointmentEditorOpen,
+    visibleAppointments, visibleMedicalEvents,
+} from '../state/store';
 import {deleteAppointment, getTimeZoneOptions, saveAppointment} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
@@ -37,6 +40,7 @@ export function AppointmentDialog() {
         const dialog = dialogRef.current;
         if (!open) {
             if (dialog?.open) dialog.close();
+            setConfirmingDelete(false);
             return;
         }
         if (dialog && !dialog.open) dialog.showModal();
@@ -62,14 +66,19 @@ export function AppointmentDialog() {
     const submit = async (event: Event) => {
         event.preventDefault();
         const form = event.currentTarget as HTMLFormElement;
+        if (busy || message) return;
         const data = new FormData(form);
+        const file = form.querySelector<HTMLInputElement>('#appointment-prescription')?.files?.[0];
         const draft: AppointmentDraft = {
             id: appointment?.id,
             revision: appointment?.revision,
             date: String(data.get('date') ?? ''),
             time: String(data.get('time') ?? ''),
             timeZone: String(data.get('timeZone') ?? ''),
-            professional: String(data.get('professional') ?? ''),
+            professional: String(data.get('professional') ?? '').trim(),
+            specialty: String(data.get('specialty') ?? ''),
+            prescriptionFile: file,
+            removePrescription: data.has('removePrescription'),
             notes: String(data.get('notes') ?? ''),
             status: (data.get('status') as Appointment['status']) ?? 'scheduled',
             cost: parseCost(data.get('cost')),
@@ -77,11 +86,6 @@ export function AppointmentDialog() {
             reminderMinutes: parseReminder(data.get('reminder')),
             studyIds: data.getAll('studyId').map(String),
         };
-        const validation = validateAppointment(draft);
-        if (validation.length) {
-            setError(validation[0] ?? 'Revisá los datos del turno.');
-            return;
-        }
         setBusy(true);
         setMessage('');
         setError(null);
@@ -153,6 +157,9 @@ export function AppointmentDialog() {
     const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
     const defaultTimeZone = appointment?.timeZone ?? resolvedTimeZone;
     const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
+    const specialties = open
+        ? specialtyNames([...visibleAppointments.value, ...visibleMedicalEvents.value], COMMON_SPECIALTIES)
+        : [];
 
     return (
         <>
@@ -206,6 +213,15 @@ export function AppointmentDialog() {
                         <input id="appointment-professional" name="professional" type="text" placeholder="Dra. Pérez"
                                defaultValue={appointment?.professional ?? ''} disabled={busy}/>
                     </label>
+                    <label className="field wide">
+                        <span>Especialidad</span>
+                        <input name="specialty" list="appointment-specialties" maxLength={120}
+                               placeholder="Elegí o escribí una especialidad"
+                               defaultValue={appointment?.specialty ?? ''} disabled={busy}/>
+                    </label>
+                    <datalist id="appointment-specialties">
+                        {specialties.map(name => <option key={name} value={name}/>)}
+                    </datalist>
                     <label className="field">
                         <span>Estado</span>
                         <select id="appointment-status" name="status" defaultValue={appointment?.status ?? 'scheduled'}
@@ -243,12 +259,24 @@ export function AppointmentDialog() {
                         </select>
                     </label>
                     <label className="field wide">
-                        <span>Notas</span>
+                        <span>Notas de la consulta</span>
                         <textarea id="appointment-notes" name="notes" placeholder="Estudio, indicaciones o comentarios"
                                   defaultValue={appointment?.notes ?? ''} disabled={busy}/>
                     </label>
                 </div>
 
+                <fieldset className="appointment-study-picker" disabled={busy || Boolean(message)}>
+                    <legend>Receta</legend>
+                    {appointment?.prescription && <p className="appointment-prescription-name">{appointment.prescription.name}</p>}
+                    <label className="field">
+                        <span>{appointment?.prescription ? 'Reemplazar receta' : 'Adjuntar receta'} (PDF, JPG o PNG)</span>
+                        <input id="appointment-prescription" name="prescriptionFile" type="file"
+                               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"/>
+                    </label>
+                    {appointment?.prescription && <label className="appointment-prescription-remove">
+                        <input type="checkbox" name="removePrescription"/> Quitar la receta actual
+                    </label>}
+                </fieldset>
                 <AppointmentStudyPicker studyIds={appointment?.studyIds} disabled={busy}/>
                 <AppointmentReminderNote permission={permission}/>
 
@@ -271,11 +299,11 @@ export function AppointmentDialog() {
 
                 <div className="dialog-actions">
                     {appointment && (
-                        <button className="button danger" type="button" onClick={remove} disabled={busy}>Borrar
+                        <button className="button danger" type="button" onClick={remove} disabled={busy || Boolean(message)}>Borrar
                             turno</button>
                     )}
-                    <button className="button secondary" type="button" onClick={close} disabled={busy}>Cancelar</button>
-                    <button className="button primary" type="submit" disabled={busy || (!driveAuth.configured && !isLocalDemo.value)}>
+                    <button className="button secondary" type="button" onClick={close} disabled={busy}>{message ? 'Cerrar' : 'Cancelar'}</button>
+                    <button className="button primary" type="submit" disabled={busy || Boolean(message) || (!driveAuth.configured && !isLocalDemo.value)}>
                         {busy ? 'Guardando…' : 'Guardar turno'}
                     </button>
                 </div>

@@ -17,7 +17,9 @@ export function parseEvent(client: DriveClient, file: DriveFileResponse): Medica
         throw new Error('Drive tiene un evento cuya ficha no se puede leer.');
     }
     return {
-        id: file.id, kind: item.kind, date: item.date, doctor: item.doctor ?? '', notes: item.notes ?? '',
+        id: file.id, kind: item.kind, date: item.date, doctor: item.doctor ?? '',
+        specialty: typeof item.specialty === 'string' ? item.specialty.trim() || undefined : undefined,
+        notes: item.notes ?? '',
         studyIds: [...new Set(studyIds)], documentIds: [...new Set(documentIds)], revision: file.version
     };
 }

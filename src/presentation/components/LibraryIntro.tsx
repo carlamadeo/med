@@ -1,3 +1,4 @@
+import {useLayoutEffect} from 'preact/hooks';
 import type {ViewMode} from '@domain/models';
 import {libraryQuery, resetLibraryFilters, view as archiveView} from '../state/store';
 
@@ -16,14 +17,20 @@ const titles: Record<ViewMode, string> = {
     categoria: 'Biblioteca',
     portales: 'Portales',
     operaciones: 'Operaciones',
-    turnos: 'Turnos',
-    eventos: 'Consultas y recetas',
+    turnos: 'Turnos, consultas y recetas',
     episodios: 'Episodios',
     intake: 'Bandeja de entrada',
 };
 
 export function LibraryIntro({onAddStudy, onImport, isSignedIn, isLocalDemo, typesReady, view}: LibraryIntroProps) {
     const library = view === 'cronologia' || view === 'categoria';
+
+    useLayoutEffect(() => {
+        if (isSignedIn && library && window.matchMedia('(max-width: 720px)').matches) {
+            window.scrollTo(0, 0);
+        }
+    }, [isSignedIn, library]);
+
     return (
         <section className="intro">
             <div>

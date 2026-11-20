@@ -147,7 +147,7 @@ export function useOutbox(
                 },
                 saveAppointment: async (draft) => {
                     await assertToken();
-                    await driveAppointmentRepo.save(draft);
+                    await driveAppointmentRepo.save(draft, token);
                     await assertToken();
                 },
                 deleteAppointment: async (id, revision) => {
@@ -186,7 +186,7 @@ export function useOutbox(
             syncMessage.value = 'Este navegador no puede modificar la cola de forma segura.';
             return;
         }
-        if (!window.confirm(entry.attachment ? '¿Descartar este cambio pendiente y el PDF guardado en este dispositivo?' : '¿Descartar este cambio pendiente?')) return;
+        if (!window.confirm(entry.attachment ? '¿Descartar este cambio pendiente y el archivo guardado en este dispositivo?' : '¿Descartar este cambio pendiente?')) return;
         try {
             const token = await driveAuth.getAccessToken();
             await navigator.locks.request(`mis-estudios-outbox:${owner}`, async () => {

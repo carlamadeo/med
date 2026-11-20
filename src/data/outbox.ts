@@ -66,7 +66,7 @@ export interface OutboxEntry {
     portalDraft?: PortalDraft;
     eventDraft?: MedicalEventDraft;
     episodeDraft?: EpisodeDraft;
-    appointmentDraft?: AppointmentDraft;
+    appointmentDraft?: Omit<AppointmentDraft, 'prescriptionFile'>;
     appointmentId?: string;
     eventId?: string;
     operationId?: string;
@@ -176,12 +176,16 @@ export class Outbox {
     }
 
     async enqueueAppointmentSave(owner: string, draft: AppointmentDraft): Promise<void> {
+        const {prescriptionFile, ...fields} = draft;
         await this.enqueue({
             owner,
             kind: 'appointment-save',
             status: 'pending',
             appointmentId: draft.id,
-            appointmentDraft: draft
+            appointmentDraft: fields,
+            attachment: prescriptionFile,
+            attachmentName: prescriptionFile?.name,
+            attachmentType: prescriptionFile?.type,
         });
     }
 
@@ -391,7 +395,10 @@ export class Outbox {
                                 entry.appointmentDraft.createId = await remote.reserveId();
                                 await db.put('entries', entry);
                             }
-                            await remote.saveAppointment(entry.appointmentDraft);
+                            const prescriptionFile = entry.attachment
+                                ? new File([entry.attachment], entry.attachmentName ?? 'Receta', {type: entry.attachmentType})
+                                : undefined;
+                            await remote.saveAppointment({...entry.appointmentDraft, prescriptionFile});
                             break;
                         }
                         case 'episode-delete': {

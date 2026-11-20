@@ -58,3 +58,19 @@ it('offers previously used medications as suggestions', async () => {
     const list = root.querySelector<HTMLDataListElement>(`#${input.getAttribute('list')}`);
     expect([...list!.options].map(option => option.value)).toContain('Paracetamol');
 });
+
+it('includes the recorded end date in the illness duration', async () => {
+    episodes.value = [{
+        id: '1',
+        illness: 'Otitis',
+        revision: '1',
+        closed: true,
+        endDate: '2024-03-12',
+        medications: [],
+        observations: [{date: '2024-03-09', text: 'Dolor', symptoms: []}],
+    }];
+    document.body.append(root);
+    await act(() => render(h(Episodes, {}), root));
+    expect(root.querySelector('.episode-title')?.textContent).toContain('Finalizado · 4 días');
+    expect(root.querySelector('time[datetime="2024-03-12"]')).not.toBeNull();
+});

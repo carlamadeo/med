@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
-import {formatStudyDate, hasStudyAttachment} from '@domain/library';
+import {formatStudyDate, hasStudyAttachment, studyAttachmentName} from '@domain/library';
 import type {Study} from '@domain/models';
 import {
     sharingStudyId,
@@ -528,7 +528,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                                 <svg className="icon" aria-hidden="true">
                                                     <use href="#i-file"/>
                                                 </svg>
-                                                <span>{item.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({item.reportName || item.title})</span>
+                                                <span>{item.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({studyAttachmentName(item)})</span>
                                             </label>
                                         )}
                                         {!itemAttachmentAvailable && item.pendingAttachment && (
@@ -579,7 +579,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                                             setFilenameError('');
                                                         }}
                                                     />
-                                                    <span>{document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {document.reportName || document.title}</span>
+                                                    <span>{document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {studyAttachmentName(document)}</span>
                                                 </label>
                                             );
                                         })}
@@ -595,7 +595,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                         </div>
                     ) : (
                         <div className="share-options">
-                            {attachmentAvailable && (
+                            {study && attachmentAvailable && (
                                 <label className="share-option-row">
                                     <input
                                         type="checkbox"
@@ -609,7 +609,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                     <svg className="icon" aria-hidden="true">
                                         <use href="#i-file"/>
                                     </svg>
-                                    <span>{study?.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({study?.reportName || study?.title})</span>
+                                    <span>{study.attachmentMime ? 'Imagen del informe' : 'Informe PDF'} ({studyAttachmentName(study)})</span>
                                 </label>
                             )}
                             {!attachmentAvailable && study?.pendingAttachment && (
@@ -643,7 +643,7 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                                            setDocumentIds(event.currentTarget.checked ? [...documentIds, document.id] : documentIds.filter(docId => docId !== document.id));
                                            setFilenameError('');
                                        }}/>
-                                <span>{document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {document.reportName || document.title}</span>
+                                <span>{document.attachmentMime ? 'Imagen asociada' : 'PDF asociado'} · {studyAttachmentName(document)}</span>
                             </label>)}
                             {!hasShareableContent && (
                                 <span className="share-doc-hint">Este estudio no tiene archivos ni enlaces para compartir</span>

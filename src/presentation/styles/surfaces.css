@@ -20,7 +20,7 @@
 }
 
 #library:not([hidden]):has(.portals, .operations, .operation-detail, .events, .episodes, .appointments, .intake) {
-    padding: 0;
+    padding: var(--space-6) 0 var(--space-10);
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -31,13 +31,13 @@
 }
 
 .portals-head h2, .operations-head h2, .operation-detail-head h2,
-.events-head h2, .episodes-head h2, .appointments-head h2, .intake-head h2 {
+.episodes-head h2, .appointments-head h2, .intake-head h2 {
     font-size: clamp(1.5rem, 2.4vw, 1.875rem);
     line-height: 1.2;
     letter-spacing: -0.02em;
 }
 
-.portals-desc, .operations-desc, .events-desc, .episodes-desc, .appointments-desc, .intake-desc {
+.portals-desc, .operations-desc, .episodes-desc, .appointments-desc, .intake-desc {
     margin-top: var(--space-2);
     color: var(--color-text-secondary);
     font-size: var(--text-base);
@@ -102,7 +102,7 @@
 }
 
 #portal-form > fieldset, #operation-form > fieldset,
-#event-form > fieldset, #episode-form > fieldset {
+#episode-form > fieldset {
     min-width: 0;
     padding: 0;
     margin: var(--space-4) 0 0;
@@ -190,6 +190,7 @@ input[type='checkbox'], input[type='radio'] {
     gap: 0.5rem;
     align-items: center;
     min-height: 2.25rem;
+    overflow-wrap: anywhere;
 }
 
 .share-option-row.share-option-disabled {
