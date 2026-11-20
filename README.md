@@ -73,7 +73,7 @@ archivo en Drive y reutilice el identificador original cuando haga falta.
 
 ## Probar en la computadora
 
-Con Node.js 24, ejecutá `npm ci`, `npm run build` y `npm start`. La vista previa abre en `http://localhost:4173`. Para
+Con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior, ejecutá `npm ci`, `npm run build` y `npm start`. La vista previa abre en `http://localhost:4173`. Para
 probar con Drive real, agregá `http://localhost` y `http://localhost:4173` al cliente OAuth y pasá su ID al compilar:
 
 ```sh

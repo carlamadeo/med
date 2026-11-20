@@ -375,12 +375,12 @@ async function createExportZip(
             } catch (err) {
                 if (err instanceof DriveSessionError) throw err;
                 if (err instanceof DriveConflictError) {
-                    throw new Error(`El archivo de «${study.title}» cambió en Drive. Cerrá la exportación y actualizá la lista.`);
+                    throw new Error(`El archivo de «${study.title}» cambió en Drive. Cerrá la exportación y actualizá la lista.`, {cause: err});
                 }
                 if (err instanceof StudyAttachmentFormatError) {
-                    throw new Error(`El archivo de «${study.title}» no coincide con el formato del informe.`);
+                    throw new Error(`El archivo de «${study.title}» no coincide con el formato del informe.`, {cause: err});
                 }
-                throw new Error(`No se pudo incluir el archivo de «${study.title}». Revisá la conexión y volvé a intentar.`);
+                throw new Error(`No se pudo incluir el archivo de «${study.title}». Revisá la conexión y volvé a intentar.`, {cause: err});
             }
         }
     }

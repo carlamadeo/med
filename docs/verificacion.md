@@ -1,6 +1,6 @@
 # Verificación por tipo de cambio
 
-Ejecutá los comandos desde la raíz del repositorio con Node.js 24 o superior. Usá datos sintéticos para archivos,
+Ejecutá los comandos desde la raíz del repositorio con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior. Usá datos sintéticos para archivos,
 cuentas simuladas y capturas. Elegí las pruebas según el flujo afectado y comprobá el comportamiento desde la
 interfaz cuando el cambio llegue a ella.
 

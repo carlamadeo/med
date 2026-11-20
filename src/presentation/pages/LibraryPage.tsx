@@ -472,9 +472,9 @@ export function LibraryPage() {
             >
                 <main className="wrap" id="main" role="main">
                     {isLocalDemo.value && (
-                        <aside className="demo-notice" role="status" aria-label="Modo de prueba local">
+                        <div className="demo-notice" role="status" aria-label="Modo de prueba local">
                             <strong>Modo local de prueba:</strong> Estás probando la app sin conexión a Google Drive. Podés crear, ver, ordenar y filtrar estudios libremente.
-                        </aside>
+                        </div>
                     )}
                     <LibraryIntro onAddStudy={() => openEditor(null)} onImport={() => setImportOpen(true)}
                                   isSignedIn={isSignedIn.value} isLocalDemo={isLocalDemo.value}

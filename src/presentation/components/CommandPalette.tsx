@@ -1,5 +1,4 @@
 import {useEffect, useMemo, useRef, useState} from 'preact/hooks';
-import type {JSX} from 'preact';
 import type {Study, ViewMode} from '@domain/models';
 import {normalizeSearch, searchArchive} from '@domain/search';
 import {
@@ -199,7 +198,7 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
         flat[active]?.run();
     };
 
-    const handleKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             if (flat.length) setActive((active + 1) % flat.length);

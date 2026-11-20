@@ -208,17 +208,17 @@ export class DriveStudyRepository implements StudyRepository {
                     .request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), {}, token)
                     .then((r) => r.json() as Promise<DriveFileResponse>);
                 if (response.description !== description) {
-                    throw new Error('La carga anterior ya se guardó. Actualizá la lista para revisarla.');
+                    throw new Error('La carga anterior ya se guardó. Actualizá la lista para revisarla.', {cause: error});
                 }
                 if (draft.file) {
-                    if (response.mimeType !== documentMime) throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.');
+                    if (response.mimeType !== documentMime) throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.', {cause: error});
                     const remoteFile = await this.getDocumentFile(id, token);
                     const [localDigest, remoteDigest] = await Promise.all([
                         draft.file.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
                         remoteFile.arrayBuffer().then((bytes) => crypto.subtle.digest('SHA-256', bytes)),
                     ]);
                     if (!new Uint8Array(localDigest).every((byte, index) => byte === new Uint8Array(remoteDigest)[index])) {
-                        throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.');
+                        throw new Error('La carga anterior es diferente. Actualizá la lista para revisarla.', {cause: error});
                     }
                     await this.client.assertSession(token);
                 }

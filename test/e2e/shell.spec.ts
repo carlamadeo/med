@@ -121,12 +121,17 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
     await expect(page.locator('#sidebar')).toBeHidden();
     await page.locator('#menuBtn').click();
     await expect(page.locator('#sidebar')).toBeVisible();
-    await expect(page.getByRole('dialog', {name: 'Navegación principal'})).toBeVisible();
+    const menu = page.getByRole('dialog', {name: 'Navegación principal'});
+    const closeMenu = menu.getByRole('button', {name: 'Cerrar menú'});
     await expect(page.locator('.app-main')).toHaveAttribute('inert', '');
+    await expect(closeMenu).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
     await expect(page.locator('#menuBtn')).toBeFocused();
     await page.locator('#menuBtn').click();
-    await page.locator('#nav-resumen').click();
+    await expect(closeMenu).toBeFocused();
+    await menu.getByRole('button', {name: 'Resumen'}).click();
+    await expect(menu).toBeHidden();
     await expect(page.locator('#resumen')).toBeVisible();
     await expect(page.locator('.kpi-card')).toHaveCount(4);
 });
@@ -321,11 +326,10 @@ test('previsualiza una imagen y distingue un adjunto que no se puede cargar', as
     const blobUrl = await image.getAttribute('src');
     await preview.getByRole('button', {name: 'Cerrar'}).click();
     await expect(preview).toBeHidden();
-    expect(await page.evaluate(url => {
-        const image = new Image();
-        image.src = url!;
-        return image.decode().then(() => false, () => true);
-    }, blobUrl)).toBe(true);
+    expect(blobUrl).toMatch(/^blob:/);
+    await expect.poll(() => page.evaluate(url =>
+        fetch(url!).then(() => false, () => true), blobUrl
+    )).toBe(true);
 
     unavailable = true;
     await print.click();
@@ -699,6 +703,7 @@ test('elige y guarda una especialidad al editar un estudio anterior', async ({pa
     expect(JSON.parse(existing.description).specialty).toBe('Cardiología');
 
     await page.reload();
+    await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     await edit.click();
     await expect(specialty).toHaveValue('Cardiología');

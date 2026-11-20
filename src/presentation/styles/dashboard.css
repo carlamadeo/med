@@ -4210,7 +4210,7 @@
     font-size: 0.88rem;
     color: var(--color-text-primary);
     font-weight: 600;
-    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .suggestion-actions {
@@ -4319,7 +4319,7 @@ fieldset#study-types.study-types {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl, 16px);
     background: var(--color-surface);
-    box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.06));
+    box-shadow: var(--shadow-md, 0 4px 16px rgb(0 0 0 / 0.06));
     text-align: center;
 }
 
@@ -4379,7 +4379,7 @@ fieldset#study-types.study-types {
 }
 
 .library.access .access-connect-btn {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.08);
 }
 
 .demo-notice {

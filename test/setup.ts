@@ -13,7 +13,7 @@ import {server} from './server';
 const NativeRequest = Object.getPrototypeOf(Request) as typeof Request;
 Object.assign(globalThis, {Blob: NodeBlob, File: NodeFile, Request: NativeRequest});
 
-beforeAll(() => server.listen({onUnhandledRequest: 'error'}));
+beforeAll(() => server.listen({onUnhandledFrame: 'error'}));
 afterAll(() => server.close());
 
 beforeEach(async () => {

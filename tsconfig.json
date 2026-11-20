@@ -20,43 +20,42 @@
     "isolatedModules": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@": [
-        "src"
+        "./src"
       ],
       "@core/*": [
-        "src/core/*"
+        "./src/core/*"
       ],
       "@core": [
-        "src/core"
+        "./src/core"
       ],
       "@domain/*": [
-        "src/domain/*"
+        "./src/domain/*"
       ],
       "@domain": [
-        "src/domain"
+        "./src/domain"
       ],
       "@data/*": [
-        "src/data/*"
+        "./src/data/*"
       ],
       "@data": [
-        "src/data"
+        "./src/data"
       ],
       "@presentation/*": [
-        "src/presentation/*"
+        "./src/presentation/*"
       ],
       "@presentation": [
-        "src/presentation"
+        "./src/presentation"
       ],
       "@workers/*": [
-        "src/workers/*"
+        "./src/workers/*"
       ],
       "@workers": [
-        "src/workers"
+        "./src/workers"
       ]
     },
     "types": [

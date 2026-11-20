@@ -47,7 +47,7 @@ const labels: Record<ViewMode, string> = {
 
 export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShellProps) {
     const [open, setOpen] = useState(false);
-    const sidebarRef = useRef<HTMLElement>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLButtonElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const wasOpen = useRef(false);
@@ -142,8 +142,8 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
 
     return (
         <div className="app-shell" data-signed-in={isSignedIn}>
-            <aside ref={sidebarRef} className="sidebar" id="sidebar" aria-label="Navegación principal" hidden={!isSignedIn}
-                   role={open ? 'dialog' : undefined} aria-modal={open || undefined} data-open={open}
+            <div ref={sidebarRef} className="sidebar" id="sidebar" aria-label="Navegación principal" hidden={!isSignedIn}
+                   role={open ? 'dialog' : 'complementary'} aria-modal={open || undefined} data-open={open}
                    onKeyDown={event => {
                        if (open && event.key === 'Escape' && !event.defaultPrevented &&
                            !(event.target instanceof Element && event.target.closest('dialog[open]'))) {
@@ -213,7 +213,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
             </span>
                     </div>
                 </div>
-            </aside>
+            </div>
 
             <button className="sidebar-scrim" type="button" aria-label="Cerrar menú" data-open={open}
                     tabIndex={-1} aria-hidden="true" hidden={!isSignedIn} onClick={() => setOpen(false)}/>

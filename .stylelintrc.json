@@ -8,7 +8,6 @@
     "value-keyword-case": "lower",
     "selector-not-notation": null,
     "no-descending-specificity": null,
-    "declaration-block-single-line-max-declarations": null,
     "custom-property-empty-line-before": null,
     "color-function-notation": null,
     "alpha-value-notation": null,

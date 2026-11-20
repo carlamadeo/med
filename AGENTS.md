@@ -11,7 +11,7 @@ in `docs/adr/`, and tests in `test/` and `test/e2e/`. Do not edit generated outp
 
 ## Build, Test, and Development Commands
 
-Use Node.js 24 or later and run `npm ci` to install dependencies.
+Use Node.js 24.15 or later in the 24.x line, or Node.js 26 or later, and run `npm ci` to install dependencies.
 
 - `npm run dev` starts the Vite development server; `npm run build` type-checks and builds the app. Both prepare vendor
   assets automatically.

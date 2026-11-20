@@ -5,7 +5,7 @@ Gracias por tu interés en contribuir. Este documento describe el flujo de traba
 ## Configuración del entorno
 
 ### Requisitos
-- Node.js 24 o superior
+- Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior
 - npm (incluido con Node.js)
 
 ### Instalación
