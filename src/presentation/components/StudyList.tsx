@@ -315,7 +315,7 @@ export function StudyList({
                         onClick={() => changePage(page + 1)}>Siguiente</button>
             </nav>
         )}
-        <StudyPrintDialog study={printing} onClose={() => setPrinting(null)}/>
+        {printing && <StudyPrintDialog key={printing.id} study={printing} onClose={() => setPrinting(null)}/>}
         </>
     );
 }

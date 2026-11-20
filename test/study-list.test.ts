@@ -167,7 +167,7 @@ it('keeps unsynced studies protected without a status column', async () => {
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Conflict"]')?.disabled).toBe(true);
 });
 
-it('offers a named print action for each study', async () => {
+it('prints the study record when there is no attachment', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     setStudies([{id: 'one', driveFileId: 'one', title: 'Informe', date: '2024-01-01', types: [],
         doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]);
@@ -175,10 +175,12 @@ it('offers a named print action for each study', async () => {
     await act(() => root.querySelector<HTMLButtonElement>('button[aria-label="Imprimir Informe"]')?.click());
     expect(print).not.toHaveBeenCalled();
     const dialog = root.querySelector<HTMLDialogElement>('dialog[open]');
-    expect(dialog?.textContent).toContain('Informe');
-    expect(dialog?.textContent).toContain('archivos adjuntos');
+    expect(dialog?.querySelector('.study-print-record')?.textContent).toContain('Informe');
+    expect(document.body.querySelector('.study-print-output .study-print-record')?.textContent).toContain('Sin informe adjunto');
     await act(() => [...(dialog?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Imprimir')?.click());
     expect(print).toHaveBeenCalledOnce();
+    await act(() => dialog?.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')?.click());
+    expect(document.body.querySelector('.study-print-output')).toBeNull();
 });
 
 it('shows a +N badge when a study has more than two types', async () => {

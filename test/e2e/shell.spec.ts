@@ -1,5 +1,6 @@
 import {expect, test} from '@playwright/test';
 import {navigateTo} from './nav';
+import {pdf} from './pdf-fixture';
 
 const sessionKey = 'mis-estudios:drive-session:123-test.apps.googleusercontent.com';
 const files = [
@@ -219,7 +220,117 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
 });
 
 
-test('revisa estudios relacionados e impresión con teclado y conserva el tema', async ({page}) => {
+test('imprime todas las páginas del archivo adjunto y permite elegir la ficha', async ({page, browserName}) => {
+    const stream = (content: string) => `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+    const attachment = Buffer.from(pdf([
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 5 0 R >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Contents 6 0 R >>',
+        stream('1 0 0 rg 0 0 595 842 re f'),
+        stream('0 0 1 rg 0 0 842 595 re f'),
+    ]), 'base64');
+    await page.route('https://www.googleapis.com/drive/v3/files/study-1?**', route => {
+        const url = new URL(route.request().url());
+        return url.searchParams.get('alt') === 'media'
+            ? route.fulfill({body: attachment, contentType: 'application/pdf'})
+            : route.fulfill({json: files[0]});
+    });
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const library = page.getByRole('region', {name: 'Biblioteca'});
+    const more = library.getByText('Más acciones', {exact: true}).first();
+    if (await more.isVisible()) await more.click();
+    const print = library.getByRole('button', {name: 'Imprimir Mamografía bilateral'});
+    await print.focus();
+    await page.keyboard.press('Enter');
+    const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
+    await expect(preview.getByRole('radio', {name: 'Archivo adjunto'})).toBeChecked();
+    await expect(preview.getByRole('img', {name: 'Página 1 del archivo adjunto'})).toBeVisible();
+    await expect(preview.getByRole('img', {name: 'Página 2 del archivo adjunto'})).toBeVisible();
+    await expect(preview.locator('.study-print-record')).toHaveCount(0);
+    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeEnabled();
+
+    await page.emulateMedia({media: 'print'});
+    const output = page.locator('.study-print-output');
+    await expect(output.locator('img')).toHaveCount(2);
+    await expect(output.locator('img').first()).toBeVisible();
+    await expect(preview).toBeHidden();
+    if (browserName === 'chromium') {
+        const printed = await page.pdf({format: 'A4'});
+        const pages = await page.evaluate(async (encoded) => {
+            const path = '/vendor/pdf/pdf.min.mjs';
+            const {getDocument, GlobalWorkerOptions, OPS} = await import(path);
+            GlobalWorkerOptions.workerSrc = '/vendor/pdf/pdf.worker.min.mjs';
+            const loading = getDocument({data: Uint8Array.from(atob(encoded), byte => byte.charCodeAt(0))});
+            try {
+                const document = await loading.promise;
+                return await Promise.all(Array.from({length: document.numPages}, async (_, index) => {
+                    const page = await document.getPage(index + 1);
+                    const {fnArray} = await page.getOperatorList();
+                    return fnArray.includes(OPS.paintImageXObject);
+                }));
+            } finally {
+                await loading.destroy();
+            }
+        }, printed.toString('base64'));
+        expect(pages).toEqual([true, true]);
+    }
+    await page.emulateMedia({media: 'screen'});
+    await preview.getByRole('radio', {name: 'Ficha del estudio'}).check();
+    await expect(preview.locator('.study-print-record')).toContainText('Mamografía bilateral');
+    await page.keyboard.press('Escape');
+    await expect(preview).toBeHidden();
+    await expect(print).toBeFocused();
+});
+
+test('previsualiza una imagen y distingue un adjunto que no se puede cargar', async ({page}) => {
+    await page.goto('/');
+    const jpeg = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 30;
+        const context = canvas.getContext('2d')!;
+        context.fillStyle = 'blue';
+        context.fillRect(0, 0, 30, 30);
+        return canvas.toDataURL('image/jpeg').split(',')[1]!;
+    });
+    let unavailable = false;
+    await page.route('https://www.googleapis.com/drive/v3/files/study-3?**', route => {
+        const url = new URL(route.request().url());
+        if (url.searchParams.get('alt') !== 'media') return route.fulfill({json: files[2]});
+        return unavailable ? route.fulfill({status: 404})
+            : route.fulfill({body: Buffer.from(jpeg, 'base64'), contentType: 'image/jpeg'});
+    });
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const row = page.getByRole('row').filter({hasText: 'Orden de laboratorio'});
+    const more = row.getByText('Más acciones', {exact: true});
+    if (await more.isVisible()) await more.click();
+    const print = row.getByRole('button', {name: 'Imprimir Orden de laboratorio'});
+    await print.click();
+    const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
+    const image = preview.getByRole('img', {name: 'Página 1 del archivo adjunto'});
+    await expect(image).toHaveJSProperty('naturalWidth', 30);
+    const blobUrl = await image.getAttribute('src');
+    await preview.getByRole('button', {name: 'Cerrar'}).click();
+    await expect(preview).toBeHidden();
+    expect(await page.evaluate(url => {
+        const image = new Image();
+        image.src = url!;
+        return image.decode().then(() => false, () => true);
+    }, blobUrl)).toBe(true);
+
+    unavailable = true;
+    await print.click();
+    await expect(preview.getByRole('alert')).toContainText('No se pudo preparar el archivo adjunto');
+    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeDisabled();
+    await preview.getByRole('radio', {name: 'Ficha del estudio'}).check();
+    await expect(preview.locator('.study-print-record')).toContainText('Orden de laboratorio');
+    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeEnabled();
+});
+
+test('revisa estudios relacionados con teclado y conserva el tema', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
@@ -237,20 +348,6 @@ test('revisa estudios relacionados e impresión con teclado y conserva el tema',
     await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
     await expect(edit).toBeFocused();
-
-    const print = library.getByRole('button', {name: 'Imprimir Mamografía bilateral'});
-    await print.focus();
-    await page.keyboard.press('Enter');
-    const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
-    await expect(preview).toBeVisible();
-    await expect(preview).toContainText('Mamografía bilateral');
-    await expect(preview).toContainText('archivos adjuntos se imprimen por separado');
-    await page.emulateMedia({media: 'print'});
-    await expect(preview.locator('.study-print-record')).toBeVisible();
-    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeHidden();
-    await page.emulateMedia({media: 'screen'});
-    await page.keyboard.press('Escape');
-    await expect(print).toBeFocused();
 
     await page.emulateMedia({reducedMotion: 'reduce'});
     const toggle = page.getByRole('button', {name: /Cambiar a modo/});
