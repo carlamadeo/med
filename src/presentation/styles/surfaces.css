@@ -1,4 +1,16 @@
 /* Shared treatment for the archive's supporting screens and dialogs. */
+@media (max-width: 720px), (pointer: coarse) {
+    /* WebKit can zoom the page when a smaller text field receives focus. */
+    input[type='search'],
+    .appointment-dialog input[type='search'],
+    .command-search input,
+    .event-related-panel input[type='search'],
+    .operation-form-grid input,
+    .operation-form-grid textarea {
+        font-size: 1rem;
+    }
+}
+
 .wrap:has(.portals, .operations, .operation-detail, .events, .episodes, .appointments, .intake) > .intro {
     position: relative;
     padding-block: 0;
