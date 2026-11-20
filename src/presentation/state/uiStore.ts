@@ -27,8 +27,11 @@ export const exportError = signal<string | null>(null);
 
 export const recoveringStudyId = signal<string | null>(null);
 export const recoveryError = signal<string | null>(null);
-export const editingAppointment = signal<Appointment | null>(null);
-export const isAppointmentEditorOpen = signal(false);
+type AppointmentEditor =
+    | {mode: 'appointment'; appointment: Appointment | null}
+    | {mode: 'consultation'; appointment: Appointment};
+
+export const appointmentEditor = signal<AppointmentEditor | null>(null);
 export const isFolderPickerOpen = signal(false);
 
 export const offline = signal(!navigator.onLine);
@@ -114,13 +117,15 @@ export function setRecoveryError(msg: string | null): void {
 }
 
 export function setEditingAppointment(appointment: Appointment | null): void {
-    editingAppointment.value = appointment;
-    isAppointmentEditorOpen.value = true;
+    appointmentEditor.value = {mode: 'appointment', appointment};
 }
 
-export function setAppointmentEditorOpen(open: boolean): void {
-    isAppointmentEditorOpen.value = open;
-    if (!open) editingAppointment.value = null;
+export function setEditingConsultation(appointment: Appointment): void {
+    appointmentEditor.value = {mode: 'consultation', appointment};
+}
+
+export function closeAppointmentEditor(): void {
+    appointmentEditor.value = null;
 }
 
 export function setFolderPickerOpen(open: boolean): void {

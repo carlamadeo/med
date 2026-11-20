@@ -20,7 +20,7 @@ import {
     isEditorOpen,
     deletingStudyId,
     view,
-    setAppointmentEditorOpen,
+    closeAppointmentEditor,
     setEditorOpen,
 } from '../state/store';
 import {
@@ -74,7 +74,7 @@ if (!signedIn) {
                 medicalEvents.value = [];
                 episodes.value = [];
                 appointments.value = [];
-                setAppointmentEditorOpen(false);
+                closeAppointmentEditor();
                 pendingChanges.value = [];
                 syncMessage.value = '';
                 setSessionLost(true);

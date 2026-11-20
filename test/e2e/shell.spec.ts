@@ -677,22 +677,50 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
     await dialog.getByLabel('Profesional').fill('Dra. Pérez');
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
+    await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
+    await dialog.getByLabel('Cobertura').selectOption('partial');
+    await dialog.getByRole('combobox', {name: 'Recordatorio', exact: true}).selectOption('60');
+    await dialog.getByRole('checkbox', {name: /Ecografía abdominal completa/}).check();
+    await expect(dialog.getByLabel('Notas de la consulta')).toHaveCount(0);
+    await expect(dialog.locator('input[type=file]')).toHaveCount(0);
+    await dialog.getByLabel('Motivo de la consulta').fill('Control de audición');
     await dialog.getByRole('button', {name: 'Guardar turno'}).click();
     await expect(dialog).toBeHidden();
 
     const card = page.locator('.appointment-card').filter({hasText: 'Dra. Pérez'});
     await card.getByRole('button', {name: 'Registrar consulta'}).click();
+    await expect(dialog).toHaveAccessibleName('Registrar consulta');
     await expect(dialog.getByLabel('Estado')).toHaveValue('completed');
+    await expect(dialog.locator('input, select, textarea')).toHaveCount(4);
+    await dialog.getByLabel('Importe').fill('1250');
     await dialog.getByLabel('Notas de la consulta').fill('Control en una semana');
     const file = {name: 'receta.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n')};
     await dialog.getByLabel(/Adjuntar receta/).setInputFiles(file);
+    await dialog.getByRole('button', {name: 'Guardar consulta'}).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole('searchbox', {name: 'Buscar turnos, consultas y recetas'}).fill('control de audicion');
+    await expect(card).toContainText('Realizado');
+    await expect(card).toContainText('Control de audición');
+    await expect(card).toContainText('Otorrinolaringología');
+    await expect(card).toContainText('Consultorio 12');
+    await expect(card).toContainText('Importe: 1250');
+    await expect(card).toContainText('Cobertura: Parcial');
+    await expect(card).toContainText('Recordatorio: 1 hora antes');
+    await expect(card).toContainText('Ecografía abdominal completa');
+    await expect(card).toContainText('Control en una semana');
+    await expect(card).toContainText('receta.pdf');
+
+    await card.getByRole('button', {name: 'Editar turno'}).click();
+    await expect(dialog.getByLabel('Motivo de la consulta')).toHaveValue('Control de audición');
+    await expect(dialog.getByLabel('Notas de la consulta')).toHaveCount(0);
+    await expect(dialog.locator('input[type=file]')).toHaveCount(0);
     await dialog.getByRole('button', {name: 'Guardar turno'}).click();
     await expect(dialog).toBeHidden();
 
-    await page.getByRole('searchbox', {name: 'Buscar turnos, consultas y recetas'}).fill('otorrinolaringologia');
-    await expect(card).toContainText('Realizado');
-    await expect(card).toContainText('Control en una semana');
-    await expect(card).toContainText('receta.pdf');
+    await card.getByRole('button', {name: 'Editar consulta'}).click();
+    await expect(dialog.getByLabel('Notas de la consulta')).toHaveValue('Control en una semana');
+    await dialog.getByRole('button', {name: 'Cancelar'}).click();
     const download = page.waitForEvent('download');
     await card.getByRole('button', {name: 'Descargar receta'}).click();
     expect((await download).suggestedFilename()).toBe(file.name);

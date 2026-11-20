@@ -17,8 +17,9 @@ export class DriveAppointmentRepository {
         if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.misEstudios !== 'turno-v1') throw new Error('Turno no disponible.');
         const item = this.client.parseDescription<AppointmentDescription>(file, 'Drive tiene un turno cuya ficha no se puede leer.');
         if (validateAppointment(item).length || !['scheduled', 'completed', 'cancelled', 'absent'].includes(item.status) || ![null, 'all', 'partial', 'none'].includes(item.coverage)) throw new Error('Drive tiene un turno cuya ficha no se puede leer.');
-        const {prescriptionName, location: rawLocation, ...fields} = item;
+        const {prescriptionName, location: rawLocation, reason: rawReason, ...fields} = item;
         const location = cleanLocation(rawLocation);
+        const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
         const {mimeType} = file;
         const prescription: Appointment['prescription'] = typeof prescriptionName === 'string' && prescriptionName &&
             (mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png')
@@ -26,6 +27,7 @@ export class DriveAppointmentRepository {
         return {
             ...fields,
             ...(location ? {location} : {}),
+            ...(reason ? {reason} : {}),
             id: file.id,
             revision: file.version,
             ...(prescription ? {prescription} : {}),
@@ -59,6 +61,7 @@ export class DriveAppointmentRepository {
             prescriptionFile, removePrescription} = draft;
         const specialty = cleanSpecialty(draft.specialty);
         const location = cleanLocation(draft.location);
+        const reason = draft.reason?.trim();
         const newMime = prescriptionFile ? await validateDocument(prescriptionFile) : undefined;
         const id = draft.id ?? draft.createId ?? await this.client.reserveId(token);
         const metadataUrl = this.fileUrl(id);
@@ -73,6 +76,7 @@ export class DriveAppointmentRepository {
             date, time, timeZone, professional, notes, status, cost, coverage,
             ...(specialty ? {specialty} : {}),
             ...(location ? {location} : {}),
+            ...(reason ? {reason} : {}),
             ...(reminderMinutes ? {reminderMinutes} : {}),
             ...(studyIds?.length ? {studyIds: [...new Set(studyIds)]} : {}),
             ...(prescriptionName ? {prescriptionName} : {}),

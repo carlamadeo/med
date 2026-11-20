@@ -179,6 +179,7 @@ export interface AppointmentDraft {
     professional: string;
     specialty?: string;
     location?: string;
+    reason?: string;
     notes: string;
     status: 'scheduled' | 'completed' | 'cancelled' | 'absent';
     cost: number | null;
