@@ -77,6 +77,7 @@ export function AppointmentDialog() {
             timeZone: String(data.get('timeZone') ?? ''),
             professional: String(data.get('professional') ?? '').trim(),
             specialty: String(data.get('specialty') ?? ''),
+            location: String(data.get('location') ?? '').trim() || undefined,
             prescriptionFile: file,
             removePrescription: data.has('removePrescription'),
             notes: String(data.get('notes') ?? ''),
@@ -98,7 +99,7 @@ export function AppointmentDialog() {
             }
             if (result.message) {
                 setMessage(result.message);
-                if (!result.appointment) return;
+                return;
             }
             close();
         } catch (cause) {
@@ -222,6 +223,12 @@ export function AppointmentDialog() {
                     <datalist id="appointment-specialties">
                         {specialties.map(name => <option key={name} value={name}/>)}
                     </datalist>
+                    <label className="field wide">
+                        <span>Lugar o dirección</span>
+                        <input id="appointment-location" name="location" type="text" maxLength={240}
+                               placeholder="Consultorio, institución o dirección"
+                               defaultValue={appointment?.location ?? ''} disabled={busy}/>
+                    </label>
                     <label className="field">
                         <span>Estado</span>
                         <select id="appointment-status" name="status" defaultValue={appointment?.status ?? 'scheduled'}
@@ -278,6 +285,13 @@ export function AppointmentDialog() {
                     </label>}
                 </fieldset>
                 <AppointmentStudyPicker studyIds={appointment?.studyIds} disabled={busy}/>
+                {!isLocalDemo.value && (
+                    <p className="appointment-note">
+                        {driveAuth.hasCalendarAccess()
+                            ? 'Se sincroniza automáticamente con tu calendario «Turnos» en Google Calendar (avisos: 1 semana antes a las 11:00 y el día anterior a las 11:00).'
+                            : 'Para sincronizar con tu calendario «Turnos» en Google Calendar, salí y volvé a conectar tu cuenta autorizando Calendario.'}
+                    </p>
+                )}
                 <AppointmentReminderNote permission={permission}/>
 
                 {permission !== 'unsupported' && permission !== 'granted' && (

@@ -20,6 +20,7 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
         <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
         <p>Profesional: {value.professional || '—'}</p>
         {value.specialty && <p>Especialidad: {value.specialty}</p>}
+        {value.location && <p>Lugar: {value.location}</p>}
         <p>Detalles: {value.notes || '—'}</p>
         <p>Estado: {statuses[value.status]}</p>
         <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} ·

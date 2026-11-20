@@ -94,9 +94,10 @@ describe('searchArchive', () => {
         expect(searchArchive({studies: [], portals, appointments: [], query: 'prepaga'})[0]?.key).toBe('portal:p1');
     });
 
-    it('finds appointments by professional, notes and status label', () => {
+    it('finds appointments by professional, location, notes and status label', () => {
         const appointments = [appointment('a1', {
             professional: 'Dra. Pérez',
+            location: 'Hospital Alemán',
             notes: 'Control anual',
             date: '2026-11-20'
         })];
@@ -106,6 +107,13 @@ describe('searchArchive', () => {
             portals: [],
             appointments,
             query: 'perez',
+            now
+        })[0]?.key).toBe('appointment:a1');
+        expect(searchArchive({
+            studies: [],
+            portals: [],
+            appointments,
+            query: 'aleman',
             now
         })[0]?.key).toBe('appointment:a1');
         expect(searchArchive({

@@ -46,7 +46,10 @@ exportación espera a que se pueda leer el historial completo.
 Desde **Próximo turno** en Resumen o desde **Turnos**, usá **Preparar consulta** para revisar los adjuntos de los
 estudios vinculados y descargarlos juntos en un ZIP. Los enlaces a visores se incluyen cuando los marcás.
 **Agregar al calendario** descarga un archivo `.ics` con la fecha y la hora del turno, un título neutro y un
-aviso opcional. Si reprogramás el turno, reemplazá el evento anterior en tu calendario.
+aviso opcional. Si reprogramás el turno, reemplazá el evento anterior en tu calendario. Si autorizás el acceso al
+calendario al conectar Google, los turnos programados también se sincronizan automáticamente en un calendario secundario
+llamado **Turnos** en Google Calendar (con el nombre del profesional, especialidad, lugar/dirección, notas y dos avisos:
+1 semana antes a las 11:00 y el día anterior a las 11:00).
 
 Si una importación desde **Bandeja de entrada** queda sin confirmar, la reserva del archivo se conserva en este
 navegador para la cuenta que inició el guardado. Volvé a conectarte para que la aplicación revise el estado del
@@ -57,12 +60,12 @@ archivo en Drive y reutilice el identificador original cuando haga falta.
 1. Creá un repositorio en tu cuenta de GitHub y subí este código a la rama `main`. El sitio de Pages puede ser público:
    publica la interfaz, mientras que los datos de cada cuenta quedan en Drive. Para publicar desde un repositorio
    privado, verificá que tu plan de GitHub admita Pages en repositorios privados.
-2. En Google Cloud, creá un proyecto y habilitá **Google Drive API**. En **Google Auth Platform**, configurá la pantalla
+2. En Google Cloud, creá un proyecto y habilitá **Google Drive API** y **Google Calendar API**. En **Google Auth Platform**, configurá la pantalla
    de autorización. Si la audiencia es externa y la app está en modo de prueba, agregá como usuaria de prueba la cuenta
    con la que vas a usar el archivo.
 3. Creá un cliente OAuth de tipo **Aplicación web**. En **Orígenes autorizados de JavaScript**, agregá el origen de la
-   página, por ejemplo `https://tu-usuario.github.io`, sin el nombre del repositorio al final. El permiso de la app es
-   `https://www.googleapis.com/auth/drive.file`.
+   página, por ejemplo `https://tu-usuario.github.io`, sin el nombre del repositorio al final. Los permisos de la app son
+   `https://www.googleapis.com/auth/drive.file` y `https://www.googleapis.com/auth/calendar.app.created`.
 4. En GitHub, agregá el **ID de cliente** de Google como variable del repositorio llamada `GOOGLE_CLIENT_ID` en
    **Settings → Secrets and variables → Actions → Variables**. El ID es público. Esta app funciona sin el secreto del
    cliente.

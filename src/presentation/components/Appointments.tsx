@@ -47,7 +47,8 @@ export function Appointments() {
     .filter(appointment => {
       if (!normalizedQuery) return true;
       return [appointment.date, appointment.time, appointment.professional, appointment.specialty,
-        appointment.notes, appointment.prescription?.name, appointment.prescription ? 'receta' : '',
+        appointment.location, appointment.notes, appointment.prescription?.name,
+        appointment.prescription ? 'receta' : '',
         appointment.status === 'completed' ? 'consulta' : 'turno'].some(
         value => normalize(value ?? '').includes(normalizedQuery)
       );
@@ -153,6 +154,7 @@ export function Appointments() {
                       item.timeZone}
                   </p>
                   {item.specialty && <p className="event-specialty">{item.specialty}</p>}
+                  {item.location && <p className="appointment-location">{item.location}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
                   <AppointmentStudyList studyIds={item.studyIds} />

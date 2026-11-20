@@ -3737,6 +3737,7 @@
     font-size: 0.75rem;
 }
 
+.appointment-location,
 .appointment-notes {
     color: var(--color-text-secondary);
     font-size: 0.75rem;

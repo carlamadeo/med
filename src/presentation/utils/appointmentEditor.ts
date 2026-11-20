@@ -1,4 +1,4 @@
-import {driveAppointmentRepo, driveAuth} from '@data';
+import {DriveSessionError, driveAppointmentRepo, driveAuth, googleCalendarRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {validateDocument} from '@data/pdf-analysis';
 import {appointmentInstant, validateAppointment} from '@domain/appointments';
@@ -99,6 +99,17 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
     const saved = await driveAppointmentRepo.save(draft, token);
     if (await driveAuth.getAccessToken() !== token) return {};
     appointments.value = [...appointments.value.filter((item) => item.id !== saved.id), saved];
+    if (driveAuth.hasCalendarAccess()) {
+        try {
+            await googleCalendarRepo.syncAppointment(saved, token, {preferUpdate: Boolean(editing)});
+        } catch (error) {
+            if (error instanceof DriveSessionError) return {};
+            return {
+                appointment: saved,
+                message: 'El turno se guardó en Drive, pero no se pudo sincronizar con Google Calendar. Revisá tu conexión y que Google Calendar API esté habilitada.',
+            };
+        }
+    }
     return {appointment: saved};
 }
 
@@ -132,6 +143,14 @@ export async function deleteAppointment(appointment: Appointment): Promise<Appoi
     await driveAppointmentRepo.delete(appointment.id, appointment.revision);
     if (await driveAuth.getAccessToken() !== token) return {};
     appointments.value = appointments.value.filter((item) => item.id !== driveId);
+    if (driveAuth.hasCalendarAccess()) {
+        try {
+            await googleCalendarRepo.removeAppointment(driveId, token);
+        } catch (error) {
+            if (error instanceof DriveSessionError) return {};
+            return {message: 'Turno eliminado de Drive, pero no se pudo quitar de Google Calendar.'};
+        }
+    }
     return {};
 }
 

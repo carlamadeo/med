@@ -1,6 +1,7 @@
 import {vi} from 'vitest';
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
 
 export interface TokenResponse {
     access_token?: string;
@@ -21,7 +22,11 @@ export const gis: { authorizations: number; tokenResponse: TokenResponse } = {
 
 export function resetGis(): void {
     gis.authorizations = 0;
-    gis.tokenResponse = {access_token: 'test-access-token', expires_in: 3600, scope: DRIVE_SCOPE};
+    gis.tokenResponse = {
+        access_token: 'test-access-token',
+        expires_in: 3600,
+        scope: `${DRIVE_SCOPE} ${CALENDAR_SCOPE}`,
+    };
 }
 
 /** Same contract as the real GIS: the response must carry every requested scope. */

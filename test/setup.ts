@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import {Blob as NodeBlob, File as NodeFile} from 'node:buffer';
 import {afterAll, afterEach, beforeAll, beforeEach, vi} from 'vitest';
 import {storage} from '@core/storage';
+import {resetFakeCalendar} from './fake-calendar';
 import {resetFakeDrive} from './fake-drive';
 import {installGis, resetGis} from './fake-google';
 import {server} from './server';
@@ -18,6 +19,7 @@ afterAll(() => server.close());
 
 beforeEach(async () => {
     resetFakeDrive();
+    resetFakeCalendar();
     resetGis();
     installGis();
     window.sessionStorage.clear();

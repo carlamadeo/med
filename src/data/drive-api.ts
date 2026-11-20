@@ -5,7 +5,8 @@ import {documentAssociationIds} from '@domain/document-compatibility';
 import {cleanSpecialty} from '@domain/library';
 import type {DriveFileMetadata, Study} from '@domain/repository';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
 const DRIVE_ROOT = 'https://www.googleapis.com/drive/v3/';
 const UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3/';
 const ENTRY_FIELDS = 'id,name,description,version,modifiedTime,mimeType,trashed,appProperties';
@@ -94,6 +95,7 @@ export class DriveClient {
     private verifiedAccountId: string | null = null;
     private expires = 0;
     private folderId = '';
+    private calendarGranted = false;
     private folderRequest: { token: string; promise: Promise<string> } | null = null;
     private connection: Promise<void> | null = null;
     private listeners = new Set<(signedIn: boolean) => void>();
@@ -104,6 +106,10 @@ export class DriveClient {
 
     get connected(): boolean {
         return Boolean(this.accessToken) && Date.now() < this.expires;
+    }
+
+    get hasCalendarAccess(): boolean {
+        return this.connected && this.calendarGranted;
     }
 
     onAuthChange(callback: (signedIn: boolean) => void): () => void {
@@ -131,6 +137,7 @@ export class DriveClient {
             this.accessToken = session.accessToken;
             this.expires = session.expires;
             this.verifiedAccountId = typeof session.accountId === 'string' && session.accountId ? session.accountId : null;
+            this.calendarGranted = session.calendarGranted === true;
             this.emitAuthChange();
             return true;
         } catch {
@@ -151,7 +158,7 @@ export class DriveClient {
         this.connection = new Promise<void>((resolve, reject) => {
             const client = oauth.initTokenClient({
                 client_id: this.config.GOOGLE_CLIENT_ID,
-                scope: SCOPE,
+                scope: `${DRIVE_SCOPE} ${CALENDAR_SCOPE}`,
                 include_granted_scopes: false,
                 callback: (response) => {
                     const duration = Number(response.expires_in) * 1000 - 15_000;
@@ -161,7 +168,7 @@ export class DriveClient {
                         !response.access_token ||
                         !Number.isFinite(duration) ||
                         duration <= 0 ||
-                        !oauth.hasGrantedAllScopes(response, SCOPE)
+                        !oauth.hasGrantedAllScopes(response, DRIVE_SCOPE)
                     ) {
                         reject(new Error('Google Drive necesita tu autorización para abrir el archivo.'));
                         return;
@@ -170,10 +177,15 @@ export class DriveClient {
                     this.verifiedAccountId = null;
                     this.expires = Date.now() + duration;
                     this.folderId = '';
+                    this.calendarGranted = Boolean(oauth.hasGrantedAllScopes(response, CALENDAR_SCOPE));
                     try {
                         window.sessionStorage.setItem(
                             getSessionKey(this.config.GOOGLE_CLIENT_ID),
-                            JSON.stringify({accessToken: this.accessToken, expires: this.expires})
+                            JSON.stringify({
+                                accessToken: this.accessToken,
+                                expires: this.expires,
+                                calendarGranted: this.calendarGranted,
+                            })
                         );
                     } catch {
                         // Storage blocked, keep in memory
@@ -202,6 +214,7 @@ export class DriveClient {
         this.verifiedAccountId = null;
         this.expires = 0;
         this.folderId = '';
+        this.calendarGranted = false;
         try {
             window.sessionStorage.removeItem(getSessionKey(this.config.GOOGLE_CLIENT_ID));
         } catch {

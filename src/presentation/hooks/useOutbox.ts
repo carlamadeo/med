@@ -2,7 +2,7 @@ import {useCallback, useRef} from 'preact/hooks';
 import type {Outbox, OutboxEntry} from '@data/outbox';
 import {
     driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo,
-    driveMedicalEventRepo, driveEpisodeRepo, driveAppointmentRepo, DriveSessionError,
+    driveMedicalEventRepo, driveEpisodeRepo, driveAppointmentRepo, googleCalendarRepo, DriveSessionError,
 } from '@data';
 import {
     pendingChanges, syncMessage, syncing, setStudies, operations, portals,
@@ -52,6 +52,17 @@ export function useOutbox(
         await previous;
         const assertToken = async () => {
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+        };
+        let calendarSyncFailed = false;
+        const syncCalendarSafely = async (action: () => Promise<unknown>) => {
+            if (!driveAuth.hasCalendarAccess()) return;
+            try {
+                await action();
+                await assertToken();
+            } catch (err) {
+                if (err instanceof DriveSessionError) throw err;
+                calendarSyncFailed = true;
+            }
         };
         try {
             await assertToken();
@@ -147,18 +158,21 @@ export function useOutbox(
                 },
                 saveAppointment: async (draft) => {
                     await assertToken();
-                    await driveAppointmentRepo.save(draft, token);
+                    const saved = await driveAppointmentRepo.save(draft, token);
                     await assertToken();
+                    await syncCalendarSafely(() => googleCalendarRepo.syncAppointment(saved, token));
                 },
                 deleteAppointment: async (id, revision) => {
                     await assertToken();
                     await driveAppointmentRepo.delete(id, revision);
                     await assertToken();
+                    await syncCalendarSafely(() => googleCalendarRepo.removeAppointment(id, token));
                 },
                 restoreAppointment: async (id, revision) => {
                     await assertToken();
-                    await driveAppointmentRepo.restore(id, revision);
+                    const restored = await driveAppointmentRepo.restore(id, revision);
                     await assertToken();
+                    await syncCalendarSafely(() => googleCalendarRepo.syncAppointment(restored, token));
                 },
                 lock: async (name, callback) => {
                     await navigator.locks.request(name, callback);
@@ -170,6 +184,7 @@ export function useOutbox(
             if (remaining.some((entry) => entry.status === 'conflict')) syncMessage.value = 'Un estudio cambió en Drive. Revisá el cambio pendiente antes de continuar.';
             else if (remaining.some((entry) => entry.status === 'failed')) syncMessage.value = 'Hay un cambio que no se puede sincronizar. Revisalo o descartalo para continuar.';
             else if (remaining.length) syncMessage.value = 'Hay cambios pendientes que no se pudieron sincronizar.';
+            else if (calendarSyncFailed) syncMessage.value = 'Los cambios se sincronizaron en Drive, pero no se pudo actualizar Google Calendar.';
             await loadStudies(true);
             await loadDirectories();
         } catch {

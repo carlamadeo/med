@@ -1,7 +1,7 @@
 import {isRecoverable} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage} from '@core/storage';
-import {validateAppointment} from '@domain/appointments';
+import {cleanLocation, validateAppointment} from '@domain/appointments';
 import {cleanSpecialty} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {validateDocument} from './pdf-analysis';
@@ -17,12 +17,19 @@ export class DriveAppointmentRepository {
         if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.misEstudios !== 'turno-v1') throw new Error('Turno no disponible.');
         const item = this.client.parseDescription<AppointmentDescription>(file, 'Drive tiene un turno cuya ficha no se puede leer.');
         if (validateAppointment(item).length || !['scheduled', 'completed', 'cancelled', 'absent'].includes(item.status) || ![null, 'all', 'partial', 'none'].includes(item.coverage)) throw new Error('Drive tiene un turno cuya ficha no se puede leer.');
-        const {prescriptionName, ...fields} = item;
+        const {prescriptionName, location: rawLocation, ...fields} = item;
+        const location = cleanLocation(rawLocation);
         const {mimeType} = file;
         const prescription: Appointment['prescription'] = typeof prescriptionName === 'string' && prescriptionName &&
             (mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png')
             ? {name: prescriptionName, mimeType} : undefined;
-        return {...fields, id: file.id, revision: file.version, ...(prescription ? {prescription} : {})};
+        return {
+            ...fields,
+            ...(location ? {location} : {}),
+            id: file.id,
+            revision: file.version,
+            ...(prescription ? {prescription} : {}),
+        };
     }
 
     async list(): Promise<Appointment[]> {
@@ -51,6 +58,7 @@ export class DriveAppointmentRepository {
         const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds,
             prescriptionFile, removePrescription} = draft;
         const specialty = cleanSpecialty(draft.specialty);
+        const location = cleanLocation(draft.location);
         const newMime = prescriptionFile ? await validateDocument(prescriptionFile) : undefined;
         const id = draft.id ?? draft.createId ?? await this.client.reserveId(token);
         const metadataUrl = this.fileUrl(id);
@@ -64,6 +72,7 @@ export class DriveAppointmentRepository {
         const description = JSON.stringify({
             date, time, timeZone, professional, notes, status, cost, coverage,
             ...(specialty ? {specialty} : {}),
+            ...(location ? {location} : {}),
             ...(reminderMinutes ? {reminderMinutes} : {}),
             ...(studyIds?.length ? {studyIds: [...new Set(studyIds)]} : {}),
             ...(prescriptionName ? {prescriptionName} : {}),

@@ -107,7 +107,7 @@ export function searchArchive({
     const appointmentResults: ArchiveSearchResult[] = [];
     for (const appointment of appointments) {
         const status = appointmentStatus(appointment, now);
-        const fields = [appointment.professional, appointment.specialty ?? '', appointment.prescription?.name ?? '', appointment.notes, appointment.date, appointment.time, appointment.timeZone, statusLabels[status]];
+        const fields = [appointment.professional, appointment.specialty ?? '', appointment.location ?? '', appointment.prescription?.name ?? '', appointment.notes, appointment.date, appointment.time, appointment.timeZone, statusLabels[status]];
         if (bestScore(fields, normalized) < 0 && !matchesAllTerms(fields, terms)) continue;
         appointmentResults.push({
             key: `appointment:${appointment.id}`,

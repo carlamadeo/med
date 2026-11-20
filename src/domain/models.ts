@@ -178,6 +178,7 @@ export interface AppointmentDraft {
     timeZone: string;
     professional: string;
     specialty?: string;
+    location?: string;
     notes: string;
     status: 'scheduled' | 'completed' | 'cancelled' | 'absent';
     cost: number | null;

@@ -70,3 +70,14 @@ it('recovers a retried turn creation with the original prescription bytes', asyn
     await expect(driveAppointmentRepo.save({...draft, createId, prescriptionFile: otherFile})).rejects.toBeInstanceOf(DriveConflictError);
     expect(await driveAppointmentRepo.list()).toHaveLength(1);
 });
+
+it('persists and clears appointment location in Drive', async () => {
+    const created = await driveAppointmentRepo.save({...draft, location: '  Hospital Italiano · Sede Almagro  '});
+    expect(created.location).toBe('Hospital Italiano · Sede Almagro');
+    expect((await driveAppointmentRepo.list()).find((item) => item.id === created.id)?.location).toBe(
+        'Hospital Italiano · Sede Almagro',
+    );
+    const cleared = await driveAppointmentRepo.save({...created, location: '   '});
+    expect(cleared.location).toBeUndefined();
+    expect((await driveAppointmentRepo.get(created.id)).location).toBeUndefined();
+});

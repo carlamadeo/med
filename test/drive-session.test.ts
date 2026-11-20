@@ -7,7 +7,7 @@ import {describe, expect, it, vi} from 'vitest';
 import {DriveAuthRepository, DriveClient, DriveConflictError, DriveSessionError, DriveStudyRepository} from '@data';
 import {isValidDate} from '@domain/utils';
 import {addRemoteRaw, fakeDriveFile, resetFakeDrive} from './fake-drive';
-import {DRIVE_SCOPE, gis} from './fake-google';
+import {CALENDAR_SCOPE, DRIVE_SCOPE, gis} from './fake-google';
 import {server} from './server';
 
 const SESSION_KEY = `mis-estudios:drive-session:${import.meta.env.VITE_GOOGLE_CLIENT_ID}`;
@@ -279,6 +279,29 @@ describe('session', () => {
             expect(auth.isSignedIn(), JSON.stringify(response)).toBe(false);
             expect(storedSession(), JSON.stringify(response)).toBeNull();
         }
+    });
+
+    it('tracks Calendar scope grant across sign-in and session restore without blocking Drive-only logins', async () => {
+        gis.tokenResponse = {
+            access_token: 'both-scopes',
+            expires_in: 3600,
+            scope: `${DRIVE_SCOPE} ${CALENDAR_SCOPE}`,
+        };
+        const full = reload();
+        await full.auth.signIn();
+        expect(full.auth.hasCalendarAccess()).toBe(true);
+        const restoredFull = reload();
+        expect(restoredFull.auth.restoreSession()).toBe(true);
+        expect(restoredFull.auth.hasCalendarAccess()).toBe(true);
+
+        gis.tokenResponse = {access_token: 'drive-only', expires_in: 3600, scope: DRIVE_SCOPE};
+        const driveOnly = reload();
+        await driveOnly.auth.signIn();
+        expect(driveOnly.auth.isSignedIn()).toBe(true);
+        expect(driveOnly.auth.hasCalendarAccess()).toBe(false);
+        const restoredDriveOnly = reload();
+        expect(restoredDriveOnly.auth.restoreSession()).toBe(true);
+        expect(restoredDriveOnly.auth.hasCalendarAccess()).toBe(false);
     });
 });
 

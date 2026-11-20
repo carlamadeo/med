@@ -14,6 +14,10 @@ export class DriveAuthRepository implements AuthRepository {
         return this.client.connected;
     }
 
+    hasCalendarAccess(): boolean {
+        return this.client.hasCalendarAccess;
+    }
+
     onAuthChange(callback: (signedIn: boolean) => void): () => void {
         return this.client.onAuthChange(callback);
     }

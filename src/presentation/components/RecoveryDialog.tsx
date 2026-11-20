@@ -17,13 +17,15 @@ import {
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {
+    DriveSessionError,
     driveAuth,
     driveStudyRepo,
     driveEpisodeRepo,
     driveOperationRepo,
     drivePortalRepo,
     driveMedicalEventRepo,
-    driveAppointmentRepo
+    driveAppointmentRepo,
+    googleCalendarRepo,
 } from '@data';
 import {Outbox} from '@data/outbox';
 import type {Study, Episode, Operation, Portal, MedicalEvent, Appointment} from '@domain/models';
@@ -227,6 +229,14 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 ...prev,
                 [item.type]: prev[item.type].filter(i => i.id !== item.id),
             }));
+            if (item.type === 'appointment' && driveAuth.hasCalendarAccess()) {
+                try {
+                    await googleCalendarRepo.syncAppointment(recovered as Appointment, token);
+                } catch (calendarErr) {
+                    if (calendarErr instanceof DriveSessionError || await driveAuth.getAccessToken() !== token) return;
+                    setRecoveryError('Turno recuperado en Drive, pero no se pudo volver a agregar a Google Calendar.');
+                }
+            }
         } catch (err) {
             setRecoveryError(err instanceof Error ? err.message : 'Error de red al recuperar');
         } finally {

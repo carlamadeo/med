@@ -79,6 +79,102 @@ export async function createAppointmentCalendar(
     ].join('\r\n');
 }
 
+export function cleanLocation(value: unknown): string | undefined {
+    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') || undefined : undefined;
+}
+
+const BASE32HEX = '0123456789abcdefghijklmnopqrstuv';
+
+export async function googleCalendarEventId(appointmentId: string): Promise<string> {
+    const bytes = new Uint8Array(
+        await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`mis-estudios:gcal:${appointmentId}`)),
+    );
+    let bits = 0;
+    let value = 0;
+    let out = '';
+    for (const byte of bytes) {
+        value = (value << 8) | byte;
+        bits += 8;
+        while (bits >= 5) {
+            bits -= 5;
+            out += BASE32HEX[(value >>> bits) & 31]!;
+        }
+    }
+    if (bits > 0) out += BASE32HEX[(value << (5 - bits)) & 31]!;
+    return out;
+}
+
+export function googleCalendarReminderMinutes(appointment: AppointmentDraft): number[] {
+    const start = appointmentInstant(appointment);
+    if (!start) return [];
+    const [year, month, day] = appointment.date.split('-').map(Number);
+    if (!year || !month || !day) return [];
+    const seen = new Set<number>();
+    const result: number[] = [];
+    for (const deltaDays of [-7, -1]) {
+        const shifted = new Date(Date.UTC(year, month - 1, day + deltaDays));
+        const targetDate = shifted.toISOString().slice(0, 10);
+        const target = appointmentInstant({...appointment, date: targetDate, time: '11:00'});
+        if (!target) continue;
+        const minutes = Math.round((start.getTime() - target.getTime()) / 60_000);
+        if (Number.isInteger(minutes) && minutes >= 0 && minutes <= 40_320 && !seen.has(minutes)) {
+            seen.add(minutes);
+            result.push(minutes);
+        }
+    }
+    return result;
+}
+
+export interface GoogleCalendarEventPayload {
+    id: string;
+    status: 'confirmed';
+    summary: string;
+    location: string;
+    description: string;
+    start: {dateTime: string; timeZone: string};
+    end: {dateTime: string; timeZone: string};
+    reminders: {
+        useDefault: false;
+        overrides: Array<{method: 'popup'; minutes: number}>;
+    };
+}
+
+export function buildGoogleCalendarEvent(
+    appointment: Appointment,
+    eventId: string,
+): GoogleCalendarEventPayload {
+    const start = appointmentInstant(appointment);
+    if (!start) {
+        throw new Error('El turno no tiene una fecha y hora válidas.');
+    }
+    const end = new Date(start.getTime() + 30 * 60_000);
+    const location = cleanLocation(appointment.location);
+    const specialty = appointment.specialty?.trim() || undefined;
+    const notes = appointment.notes.trim();
+    const descriptionLines = [
+        specialty ? `Especialidad: ${specialty}` : '',
+        location ? `Lugar: ${location}` : '',
+        notes ? `Notas: ${notes}` : '',
+    ].filter(Boolean);
+
+    return {
+        id: eventId,
+        status: 'confirmed',
+        summary: appointment.professional.trim() || 'Turno médico',
+        location: location ?? '',
+        description: descriptionLines.join('\n'),
+        start: {dateTime: start.toISOString(), timeZone: appointment.timeZone},
+        end: {dateTime: end.toISOString(), timeZone: appointment.timeZone},
+        reminders: {
+            useDefault: false,
+            overrides: googleCalendarReminderMinutes(appointment).map((minutes) => ({
+                method: 'popup',
+                minutes,
+            })),
+        },
+    };
+}
+
 export function reminderDue(appointment: AppointmentDraft, now: Date): boolean {
     if (appointment.status !== 'scheduled' || !appointment.reminderMinutes) return false;
     const instant = appointmentInstant(appointment)?.getTime();

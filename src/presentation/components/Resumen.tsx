@@ -217,7 +217,7 @@ export function Resumen({
                                     </div>
                                     <div className="appointment-body">
                                         <p className="appointment-title">{appointment.professional || 'Turno médico'}</p>
-                                        <p className="appointment-meta">{appointment.time} · {appointment.notes || appointment.timeZone}</p>
+                                        <p className="appointment-meta">{appointment.time} · {appointment.location || appointment.notes || appointment.timeZone}</p>
                                     </div>
                                 </div>
                                 <AppointmentStudyList studyIds={appointment.studyIds}/>
