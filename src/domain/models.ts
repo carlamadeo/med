@@ -47,6 +47,7 @@ export interface MedicalEvent {
     kind: 'consultation' | 'prescription';
     date: string;
     doctor: string;
+    specialty?: string;
     notes: string;
     studyIds: string[];
     documentIds: string[];

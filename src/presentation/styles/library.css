@@ -560,11 +560,6 @@
     font-weight: var(--font-weight-normal);
 }
 
-.summary-source {
-    min-height: 2.75rem;
-    white-space: nowrap;
-}
-
 .library-pagination {
     display: flex;
     flex-wrap: wrap;

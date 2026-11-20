@@ -345,6 +345,7 @@ async function createExportZip(
         kind: e.kind,
         date: e.date,
         doctor: e.doctor,
+        specialty: e.specialty,
         notes: e.notes,
         studyIds: e.studyIds,
         documentIds: e.documentIds,

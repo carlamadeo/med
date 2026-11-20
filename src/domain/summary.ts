@@ -61,12 +61,3 @@ export function relativeDayLabel(date: string, now: Date = new Date()): string {
     const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
     return relativeFormatter.format(Math.round((target - today) / 86_400_000), 'day');
 }
-
-export type StudySyncState = 'synced' | 'pending' | 'conflict' | 'failed';
-
-export function studySyncState(study: Pick<Study, 'syncStatus'>): StudySyncState {
-    if (study.syncStatus === 'conflict') return 'conflict';
-    if (study.syncStatus === 'failed') return 'failed';
-    if (study.syncStatus === 'pending') return 'pending';
-    return 'synced';
-}

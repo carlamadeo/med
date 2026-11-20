@@ -92,7 +92,7 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await expect(page.locator('.kpi-card')).toHaveCount(4);
-    await expect(page.locator('.study-title').first()).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
 
     await navigateTo(page, 'portales');
     await expect(page.locator('#portals-title')).toHaveText('Portales e instituciones');
@@ -127,12 +127,13 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
     await expect(page.locator('.kpi-card')).toHaveCount(4);
 });
 
-test('prioriza abrir y buscar un informe en la primera pantalla de Resumen', async ({page}) => {
+test('busca estudios desde Resumen sin mostrar el listado de recientes', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
-    const link = page.locator('#resumen').getByRole('link', {name: 'Abrir PDF de Mamografía bilateral'});
-    await expect(link).toBeInViewport();
+    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Estudios recientes'})).toHaveCount(0);
     const search = page.getByRole('searchbox', {name: 'Buscar un estudio'});
+    await expect(search).toBeInViewport();
     await search.fill('rodilla');
     await search.press('Enter');
     const library = page.getByRole('searchbox', {name: 'Buscar estudios'});
@@ -274,7 +275,7 @@ test('mantiene Biblioteca utilizable en un ancho de 320 píxeles', async ({page}
 test('muestra el inicio de Biblioteca al navegar desde Resumen desplazado', async ({page}) => {
     await page.setViewportSize({width: 390, height: 600});
     await page.goto('/');
-    await expect(page.locator('#resumen .study-title').first()).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 350));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(250);
     await navigateTo(page, 'cronologia');
@@ -339,6 +340,57 @@ test('abre y cierra formularios y acciones del archivo', async ({page}) => {
     await page.getByRole('button', {name: 'Recuperar informe'}).click();
     await expect(page.locator('#recovery')).toBeVisible();
     await page.keyboard.press('Escape');
+});
+
+test('agrega una especialidad y selecciona vínculos sin ampliar la lista del modal', async ({page}) => {
+    const template = files[0]!;
+    const extra = Array.from({length: 40}, (_, index) => ({
+        ...template,
+        id: `study-extra-${index}`,
+        description: JSON.stringify({
+            ...JSON.parse(template.description),
+            title: `Estudio de prueba ${index}`,
+            reportName: `informe-${index}.pdf`,
+        }),
+    }));
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        return query.includes('estudio-v1') ? route.fulfill({json: {files: [...files, ...extra]}}) : route.fallback();
+    });
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'eventos');
+    await page.locator('.events-head').getByRole('button', {name: 'Agregar consulta'}).click();
+    const dialog = page.getByRole('dialog', {name: 'Agregar consulta o receta'});
+    const specialty = dialog.getByLabel('Especialidad');
+    await specialty.fill('Cardiología');
+    await specialty.press('Tab');
+    await expect(dialog.getByLabel('Buscar estudios relacionados')).toBeHidden();
+    await dialog.getByText('Estudios relacionados', {exact: true}).click();
+    const studySearch = dialog.getByLabel('Buscar estudios relacionados');
+    const options = dialog.locator('.event-related-options').first();
+    expect(await options.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    await expect(dialog.getByRole('button', {name: 'Guardar evento'})).toBeInViewport({ratio: 1});
+    await studySearch.fill('estudio de prueba 39');
+    await dialog.getByRole('checkbox', {name: /Estudio de prueba 39/}).check();
+    await studySearch.fill('sin coincidencia');
+    await expect(dialog.getByText('Sin coincidencias')).toBeVisible();
+    await dialog.getByText('Estudios relacionados', {exact: true}).click();
+    await dialog.getByText('Documentos relacionados', {exact: true}).click();
+    await dialog.getByLabel('Buscar documentos relacionados').fill('informe-38.pdf');
+    await dialog.getByRole('checkbox', {name: /informe-38\.pdf/}).check();
+    await dialog.getByText('Documentos relacionados', {exact: true}).click();
+
+    const data = await dialog.locator('form').evaluate(form => [...new FormData(form as HTMLFormElement).entries()]);
+    expect(data).toEqual(expect.arrayContaining([
+        ['specialty', 'Cardiología'], ['studyId', 'study-extra-39'], ['documentId', 'study-extra-38'],
+    ]));
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await dialog.getByRole('button', {name: 'Cancelar'}).click();
+    await page.locator('.events-head').getByRole('button', {name: 'Agregar consulta'}).click();
+    await expect(specialty).toHaveValue('');
+    await expect(dialog.getByLabel('Buscar estudios relacionados')).toBeHidden();
 });
 
 test('muestra registros largos completos en las secciones secundarias', async ({page}) => {

@@ -3,7 +3,6 @@ import {
     latestStudy,
     monthlyStudyActivity,
     relativeDayLabel,
-    studySyncState,
     upcomingAppointment
 } from '@domain/summary';
 import type {Appointment, Study} from '@domain/models';
@@ -108,16 +107,5 @@ describe('relativeDayLabel', () => {
 
     it('returns the original value for malformed dates', () => {
         expect(relativeDayLabel('no', now)).toBe('no');
-    });
-});
-
-describe('studySyncState', () => {
-    it.each([
-        [undefined, 'synced'],
-        ['pending', 'pending'],
-        ['conflict', 'conflict'],
-        ['failed', 'failed'],
-    ] as const)('maps %s to %s', (status, expected) => {
-        expect(studySyncState({syncStatus: status})).toBe(expected);
     });
 });

@@ -33,7 +33,7 @@ cada portal se pueden consultar los estudios que coinciden con el nombre de la i
 portales también se sincronizan al conectar la misma cuenta en otro dispositivo. Si otra sesión modifica una ficha
 mientras la estás editando, actualizá los datos antes de volver a guardar.
 
-En **Resumen** podés abrir estudios recientes y buscar por nombre, profesional o institución. En **Biblioteca**
+En **Resumen** podés buscar estudios por nombre, profesional o institución. En **Biblioteca**
 podés combinar esa búsqueda con uno o varios tipos y ordenar por fecha, nombre, profesional o institución.
 Desde Portales y Operaciones podés abrir la Biblioteca con el filtro correspondiente. La lista muestra hasta
 50 fichas por página. **Resultados filtrados** en la exportación incluye todas las coincidencias.

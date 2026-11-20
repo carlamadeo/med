@@ -493,11 +493,6 @@ export function LibraryPage() {
                              hidden={!isSignedIn.value}>
                         {view.value === 'resumen' ? (
                             <Resumen
-                                typesReady={typesReady}
-                                onAddStudy={() => openEditor(null)}
-                                onEdit={openEditor}
-                                onDelete={(study: Study) => setDeletingStudyId(study.id)}
-                                onShare={openShare}
                                 onNavigate={(next) => {
                                     view.value = next;
                                 }}

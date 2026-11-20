@@ -1,4 +1,11 @@
-import {expect, test} from '@playwright/test';
+import {expect, test, type Page} from '@playwright/test';
+import {navigateTo} from './nav';
+
+async function openStudyImport(page: Page) {
+    await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Importar estudios'}).click();
+}
 
 test('allows reviewing a batch containing a PDF and an invalid file', async ({page}) => {
     await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
@@ -20,8 +27,7 @@ test('allows reviewing a batch containing a PDF and an invalid file', async ({pa
     const xref = Buffer.byteLength(pdf);
     pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
     await page.goto('/');
-    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
-    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await openStudyImport(page);
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
     const chooser = page.waitForEvent('filechooser');
     await dialog.getByRole('button', {name: 'Elegir PDF'}).click();
@@ -47,8 +53,7 @@ test('allows reviewing a batch containing a PDF and an invalid file', async ({pa
     await dialog.getByRole('button', {name: 'Conservar borrador'}).click();
     await expect(dialog.getByText('Borrador conservado en este dispositivo.')).toBeVisible();
     await page.reload();
-    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
-    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await openStudyImport(page);
     await expect(valid).toBeVisible();
     await expect(invalid).toBeVisible();
     page.once('dialog', confirmation => confirmation.accept());
@@ -106,8 +111,7 @@ test('restores a batch after reloading and saves the complete multipage PDF', as
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
-    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
-    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await openStudyImport(page);
     const dialog = page.getByRole('dialog', {name: 'Importar estudios'});
     const second = Buffer.concat([original, Buffer.from('\n')]);
     await dialog.locator('input[type=file]').setInputFiles([{name: 'multipagina.pdf', mimeType: 'application/pdf', buffer: original}, {name: 'segundo.pdf', mimeType: 'application/pdf', buffer: second}]);
@@ -123,8 +127,7 @@ test('restores a batch after reloading and saves the complete multipage PDF', as
     await dialog.getByRole('button', {name: 'Conservar borrador'}).click();
     await expect(dialog.getByText('Borrador conservado en este dispositivo.')).toBeVisible();
     await page.reload();
-    await page.getByRole('button', {name: 'Ver biblioteca'}).click();
-    await page.getByRole('button', {name: 'Importar estudios'}).click();
+    await openStudyImport(page);
     await expect(dialog.getByText('Restauramos el borrador conservado en este dispositivo.')).toBeVisible();
     await expect(dialog.getByText('2 estudios listos para guardar')).toBeVisible();
     await firstStudy.getByRole('button', {name: /Revisar/}).click();

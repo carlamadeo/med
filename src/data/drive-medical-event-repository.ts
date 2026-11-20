@@ -33,6 +33,7 @@ export class DriveMedicalEventRepository {
             kind: draft.kind,
             date: draft.date,
             doctor: draft.doctor,
+            specialty: draft.specialty?.trim() || undefined,
             notes: draft.notes,
             studyIds,
             documentIds
