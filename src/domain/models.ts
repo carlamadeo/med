@@ -4,6 +4,7 @@ export interface Study {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;
@@ -26,6 +27,7 @@ export interface StudyDraft {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;

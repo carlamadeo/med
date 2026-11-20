@@ -307,6 +307,7 @@ async function createExportZip(
             date: s.date,
             types: s.types,
             doctor: s.doctor,
+            specialty: s.specialty,
             portal: s.portal,
             viewer: includeViewerLinks ? s.viewer : '',
             reportName: s.reportName,

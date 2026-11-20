@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import {navigateTo} from './nav';
 
 test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async ({page, context}) => {
     const files: Array<Record<string, unknown>> = [];
@@ -31,22 +32,31 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
     });
     await page.goto('/');
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await context.setOffline(true);
-    await page.getByRole('button', {name: 'Agregar estudio'}).click();
+    await page.locator('[data-add]').click();
     const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Estudio pendiente QA');
-    await editor.getByRole('textbox', {name: 'Fecha del estudio'}).fill('2026-01-01');
+    await editor.locator('input[name="date"]').fill('2026-01-01');
     await editor.getByRole('combobox', {name: 'Tipos de estudio'}).click();
     await editor.getByRole('option', {name: 'Ecografía', exact: true}).click();
+    await editor.getByRole('textbox', {name: /Especialidad/}).fill('Endocrinología pediátrica');
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).click();
     await editor.getByRole('button', {name: 'Guardar estudio'}).click();
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Pendiente/})).toBeVisible();
+    const row = page.getByRole('row').filter({hasText: 'Estudio pendiente QA'});
+    await expect(row).toContainText('Pendiente de sincronización');
+    const specialty = page.getByRole('combobox', {name: 'Filtrar por especialidad'});
+    await specialty.selectOption({label: 'Endocrinología pediátrica'});
+    await expect(row).toContainText('Endocrinología pediátrica');
     expect(uploads).toBe(0);
     await context.setOffline(false);
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Sincronizado/})).toBeVisible({timeout: 15000});
+    await expect(row).not.toContainText('Pendiente de sincronización', {timeout: 15000});
     expect(uploads).toBe(1);
     await page.reload();
-    await expect(page.getByRole('row', {name: /Estudio pendiente QA.*Sincronizado/})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await specialty.selectOption({label: 'Endocrinología pediátrica'});
+    await expect(row).toContainText('Endocrinología pediátrica');
     expect(uploads).toBe(1);
 });
 

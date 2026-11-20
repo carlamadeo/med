@@ -3,7 +3,7 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentName} from '@domain/library';
+import {COMMON_SPECIALTIES, formatStudyDate, hasStudyAttachment, reportUrl, specialtyNames, studyAttachmentName} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
@@ -11,12 +11,6 @@ import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {EventRelatedPicker} from './EventRelatedPicker';
 
 const outbox = new Outbox();
-const commonSpecialties = [
-    'Cardiología', 'Clínica médica', 'Dermatología', 'Endocrinología', 'Gastroenterología',
-    'Ginecología', 'Hematología', 'Infectología', 'Medicina familiar', 'Nefrología', 'Neumonología',
-    'Neurología', 'Nutrición', 'Oftalmología', 'Oncología', 'Otorrinolaringología', 'Pediatría',
-    'Psiquiatría', 'Reumatología', 'Traumatología', 'Urología',
-];
 
 export function MedicalEvents() {
     const studyAttachments = studies.value.filter(hasStudyAttachment);
@@ -193,10 +187,7 @@ export function MedicalEvents() {
 
     const normalizedQuery = normalize(query);
     const events = visibleMedicalEvents.value;
-    const specialties = new Map(commonSpecialties.map(name => [normalize(name), name]));
-    for (const {specialty} of events) {
-        if (specialty) specialties.set(normalize(specialty), specialty);
-    }
+    const specialties = specialtyNames(events, COMMON_SPECIALTIES);
     const visible = events
         .filter((event) => {
             if (!normalizedQuery) return true;
@@ -356,7 +347,7 @@ export function MedicalEvents() {
                                                                         placeholder="Elegí o escribí una especialidad"
                                                                         defaultValue={editing?.specialty ?? ''}/></label>
                             <datalist id="event-specialties">
-                                {[...specialties.values()].sort((a, b) => a.localeCompare(b, 'es-AR')).map(name => (
+                                {specialties.map(name => (
                                     <option key={name} value={name}/>
                                 ))}
                             </datalist>

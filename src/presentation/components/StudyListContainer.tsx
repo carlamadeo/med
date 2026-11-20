@@ -1,5 +1,5 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryOperation, sortOrder, resetLibraryFilters} from '../state/store';
+import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
@@ -42,7 +42,7 @@ export function StudyListContainer({
                                      }: StudyListContainerProps) {
     const searchInput = useRef<HTMLInputElement>(null);
     const studiesList = filteredStudies.value;
-    const hasFilters = Boolean(libraryQuery.value || libraryPortal.value || libraryOperation.value || categoryTypes.value.length || sortOrder.value !== 'date-desc');
+    const hasFilters = libraryHasFilters.value || sortOrder.value !== 'date-desc';
     const isLoading = loading.value;
     const loadError = error.value;
 
@@ -136,7 +136,7 @@ export function StudyListContainer({
                         <EmptyState
                             variant="no-results"
                             title="No hay resultados"
-                            description="Probá con otro término o cambiá los tipos seleccionados."
+                            description="Probá con otro término o cambiá los filtros."
                             action={
                                 <button
                                     className="button secondary"

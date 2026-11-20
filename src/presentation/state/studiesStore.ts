@@ -15,7 +15,7 @@ import type {
     ViewMode,
     Filters
 } from '@domain/models';
-import {filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
+import {cleanSpecialty, filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
 import {normalize} from '@domain/utils';
 import {pendingChanges} from './outboxStore';
 
@@ -42,6 +42,7 @@ export const appointments = signal<Appointment[]>([]);
 export const view = signal<ViewMode>('resumen');
 export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
+export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
 export const libraryPortal = signal('');
 export const libraryOperation = signal<{id: string; name: string} | null>(null);
@@ -70,6 +71,7 @@ export const visibleStudies = computed<Study[]>(() => {
         const local: Study = {
             id: previous?.id ?? `pending-${entry.id}`,
             title: draft.title, date: draft.date, types: draft.types, doctor: draft.doctor,
+            specialty: cleanSpecialty(draft.specialty ?? previous?.specialty),
             portal: draft.portal, viewer: draft.viewer, reportName: draft.reportName,
             hasPdf: Boolean(keepAttachment && previous?.hasPdf),
             attachmentMime: keepAttachment ? previous?.attachmentMime : undefined,
@@ -85,11 +87,15 @@ export const visibleStudies = computed<Study[]>(() => {
     return result;
 });
 
-export const libraryHasFilters = computed(() => Boolean(libraryQuery.value.trim() || libraryPortal.value || libraryOperation.value || categoryTypes.value.length));
+export const libraryHasFilters = computed(() => Boolean(
+    libraryQuery.value.trim() || libraryPortal.value || libraryOperation.value || categoryTypes.value.length || librarySpecialty.value,
+));
 export const filteredStudies = computed(() => {
     const selectedTypes = new Set(categoryTypes.value.map(normalize));
+    const selectedSpecialty = normalize(librarySpecialty.value);
     const items = visibleStudies.value.filter(study =>
         (!selectedTypes.size || study.types.some(type => selectedTypes.has(normalize(type)))) &&
+        (!selectedSpecialty || normalize(study.specialty ?? '') === selectedSpecialty) &&
         (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
         (!libraryOperation.value || study.operationId === libraryOperation.value.id)
     );
@@ -101,6 +107,7 @@ export function resetLibraryFilters(): void {
     libraryPortal.value = '';
     libraryOperation.value = null;
     categoryTypes.value = [];
+    librarySpecialty.value = '';
     sortOrder.value = 'date-desc';
 }
 

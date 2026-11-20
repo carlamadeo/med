@@ -20,6 +20,7 @@ function StudyPrintRecord({study}: {study: Study}) {
         <dl>
             <div><dt>Fecha del estudio</dt><dd>{formatStudyDate(study.date)}</dd></div>
             <div><dt>Tipo</dt><dd>{study.types.join(', ') || 'Sin tipo'}</dd></div>
+            {study.specialty && <div><dt>Especialidad</dt><dd>{study.specialty}</dd></div>}
             {study.doctor && <div><dt>Profesional</dt><dd>{study.doctor}</dd></div>}
             {study.portal && <div><dt>Institución</dt><dd>{study.portal}</dd></div>}
             <div><dt>Fuentes</dt><dd>{hasStudyAttachment(study) || study.pendingAttachment ? 'Informe adjunto' : 'Sin informe adjunto'}{study.documentIds?.length ? ` · ${study.documentIds.length} documento(s) asociado(s)` : ''}{study.viewer ? ' · enlace al visor' : ''}</dd></div>

@@ -15,6 +15,7 @@ interface StudyRecord {
     date: string;
     types: string[];
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;

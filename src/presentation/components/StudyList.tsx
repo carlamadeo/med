@@ -232,6 +232,7 @@ export function StudyList({
                                                     <span className="type-badge">Sin tipo</span>
                                                 )}
                                             </span>
+                                            {study.specialty && <span className="study-specialty">{study.specialty}</span>}
                                         </span>
                                     </div>
                                 </td>

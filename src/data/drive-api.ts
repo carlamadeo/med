@@ -2,6 +2,7 @@ import {CONFIG, type Config} from '@core/config';
 import {storage} from '@core/storage';
 import {isValidDate, viewerURL} from '@domain/utils';
 import {documentAssociationIds} from '@domain/document-compatibility';
+import {cleanSpecialty} from '@domain/library';
 import type {DriveFileMetadata, Study} from '@domain/repository';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -357,6 +358,7 @@ export class DriveClient {
             date: entry.date,
             types: [...new Set(types)],
             doctor: entry.doctor || '',
+            specialty: cleanSpecialty(entry.specialty),
             portal: entry.portal || '',
             viewer,
             reportName: file.mimeType === PDF_MIME ? entry.reportName || 'Informe.pdf' : file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? entry.reportName || 'Informe' : '',

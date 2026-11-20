@@ -66,6 +66,7 @@ export interface DriveFileMetadata {
     /** Legacy single-type field written by older versions; read-only, never written back. */
     type?: string;
     doctor: string;
+    specialty?: string;
     portal: string;
     viewer: string;
     reportName: string;

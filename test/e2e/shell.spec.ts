@@ -13,6 +13,7 @@ const files = [
         appProperties: {misEstudios: 'estudio-v1'},
         description: JSON.stringify({
             title: 'Mamografía bilateral',
+            specialty: 'Endocrinología',
             date: '2026-11-12',
             types: ['Mamografía'],
             doctor: 'Dra. Pérez',
@@ -31,6 +32,7 @@ const files = [
         appProperties: {misEstudios: 'estudio-v1'},
         description: JSON.stringify({
             title: 'Resonancia de rodilla',
+            specialty: 'ENDOCRINOLOGIA',
             date: '2026-11-03',
             types: ['Resonancia', 'Mamografía'],
             doctor: 'Dr. Gómez',
@@ -217,6 +219,21 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
     await library.getByRole('button', {name: 'Limpiar filtros'}).click();
     await expect(search).toBeFocused();
     await expect(rows).toHaveCount(3);
+
+    const specialty = library.getByRole('combobox', {name: 'Filtrar por especialidad'});
+    await expect(specialty).toBeVisible();
+    await specialty.selectOption({label: 'Endocrinología'});
+    await expect(rows).toHaveCount(2);
+    await expect(specialty.locator('option')).toHaveCount(2);
+    await expect(rows.first()).toContainText('Mamografía bilateral');
+    await expect(rows.first()).toContainText('Endocrinología');
+    await expect(rows.last()).toContainText('Resonancia de rodilla');
+    await library.getByRole('combobox', {name: 'Filtrar por tipo de estudio'}).click();
+    await library.getByRole('option', {name: /^Laboratorio\b/}).click();
+    await expect(library.getByText('No hay resultados')).toBeVisible();
+    await library.getByRole('button', {name: 'Limpiar filtros'}).click();
+    await expect(specialty).toHaveValue('');
+    await expect(rows).toHaveCount(3);
 });
 
 
@@ -343,6 +360,7 @@ test('revisa estudios relacionados con teclado y conserva el tema', async ({page
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     await expect(editor).toBeVisible();
     await expect(editor.locator('#current-report-name')).toHaveText('2026-11-12 Mamografía bilateral.pdf');
+    await expect(editor.getByRole('textbox', {name: /Especialidad/})).toHaveValue('Endocrinología');
     await expect(editor.getByRole('region', {name: 'Estudios relacionados'})).toContainText('Resonancia de rodilla');
     await expect(editor.getByText('Otros estudios de Mamografía')).toBeVisible();
     await page.keyboard.press('Escape');

@@ -7,7 +7,7 @@ import {reserveIntakeDestination, clearIntakeReservation, readIntakeReservation}
 import {useEffect, useRef, useState, useCallback} from 'preact/hooks';
 import {getStudyTypes} from '@data/study-types';
 import {validateDocument} from '@data/pdf-analysis';
-import {hasStudyAttachment} from '@domain/library';
+import {cleanSpecialty, hasStudyAttachment} from '@domain/library';
 import {validateStudyDraft} from '@domain/validation/study';
 import {Outbox} from '@data/outbox';
 import {
@@ -254,6 +254,7 @@ export function LibraryPage() {
                     title: draft.title,
                     date: draft.date,
                     doctor: draft.doctor || '',
+                    specialty: cleanSpecialty(draft.specialty ?? existing?.specialty),
                     portal: draft.portal || '',
                     types: [...draft.types],
                     viewer: draft.viewer || '',

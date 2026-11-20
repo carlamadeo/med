@@ -46,8 +46,8 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {doctorNames, formatStudyDate, hasStudyAttachment, portalNames, studyAttachmentName, studyTypeNames} from '@domain/library';
-import {todayLocal} from '@domain/utils';
+import {COMMON_SPECIALTIES, doctorNames, formatStudyDate, hasStudyAttachment, portalNames, specialtyNames, studyAttachmentName, studyTypeNames} from '@domain/library';
+import {normalize, todayLocal} from '@domain/utils';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {
@@ -110,8 +110,8 @@ function AutocompleteTextField({
         };
     }, []);
 
-    const query = value.trim().toLowerCase();
-    const filtered = query ? options.filter((option) => option.toLowerCase().includes(query)) : options;
+    const query = normalize(value);
+    const filtered = query ? options.filter((option) => normalize(option).includes(query)) : options;
 
     return (
         <div className="portal-field" ref={containerRef}>
@@ -221,6 +221,8 @@ export function EditorDialog({
         setDate,
         doctor,
         setDoctor,
+        specialty,
+        setSpecialty,
         portal,
         setPortal,
         viewer,
@@ -266,6 +268,7 @@ export function EditorDialog({
     }, [setTypes]);
 
     const availablePortals = portalNames(studies.value, portals.value);
+    const availableSpecialties = specialtyNames([...studies.value, ...medicalEvents.value], COMMON_SPECIALTIES);
     const availableDoctors = doctorNames(studies.value, [
         ...medicalEvents.value.map((event) => event.doctor),
         ...appointments.value.map((appointment) => appointment.professional),
@@ -538,6 +541,15 @@ export function EditorDialog({
                                 ariaDescribedBy="types-hint"
                             />
                         </fieldset>
+                        <AutocompleteTextField
+                            name="specialty"
+                            label="Especialidad"
+                            value={specialty}
+                            onChange={setSpecialty}
+                            options={availableSpecialties}
+                            placeholder="Elegí o escribí una especialidad"
+                            listId="study-specialty-options"
+                        />
                     </div>
 
                     <div className="form-section">

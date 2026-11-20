@@ -68,10 +68,11 @@ export function useEditor({
 
     const draft = useSignal({
         title: study?.title ?? '', date: study?.date ?? '', doctor: study?.doctor ?? '',
+        specialty: study?.specialty ?? '',
         portal: study?.portal ?? '', viewer: study?.viewer ?? '', types: study?.types ?? [],
         removeReport: false, operationId: study?.operationId ?? '', documentIds: study?.documentIds ?? [],
     });
-    const {title, date, doctor, portal, viewer, types, removeReport, operationId, documentIds} = draft.value;
+    const {title, date, doctor, specialty, portal, viewer, types, removeReport, operationId, documentIds} = draft.value;
     const setTitle = (value: string) => {
         draft.value = {...draft.value, title: value};
     };
@@ -80,6 +81,9 @@ export function useEditor({
     };
     const setDoctor = (value: string) => {
         draft.value = {...draft.value, doctor: value};
+    };
+    const setSpecialty = (value: string) => {
+        draft.value = {...draft.value, specialty: value};
     };
     const setPortal = (value: string) => {
         draft.value = {...draft.value, portal: value};
@@ -193,6 +197,7 @@ export function useEditor({
                 setTitle(current?.title ?? '');
                 setDate(current?.date ?? '');
                 setDoctor(current?.doctor ?? '');
+                setSpecialty(current?.specialty ?? '');
                 setPortal(current?.portal ?? '');
                 setViewer(current?.viewer ?? '');
                 setTypes(current?.types ?? []);
@@ -553,12 +558,14 @@ export function useEditor({
             title: fields.title.trim(),
             date: fields.date.trim(),
             doctor: fields.doctor.trim(),
+            specialty: fields.specialty.trim(),
             portal: fields.portal.trim(),
             viewer: fields.viewer.trim(),
             types: fields.types,
             reportName: selectedReport?.name ?? '',
             file: selectedReport ?? undefined,
             removeReport: fields.removeReport,
+            id: isLocalDemo.value ? currentStudy?.id : undefined,
             driveFileId: currentStudy?.driveFileId || undefined,
             revision: currentStudy?.revision || undefined,
             operationId: fields.operationId,
@@ -577,6 +584,8 @@ export function useEditor({
         setDate,
         doctor,
         setDoctor,
+        specialty,
+        setSpecialty,
         portal,
         setPortal,
         viewer,

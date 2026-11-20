@@ -72,7 +72,7 @@ export function searchArchive({
 
     const studyResults: ArchiveSearchResult[] = [];
     for (const study of studies) {
-        const fields = [study.title, study.doctor, study.portal, study.types.join(' '), study.reportName, study.date, formatStudyDate(study.date)];
+        const fields = [study.title, study.doctor, study.specialty ?? '', study.portal, study.types.join(' '), study.reportName, study.date, formatStudyDate(study.date)];
         const titleScore = bestScore([study.title], normalized);
         const fieldScore = bestScore(fields, normalized);
         if (titleScore < 0 && fieldScore < 0 && !matchesAllTerms(fields, terms)) continue;

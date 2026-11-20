@@ -2,7 +2,7 @@ import {isRecoverable} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage, type StudyRecord} from '@core/storage';
 import {documentAssociationIds} from '@domain/document-compatibility';
-import {studyFileName} from '@domain/library';
+import {cleanSpecialty, studyFileName} from '@domain/library';
 import {validateStudyDraft} from '@domain/validation/study';
 import type {Study, StudyDraft, StudyRepository, DriveFileMetadata} from '@domain/repository';
 import {validateDocument} from './pdf-analysis';
@@ -23,6 +23,7 @@ export class DriveStudyRepository implements StudyRepository {
             date: study.date,
             types: study.types,
             doctor: study.doctor,
+            specialty: study.specialty,
             portal: study.portal,
             viewer: study.viewer,
             reportName: study.reportName,
@@ -47,6 +48,7 @@ export class DriveStudyRepository implements StudyRepository {
             date: record.date,
             types: record.types,
             doctor: record.doctor,
+            specialty: record.specialty,
             portal: record.portal,
             viewer: record.viewer,
             reportName: record.reportName,
@@ -164,6 +166,7 @@ export class DriveStudyRepository implements StudyRepository {
             date: draft.date,
             types: draft.types,
             doctor: draft.doctor,
+            specialty: cleanSpecialty(draft.specialty ?? existing?.specialty),
             portal: draft.portal,
             viewer: draft.viewer,
             reportName,
