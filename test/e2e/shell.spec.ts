@@ -193,6 +193,40 @@ test('descarga un turno para el calendario con un aviso elegido', async ({page})
     expect(ics).not.toMatch(/Nota privada|Profesional reservado|appointment-qa/);
 });
 
+test('permite desplazarse solo de arriba abajo al agendar un turno en móvil', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'turnos');
+    await page.getByRole('button', {name: 'Nuevo turno'}).click();
+
+    const dialog = page.getByRole('dialog', {name: 'Agendar turno'});
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('overflow-x', 'hidden');
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    const save = dialog.getByRole('button', {name: 'Guardar turno'});
+    await save.scrollIntoViewIfNeeded();
+    await expect(save).toBeInViewport({ratio: 1});
+    expect(await dialog.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+});
+
+test('busca turnos en móvil con texto de 16 píxeles y conserva la escala al salir', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 844});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'turnos');
+
+    const search = page.getByRole('searchbox', {name: 'Buscar turnos, consultas y recetas'});
+    await search.click();
+    await expect(search).toBeFocused();
+    await expect(search).toHaveCSS('font-size', '16px');
+    await search.fill('turno de prueba');
+    await search.blur();
+    await expect(search).not.toBeFocused();
+    expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
+});
+
 test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');

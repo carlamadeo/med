@@ -1622,8 +1622,8 @@
     width: min(calc(100vw - 2rem), 38rem);
     max-height: 90vh;
     padding: 1.25rem;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: hidden auto;
+    overscroll-behavior: none contain;
 }
 
 .appointment-dialog .form-grid {
@@ -1663,6 +1663,12 @@
 .appointment-dialog .field textarea {
     min-height: 4.5rem;
     resize: vertical;
+}
+
+.appointment-dialog .field input:is([type='date'], [type='time']) {
+    /* iOS WebKit can add padding outside a percentage width on these controls. */
+    width: auto;
+    justify-self: stretch;
 }
 
 .appointment-dialog .dialog-actions {
@@ -2392,17 +2398,6 @@
         padding-left: 1.55rem;
     }
 }
-
-@media (max-width: 720px), (pointer: coarse) {
-    /* WebKit can zoom the page when a smaller text field receives focus. */
-    .command-search input,
-    .operations-search input,
-    .operation-form-grid input,
-    .operation-form-grid textarea {
-        font-size: 1rem;
-    }
-}
-
 
 .events {
     display: grid;
@@ -3583,8 +3578,8 @@
 .appointment-study-options {
     display: grid;
     max-height: 12rem;
-    overflow: auto;
-    overscroll-behavior: contain;
+    overflow: hidden auto;
+    overscroll-behavior: none contain;
 }
 
 .appointment-study-options label {
