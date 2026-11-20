@@ -2254,6 +2254,7 @@
 
 .operation-detail {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
 }
 
@@ -2266,6 +2267,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+    overflow-wrap: anywhere;
 }
 
 .operation-detail-head h2 {
@@ -2388,6 +2390,16 @@
     .linked-date {
         width: 100%;
         padding-left: 1.55rem;
+    }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+    /* WebKit can zoom the page when a smaller text field receives focus. */
+    .command-search input,
+    .operations-search input,
+    .operation-form-grid input,
+    .operation-form-grid textarea {
+        font-size: 1rem;
     }
 }
 
@@ -4377,6 +4389,7 @@ fieldset#study-types.study-types {
     border-radius: var(--radius-md);
     min-height: 48px;
     width: min(100%, 22rem);
+    white-space: normal;
 }
 
 .library.access .access-connect-btn {
