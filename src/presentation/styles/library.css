@@ -212,10 +212,15 @@
         justify-self: start;
     }
 
+    .library-table.summary-table-scroll tbody tr.year-divider-row {
+        padding-block: var(--space-4) var(--space-1);
+    }
+
     .library-table.summary-table-scroll tbody tr.year-divider-row td {
         width: 100%;
         justify-self: stretch;
-        padding: 0.75rem 0 0.35rem;
+        padding: 0;
+        border: 0;
     }
 
     .library-mobile-label {
@@ -223,24 +228,6 @@
         margin-inline-end: var(--space-1);
         color: var(--color-text-secondary);
         font-weight: 550;
-    }
-
-    .library-table .row-actions .icon-button {
-        width: 2.75rem;
-        height: 2.75rem;
-    }
-
-    .library-table .row-actions .library-source {
-        display: inline-flex;
-        gap: var(--space-1);
-        width: auto;
-        padding-inline: var(--space-2);
-        font-size: var(--text-xs);
-        font-weight: var(--font-weight-semibold);
-    }
-
-    .library-source-label {
-        display: inline;
     }
 }
 
@@ -655,6 +642,29 @@
 }
 
 @media (max-width: 720px) {
+    .library-table .row-actions {
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .library-table .row-actions .library-source {
+        display: inline-flex;
+        gap: var(--space-1);
+        width: auto;
+        height: auto;
+        padding: var(--space-1) var(--space-2);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--text-xs);
+        font-weight: var(--font-weight-semibold);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .library-source-label {
+        display: inline;
+    }
+
     .library-table .row-actions .desktop-study-action {
         display: none;
     }

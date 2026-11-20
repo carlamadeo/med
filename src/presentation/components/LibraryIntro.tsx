@@ -1,3 +1,4 @@
+import {useLayoutEffect} from 'preact/hooks';
 import type {ViewMode} from '@domain/models';
 import {libraryQuery, resetLibraryFilters, view as archiveView} from '../state/store';
 
@@ -24,6 +25,13 @@ const titles: Record<ViewMode, string> = {
 
 export function LibraryIntro({onAddStudy, onImport, isSignedIn, isLocalDemo, typesReady, view}: LibraryIntroProps) {
     const library = view === 'cronologia' || view === 'categoria';
+
+    useLayoutEffect(() => {
+        if (isSignedIn && library && window.matchMedia('(max-width: 720px)').matches) {
+            window.scrollTo(0, 0);
+        }
+    }, [isSignedIn, library]);
+
     return (
         <section className="intro">
             <div>

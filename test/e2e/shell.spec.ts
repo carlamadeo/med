@@ -185,13 +185,19 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
     await expect(rows).toHaveCount(3);
     await expect(table.getByRole('columnheader', {name: 'Estado'})).toHaveCount(0);
     for (const label of ['Abrir PDF', 'Abrir visor', 'Abrir imagen']) {
-        const link = table.getByRole('link', {name: new RegExp(`^${label}`)});
+        const source = page.getByRole('link', {name: new RegExp(`^${label}`)});
+        const link = table.locator(source);
         await expect(link).toBeVisible();
         await expect(link).toHaveText(label);
         await expect(link.getByText(label, {exact: true})).toBeVisible();
         await expect(link.locator('svg')).toBeVisible();
         const bounds = await link.boundingBox();
         expect(Math.min(bounds?.width ?? 0, bounds?.height ?? 0)).toBeGreaterThanOrEqual(44);
+        const labelBox = await link.getByText(label, {exact: true}).boundingBox();
+        expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+        const more = rows.filter({has: source}).getByText('Más acciones', {exact: true});
+        const moreBox = await more.boundingBox();
+        expect(bounds!.x + bounds!.width).toBeLessThan(moreBox!.x);
     }
     await expect(table.locator('time[datetime="2026-11-12"]')).toBeVisible();
     await expect(table.getByText('Dr. Gómez', {exact: false})).toBeVisible();
@@ -263,6 +269,20 @@ test('mantiene Biblioteca utilizable en un ancho de 320 píxeles', async ({page}
     await page.getByText('Más acciones', {exact: true}).first().click();
     await expect(page.getByRole('button', {name: 'Compartir Mamografía bilateral'})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('muestra el inicio de Biblioteca al navegar desde Resumen desplazado', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 600});
+    await page.goto('/');
+    await expect(page.locator('#resumen .study-title').first()).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 350));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(250);
+    await navigateTo(page, 'cronologia');
+
+    const heading = page.getByRole('heading', {name: 'Biblioteca', level: 1});
+    const header = page.getByRole('banner');
+    await expect.poll(async () => (await heading.boundingBox())!.y - (await header.boundingBox())!.height)
+        .toBeGreaterThan(0);
 });
 
 test('mantiene las secciones secundarias legibles en ambos temas', async ({page}) => {
