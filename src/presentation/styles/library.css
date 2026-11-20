@@ -195,10 +195,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-.library-source-label {
-    display: none;
-}
-
 @media (max-width: 720px) {
     .library-search-head {
         flex-direction: column;
@@ -257,7 +253,15 @@
     .library-table.summary-table-scroll tbody td:last-child {
         grid-column: 1 / -1;
         grid-row: auto;
-        justify-self: start;
+    }
+
+    .library-table .row-actions {
+        gap: var(--space-1);
+    }
+
+    .library-table .row-actions .icon-button .icon {
+        width: 1.125rem;
+        height: 1.125rem;
     }
 
     .library-table.summary-table-scroll tbody tr.year-divider-row {
@@ -730,87 +734,4 @@
     bottom: calc(-1 * var(--space-6));
     padding-block: var(--space-4);
     background: var(--color-surface);
-}
-
-.mobile-study-actions {
-    display: none;
-}
-
-@media (max-width: 720px) {
-    .library-table .row-actions {
-        align-items: flex-start;
-        gap: var(--space-2);
-    }
-
-    .library-table .row-actions .library-source {
-        display: inline-flex;
-        gap: var(--space-1);
-        width: auto;
-        height: auto;
-        padding: var(--space-1) var(--space-2);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        font-size: var(--text-xs);
-        font-weight: var(--font-weight-semibold);
-        text-decoration: none;
-        white-space: nowrap;
-    }
-
-    .library-source-label {
-        display: inline;
-    }
-
-    .library-table .row-actions .desktop-study-action {
-        display: none;
-    }
-
-    .mobile-study-actions {
-        display: block;
-        position: relative;
-    }
-
-    .mobile-study-actions summary {
-        display: inline-flex;
-        align-items: center;
-        min-height: 44px;
-        padding: 0.35rem 0.65rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        background: var(--color-surface);
-        color: var(--color-text-secondary);
-        font-size: var(--text-xs);
-        font-weight: 600;
-        list-style: none;
-        cursor: pointer;
-    }
-
-    .mobile-study-actions summary::-webkit-details-marker {
-        display: none;
-    }
-
-    .mobile-study-menu {
-        display: grid;
-        gap: 0.25rem;
-        margin-top: 0.25rem;
-        padding: 0.5rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        background: var(--color-surface);
-        box-shadow: var(--shadow-sm);
-    }
-
-    .mobile-study-menu button {
-        min-height: 44px;
-        padding: 0.5rem 0.75rem;
-        border: 0;
-        border-radius: var(--radius-sm);
-        background: transparent;
-        color: var(--color-text-primary);
-        font-size: var(--text-sm);
-        text-align: left;
-    }
-
-    .mobile-study-menu button:hover:not(:disabled) {
-        background: var(--color-surface-hover);
-    }
 }

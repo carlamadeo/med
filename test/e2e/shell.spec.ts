@@ -189,20 +189,12 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
     const search = library.getByRole('searchbox', {name: 'Buscar estudios'});
     await expect(rows).toHaveCount(3);
     await expect(table.getByRole('columnheader', {name: 'Estado'})).toHaveCount(0);
-    for (const label of ['Abrir PDF', 'Abrir visor', 'Abrir imagen']) {
-        const source = page.getByRole('link', {name: new RegExp(`^${label}`)});
-        const link = table.locator(source);
+    for (const [label, icon] of [['Abrir PDF', '#i-file'], ['Abrir visor', '#i-eye'], ['Abrir imagen', '#i-scan']]) {
+        const link = table.getByRole('link', {name: new RegExp(`^${label}`)});
         await expect(link).toBeVisible();
-        await expect(link).toHaveText(label);
-        await expect(link.getByText(label, {exact: true})).toBeVisible();
+        await expect(link).toHaveText('');
         await expect(link.locator('svg')).toBeVisible();
-        const bounds = await link.boundingBox();
-        expect(Math.min(bounds?.width ?? 0, bounds?.height ?? 0)).toBeGreaterThanOrEqual(44);
-        const labelBox = await link.getByText(label, {exact: true}).boundingBox();
-        expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
-        const more = rows.filter({has: source}).getByText('Más acciones', {exact: true});
-        const moreBox = await more.boundingBox();
-        expect(bounds!.x + bounds!.width).toBeLessThan(moreBox!.x);
+        await expect(link.locator('use')).toHaveAttribute('href', icon!);
     }
     await expect(table.locator('time[datetime="2026-11-12"]')).toBeVisible();
     await expect(table.getByText('Dr. Gómez', {exact: false})).toBeVisible();
@@ -258,8 +250,6 @@ test('imprime todas las páginas del archivo adjunto y permite elegir la ficha',
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    const more = library.getByText('Más acciones', {exact: true}).first();
-    if (await more.isVisible()) await more.click();
     const print = library.getByRole('button', {name: 'Imprimir Mamografía bilateral'});
     await print.focus();
     await page.keyboard.press('Enter');
@@ -323,8 +313,6 @@ test('previsualiza una imagen y distingue un adjunto que no se puede cargar', as
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const row = page.getByRole('row').filter({hasText: 'Orden de laboratorio'});
-    const more = row.getByText('Más acciones', {exact: true});
-    if (await more.isVisible()) await more.click();
     const print = row.getByRole('button', {name: 'Imprimir Orden de laboratorio'});
     await print.click();
     const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
@@ -353,8 +341,6 @@ test('revisa estudios relacionados con teclado y conserva el tema', async ({page
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    const more = library.getByText('Más acciones', {exact: true}).first();
-    if (await more.isVisible()) await more.click();
     const edit = library.getByRole('button', {name: 'Editar Mamografía bilateral'});
     await edit.focus();
     await page.keyboard.press('Enter');
@@ -378,14 +364,43 @@ test('revisa estudios relacionados con teclado y conserva el tema', async ({page
 });
 
 
-test('mantiene Biblioteca utilizable en un ancho de 320 píxeles', async ({page}) => {
+test('muestra todos los iconos del estudio en un ancho de 320 píxeles', async ({page}) => {
     await page.setViewportSize({width: 320, height: 700});
+    const study = files[0]!;
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        const description = JSON.stringify({...JSON.parse(study.description), viewer: 'https://example.com/visor'});
+        return query.includes('estudio-v1')
+            ? route.fulfill({json: {files: [{...study, description}]}})
+            : route.fallback();
+    });
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
-    await expect(page.getByRole('searchbox', {name: 'Buscar estudios'})).toBeVisible();
-    await page.getByText('Más acciones', {exact: true}).first().click();
-    await expect(page.getByRole('button', {name: 'Compartir Mamografía bilateral'})).toBeVisible();
+    const library = page.getByRole('region', {name: 'Biblioteca'});
+    await expect(library.getByRole('searchbox', {name: 'Buscar estudios'})).toBeVisible();
+    const row = library.getByRole('row').filter({hasText: 'Mamografía bilateral'});
+    const actions = [
+        row.getByRole('link', {name: 'Abrir PDF de Mamografía bilateral'}),
+        row.getByRole('link', {name: 'Abrir visor de Mamografía bilateral'}),
+        row.getByRole('button', {name: 'Editar Mamografía bilateral'}),
+        row.getByRole('button', {name: 'Imprimir Mamografía bilateral'}),
+        row.getByRole('button', {name: 'Compartir Mamografía bilateral'}),
+        row.getByRole('button', {name: 'Eliminar Mamografía bilateral'}),
+    ];
+    for (const action of actions) {
+        await expect(action.locator('svg')).toBeVisible();
+        const box = (await action.boundingBox())!;
+        expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(320);
+    }
+    await expect(row.getByText('Más acciones', {exact: true})).toHaveCount(0);
+    await row.getByRole('button', {name: 'Eliminar Mamografía bilateral'}).click();
+    const confirm = page.getByRole('dialog', {name: 'Eliminar estudio'});
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', {name: 'Cancelar'}).click();
+    await expect(row).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -449,8 +464,6 @@ test('abre y cierra formularios y acciones del archivo', async ({page}) => {
         await expect(page.locator(dialog!)).toBeHidden();
     }
     await navigateTo(page, 'cronologia');
-    const more = page.getByText('Más acciones', {exact: true}).first();
-    if (await more.isVisible()) await more.click();
     await page.getByRole('button', {name: 'Compartir Mamografía bilateral'}).click();
     await expect(page.locator('#share')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -579,8 +592,6 @@ test('mantiene las acciones del editor fuera del área desplazable', async ({pag
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    const more = library.getByText('Más acciones', {exact: true}).first();
-    if (await more.isVisible()) await more.click();
     await library.getByRole('button', {name: 'Editar Mamografía bilateral'}).click();
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     const content = editor.locator('.editor-content');
@@ -651,4 +662,44 @@ test('permite finalizar un episodio con una fecha distinta de la última observa
     await expect(card.locator('time[datetime="2024-03-12"]')).toBeVisible();
     await card.getByRole('button', {name: 'Editar'}).click();
     await expect(dialog.getByLabel('Fecha de finalización')).toHaveValue('2024-03-12');
+});
+
+test('elige y guarda una especialidad al editar un estudio anterior', async ({page}, testInfo) => {
+    let existing = files.find(file => file.id === 'study-3')!;
+    await page.route('https://www.googleapis.com/drive/v3/files/study-3?**', async route => {
+        if (route.request().method() === 'PATCH') {
+            const {description} = route.request().postDataJSON();
+            existing = {...existing, description, version: '2', modifiedTime: new Date().toISOString()};
+        }
+        await route.fulfill({json: existing});
+    });
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        return query.includes('estudio-v1')
+            ? route.fulfill({json: {files: files.map(file => file.id === existing.id ? existing : file)}})
+            : route.fallback();
+    });
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const edit = page.getByRole('button', {name: 'Editar Orden de laboratorio'});
+    await edit.click();
+
+    const editor = page.getByRole('dialog', {name: 'Editar estudio'});
+    const specialty = editor.getByRole('textbox', {name: /Especialidad/});
+    await expect(specialty).toHaveValue('');
+    await specialty.click();
+    const option = editor.getByRole('button', {name: 'Cardiología', exact: true});
+    if (testInfo.project.use.hasTouch) await option.tap({timeout: 3500});
+    else await option.click({timeout: 3500});
+    await expect(specialty).toHaveValue('Cardiología');
+    await expect(option).toBeHidden();
+    await editor.getByRole('button', {name: 'Guardar cambios'}).click();
+    await expect(editor).toBeHidden();
+    expect(JSON.parse(existing.description).specialty).toBe('Cardiología');
+
+    await page.reload();
+    await navigateTo(page, 'cronologia');
+    await edit.click();
+    await expect(specialty).toHaveValue('Cardiología');
 });

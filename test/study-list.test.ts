@@ -130,8 +130,8 @@ it('shows the study date and labels its PDF, image and viewer actions', async ()
         ['Abrir visor de Informe', 'https://example.com/visor'],
         ['Abrir imagen de Orden', 'https://drive.google.com/file/d/photo/view'],
     ]);
-    expect(links.map(link => link.textContent?.trim())).toEqual(['Abrir PDF', 'Abrir visor', 'Abrir imagen']);
-    expect(links.every(link => link.querySelector('svg'))).toBe(true);
+    expect(links.map(link => link.title)).toEqual(['Abrir PDF', 'Abrir visor', 'Abrir imagen']);
+    expect(links.map(link => link.querySelector('svg use')?.getAttribute('href'))).toEqual(['#i-file', '#i-eye', '#i-scan']);
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
 });
 

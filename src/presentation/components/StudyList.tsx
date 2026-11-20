@@ -250,54 +250,36 @@ export function StudyList({
                                 <td role="cell">
                                     <div className="row-actions">
                                         {attachmentAvailable && (
-                                            <a className="icon-button library-source" href={reportUrl(study.driveFileId)}
+                                            <a className="icon-button" href={reportUrl(study.driveFileId)}
                                                target="_blank" rel="noopener noreferrer"
                                                title={attachmentLabel} aria-label={`${attachmentLabel} de ${study.title}`}>
                                                 <svg className="icon" aria-hidden="true">
                                                     <use href={study.attachmentMime ? '#i-scan' : '#i-file'}/>
                                                 </svg>
-                                                <span className="library-source-label">{attachmentLabel}</span>
                                             </a>
                                         )}
                                         {viewerAvailable && (
-                                            <a className="icon-button library-source" href={study.viewer} target="_blank" rel="noopener noreferrer"
+                                            <a className="icon-button" href={study.viewer} target="_blank" rel="noopener noreferrer"
                                                title="Abrir visor" aria-label={`Abrir visor de ${study.title}`}>
                                                 <svg className="icon" aria-hidden="true"><use href="#i-eye"/></svg>
-                                                <span className="library-source-label">Abrir visor</span>
                                             </a>
                                         )}
-                                        <button className="icon-button desktop-study-action" type="button" title="Editar" disabled={pending}
+                                        <button className="icon-button" type="button" title="Editar" disabled={pending}
                                                 aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-edit"/></svg>
                                         </button>
-                                        <button className="icon-button desktop-study-action" type="button" title="Imprimir" aria-label={`Imprimir ${study.title}`}
+                                        <button className="icon-button" type="button" title="Imprimir" aria-label={`Imprimir ${study.title}`}
                                                 onClick={() => setPrinting(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>
                                         </button>
-                                        <button className="icon-button desktop-study-action" type="button" title="Compartir" disabled={pending || !canShare}
+                                        <button className="icon-button" type="button" title="Compartir" disabled={pending || !canShare}
                                                 aria-label={`Compartir ${study.title}`} onClick={() => onShare?.(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-share"/></svg>
                                         </button>
-                                        <button className="icon-button row-action-danger desktop-study-action" type="button" title="Eliminar" disabled={pending}
+                                        <button className="icon-button row-action-danger" type="button" title="Eliminar" disabled={pending}
                                                 aria-label={`Eliminar ${study.title}`} onClick={() => onDelete(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-trash"/></svg>
                                         </button>
-                                        <details className="mobile-study-actions" onKeyDown={event => {
-                                            if (event.key === 'Escape' && event.currentTarget.open) {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                event.currentTarget.open = false;
-                                                event.currentTarget.querySelector('summary')?.focus();
-                                            }
-                                        }}>
-                                            <summary aria-label={`Más acciones para ${study.title}`}>Más acciones</summary>
-                                            <div className="mobile-study-menu">
-                                                <button type="button" aria-label={`Editar ${study.title}`} disabled={pending} onClick={() => onEdit(study)}>Editar</button>
-                                                <button type="button" aria-label={`Imprimir ${study.title}`} onClick={() => setPrinting(study)}>Imprimir</button>
-                                                <button type="button" aria-label={`Compartir ${study.title}`} disabled={pending || !canShare} onClick={() => onShare(study)}>Compartir</button>
-                                                <button type="button" aria-label={`Eliminar ${study.title}`} disabled={pending} onClick={() => onDelete(study)}>Eliminar</button>
-                                            </div>
-                                        </details>
                                     </div>
                                 </td>
                             </tr>

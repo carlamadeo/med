@@ -152,13 +152,15 @@ function AutocompleteTextField({
                             <button
                                 type="button"
                                 className="portal-autocomplete-item"
+                                // Safari can blur the input before the option receives the click.
+                                onMouseDown={event => event.preventDefault()}
                                 onClick={() => {
-                                    suppressFocusRef.current = true;
                                     onChange(option);
                                     setOpen(false);
-                                    if (inputRef.current) {
-                                        inputRef.current.value = option;
-                                        inputRef.current.focus();
+                                    const input = inputRef.current;
+                                    if (input && document.activeElement !== input) {
+                                        suppressFocusRef.current = true;
+                                        input.focus();
                                     }
                                 }}
                             >
