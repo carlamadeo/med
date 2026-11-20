@@ -1,11 +1,20 @@
 import {driveAppointmentRepo, driveAuth} from '@data';
 import {Outbox} from '@data/outbox';
+import {validateDocument} from '@data/pdf-analysis';
 import {appointmentInstant, validateAppointment} from '@domain/appointments';
+import {cleanSpecialty} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {appointments, isLocalDemo} from '../state/store';
 import {enqueueOffline} from './enqueueOffline';
 
 const outbox = new Outbox();
+const demoPrescriptions = new WeakMap<Appointment, File>();
+
+export function getAppointmentPrescription(appointment: Appointment): Promise<File> {
+    if (!isLocalDemo.value) return driveAppointmentRepo.getPrescription(appointment);
+    const file = demoPrescriptions.get(appointment);
+    return file ? Promise.resolve(file) : Promise.reject(new Error('La receta no está disponible.'));
+}
 
 export const TIMEZONE_OPTIONS: Array<{value: string; label: string}> = [
     {value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (GMT-3)'},
@@ -45,11 +54,20 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
     if (!appointmentInstant(draft)) return {error: 'La hora elegida no existe en esa zona horaria.'};
 
     if (isLocalDemo.value) {
+        const {prescriptionFile, removePrescription, ...fields} = draft;
+        const existing = appointments.value.find(item => item.id === draft.id);
+        const previous = existing && !removePrescription ? demoPrescriptions.get(existing) : undefined;
+        const file = prescriptionFile ?? previous;
+        const mimeType = prescriptionFile ? await validateDocument(prescriptionFile) : existing?.prescription?.mimeType;
+        if (!isLocalDemo.value || (existing && !appointments.value.includes(existing))) return {};
         const saved: Appointment = {
-            ...draft,
+            ...fields,
+            specialty: cleanSpecialty(draft.specialty),
             id: draft.id ?? `demo-appointment-${Date.now()}`,
             revision: '1',
+            prescription: file && mimeType ? {name: file.name, mimeType} : undefined,
         };
+        if (file && mimeType) demoPrescriptions.set(saved, new File([file], file.name, {type: mimeType}));
         appointments.value = [...appointments.value.filter((item) => item.id !== saved.id), saved];
         return {appointment: saved};
     }
@@ -61,6 +79,7 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
 
     if (!navigator.onLine) {
         if (!navigator.locks) return {error: 'Este navegador no admite la sincronización segura de cambios sin conexión.'};
+        if (draft.prescriptionFile) await validateDocument(draft.prescriptionFile);
         await enqueueOffline(accountId, () => outbox.enqueueAppointmentSave(accountId, draft), token);
         if (await driveAuth.getAccessToken() !== token) {
             return {message: 'La cuenta cambió mientras se guardaba. El turno quedó retenido con la cuenta anterior.'};
@@ -77,7 +96,7 @@ export async function saveAppointment(draft: AppointmentDraft, editing: Appointm
 
     if (await driveAuth.getAccessToken() !== token) return {error: 'La cuenta cambió. Volvé a intentar.'};
 
-    const saved = await driveAppointmentRepo.save(draft);
+    const saved = await driveAppointmentRepo.save(draft, token);
     if (await driveAuth.getAccessToken() !== token) return {};
     appointments.value = [...appointments.value.filter((item) => item.id !== saved.id), saved];
     return {appointment: saved};

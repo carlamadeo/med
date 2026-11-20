@@ -2,6 +2,8 @@ import {isRecoverable} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage} from '@core/storage';
 import type {Episode, EpisodeDraft} from '@domain/models';
+import {episodeEndDateError} from '@domain/episodes';
+import {isValidDate} from '@domain/utils';
 
 export class DriveEpisodeRepository {
     constructor(public client: DriveClient) {
@@ -14,12 +16,14 @@ export class DriveEpisodeRepository {
         if (typeof item.illness !== 'string') throw new Error('Drive tiene un episodio cuya ficha no se puede leer.');
         if (!Array.isArray(item.observations)) item.observations = [];
         if (!Array.isArray(item.medications)) item.medications = [];
+        const endDate = isValidDate(item.endDate) ? item.endDate : undefined;
         return {
             id: file.id,
             illness: item.illness,
             observations: item.observations,
             medications: item.medications,
-            closed: item.closed === true,
+            closed: item.closed === true || Boolean(endDate),
+            endDate,
             revision: file.version
         };
     }
@@ -52,12 +56,16 @@ export class DriveEpisodeRepository {
 
     async save(draft: EpisodeDraft): Promise<Episode> {
         const illness = draft.illness.trim();
+        const validationError = episodeEndDateError(draft.endDate, draft.observations ?? []);
+        if (validationError) throw new Error(validationError);
         const token = await this.client.getAccessToken();
         const owner = await this.client.cacheOwner();
         const description = JSON.stringify({
             illness,
             observations: draft.observations ?? [],
-            medications: draft.medications ?? [], ...(draft.closed ? {closed: true} : {})
+            medications: draft.medications ?? [],
+            ...(draft.closed || draft.endDate ? {closed: true} : {}),
+            ...(draft.endDate ? {endDate: draft.endDate} : {}),
         });
         let file: DriveFileResponse;
         if (draft.id) {

@@ -41,3 +41,32 @@ it('round-trips the chosen studies in Drive and removes them when cleared', asyn
     await driveAppointmentRepo.save({...created, studyIds: []});
     expect((await driveAppointmentRepo.get(created.id)).studyIds ?? []).toEqual([]);
 });
+
+it('stores and downloads a prescription on the same turn while preserving later edits', async () => {
+    const scheduled = await driveAppointmentRepo.save({...draft, specialty: 'Otorrinolaringología'});
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1]);
+    const completed = await driveAppointmentRepo.save({
+        ...scheduled, status: 'completed', prescriptionFile: new File([png], 'receta.png', {type: 'image/png'}),
+    });
+    expect((await driveAppointmentRepo.list())[0]).toMatchObject({
+        id: scheduled.id, specialty: 'Otorrinolaringología', status: 'completed',
+        prescription: {name: 'receta.png', mimeType: 'image/png'},
+    });
+    const edited = await driveAppointmentRepo.save({...completed, notes: 'Control'});
+    const downloaded = await driveAppointmentRepo.getPrescription(edited);
+    expect(downloaded.name).toBe('receta.png');
+    expect(new Uint8Array(await downloaded.arrayBuffer())).toEqual(png);
+    await expect(driveAppointmentRepo.getPrescription(completed)).rejects.toBeInstanceOf(DriveConflictError);
+    await driveAppointmentRepo.save({...edited, removePrescription: true});
+    expect((await driveAppointmentRepo.get(edited.id)).prescription).toBeUndefined();
+});
+
+it('recovers a retried turn creation with the original prescription bytes', async () => {
+    const createId = 'reserved-turn';
+    const prescriptionFile = new File(['%PDF-1.7\nA'], 'receta.pdf', {type: 'application/pdf'});
+    const created = await driveAppointmentRepo.save({...draft, createId, prescriptionFile});
+    await expect(driveAppointmentRepo.save({...draft, createId, prescriptionFile})).resolves.toMatchObject({id: created.id});
+    const otherFile = new File(['%PDF-1.7\nB'], 'receta.pdf', {type: 'application/pdf'});
+    await expect(driveAppointmentRepo.save({...draft, createId, prescriptionFile: otherFile})).rejects.toBeInstanceOf(DriveConflictError);
+    expect(await driveAppointmentRepo.list()).toHaveLength(1);
+});

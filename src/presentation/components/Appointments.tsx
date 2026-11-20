@@ -1,101 +1,20 @@
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useState} from 'preact/hooks';
 import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
-import type {Appointment, AppointmentDraft} from '@domain/models';
-import {visibleAppointments} from '../state/store';
-import {
-  deleteAppointment as removeAppointment,
-  getTimeZoneOptions,
-  saveAppointment,
-  TIMEZONE_OPTIONS,
-} from '../utils/appointmentEditor';
-import {useFocusTrap} from '../utils/focusTrap';
-import {AppointmentReminderNote} from './AppointmentReminderNote';
+import type {Appointment} from '@domain/models';
+import {setEditingAppointment, visibleAppointments} from '../state/store';
+import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
 import {AppointmentCalendar} from './AppointmentCalendar';
-import {AppointmentStudyList, AppointmentStudyPicker} from './AppointmentStudies';
+import {AppointmentStudyList} from './AppointmentStudies';
+import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
+import {MedicalEvents} from './MedicalEvents';
 
 export function Appointments() {
-  const [editing, setEditing] = useState<Appointment | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [permission, setPermission] = useState<NotificationPermission | 'unavailable'>(() =>
-    typeof Notification === 'undefined' ? 'unavailable' : Notification.permission
-  );
   const [query, setQuery] = useState('');
   const [pendingDelete, setPendingDelete] = useState<Appointment | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useFocusTrap(dialogRef, formOpen);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (formOpen && !dialog.open) {
-      dialog.showModal();
-    } else if (!formOpen && dialog.open) {
-      dialog.close();
-    }
-  }, [formOpen]);
-
-  function openNew() {
-    setMessage('');
-    setEditing(null);
-    setFormOpen(true);
-  }
-
-  function openEdit(appointment: Appointment) {
-    setMessage('');
-    setEditing(appointment);
-    setFormOpen(true);
-  }
-
-  function closeForm() {
-    setFormOpen(false);
-    setEditing(null);
-  }
-
-  function cancelForm() {
-    setMessage('');
-    closeForm();
-  }
-
-  async function save(form: HTMLFormElement) {
-    const data = new FormData(form);
-    const rawCost = String(data.get('cost') ?? '').trim();
-    const draft: AppointmentDraft = {
-      id: editing?.id,
-      revision: editing?.revision,
-      date: String(data.get('date') ?? ''),
-      time: String(data.get('time') ?? ''),
-      timeZone: String(data.get('timeZone') ?? ''),
-      professional: String(data.get('professional') ?? '').trim(),
-      notes: String(data.get('notes') ?? '').trim(),
-      status: String(data.get('status')) as AppointmentDraft['status'],
-      cost: rawCost ? Number(rawCost) : null,
-      coverage: (String(data.get('coverage') ?? '') || null) as AppointmentDraft['coverage'],
-      reminderMinutes: (Number(data.get('reminderMinutes')) ||
-        null) as AppointmentDraft['reminderMinutes'],
-      studyIds: data.getAll('studyId').map(String),
-    };
-    setBusy(true);
-    setMessage('');
-    try {
-      const result = await saveAppointment(draft, editing);
-      if (result.error) {
-        setMessage(result.error);
-        return;
-      }
-      if (result.message) setMessage(result.message);
-      form.reset();
-      closeForm();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No se pudo guardar el turno.');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function remove(appointment: Appointment) {
     setPendingDelete(appointment);
@@ -123,16 +42,13 @@ export function Appointments() {
     }
   }
 
-  const resolvedTimeZone =
-    Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
-  const defaultTimeZone = editing?.timeZone ?? resolvedTimeZone;
-  const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
-
   const normalizedQuery = normalize(query);
   const visible = [...visibleAppointments.value]
     .filter(appointment => {
       if (!normalizedQuery) return true;
-      return [appointment.date, appointment.time, appointment.professional, appointment.notes].some(
+      return [appointment.date, appointment.time, appointment.professional, appointment.specialty,
+        appointment.notes, appointment.prescription?.name, appointment.prescription ? 'receta' : '',
+        appointment.status === 'completed' ? 'consulta' : 'turno'].some(
         value => normalize(value ?? '').includes(normalizedQuery)
       );
     })
@@ -143,14 +59,14 @@ export function Appointments() {
       <div className="appointments-head">
         <div>
           <p className="eyebrow">Seguimiento</p>
-          <h2 id="appointments-title">Turnos médicos</h2>
+          <h2 id="appointments-title">Turnos, consultas y recetas</h2>
           <p className="appointments-desc">
-            Turnos médicos, profesionales y costos en un solo lugar.
+            Agendá un turno y, después de la consulta, guardá las notas y la receta.
           </p>
         </div>
         <div className="appointments-head-actions">
           <span className="count-badge">{visibleAppointments.value.length}</span>
-          <button className="button primary" type="button" onClick={openNew}>
+          <button className="button primary" type="button" onClick={() => setEditingAppointment(null)}>
             <svg className="icon" aria-hidden="true">
               <use href="#i-plus" />
             </svg>
@@ -159,163 +75,23 @@ export function Appointments() {
         </div>
       </div>
 
-      <dialog
-        ref={dialogRef}
-        id="appointments-dialog"
-        className="dialog appointment-dialog"
-        aria-labelledby="appointments-dialog-title"
-        onCancel={event => {
-          event.preventDefault();
-          if (!busy) cancelForm();
-        }}
-        onClose={closeForm}
-      >
-        <form
-          key={editing?.id ?? 'new'}
-          className="appointments-form"
-          onSubmit={event => {
-            event.preventDefault();
-            void save(event.currentTarget);
-          }}
-        >
-          <div className="dialog-heading">
-            <div>
-              <p className="eyebrow">Seguimiento</p>
-              <h2 id="appointments-dialog-title">
-                {editing ? 'Editar turno' : 'Nuevo turno'}
-              </h2>
-            </div>
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="Cerrar"
-              onClick={cancelForm}
-              disabled={busy}
-            >
-              <svg className="icon" aria-hidden="true">
-                <use href="#i-close" />
-              </svg>
-            </button>
-          </div>
-          <fieldset disabled={busy}>
-            <legend className="sr-only">{editing ? 'Editar turno' : 'Nuevo turno'}</legend>
-            <div className="appointment-form-grid">
-              <label>
-                Fecha <input name="date" type="date" required defaultValue={editing?.date ?? ''} />
-              </label>
-              <label>
-                Hora <input name="time" type="time" required defaultValue={editing?.time ?? ''} />
-              </label>
-              <label className="wide">
-                Zona horaria{' '}
-                <select name="timeZone" required defaultValue={defaultTimeZone}>
-                  {timeZoneOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="wide">
-                Profesional{' '}
-                <input name="professional" defaultValue={editing?.professional ?? ''} />
-              </label>
-              <label className="wide">
-                Detalles <textarea name="notes" defaultValue={editing?.notes ?? ''} />
-              </label>
-              <label>
-                Estado{' '}
-                <select name="status" defaultValue={editing?.status ?? 'scheduled'}>
-                  <option value="scheduled">Programado</option>
-                  <option value="completed">Realizado</option>
-                  <option value="cancelled">Cancelado</option>
-                  <option value="absent">No asistí</option>
-                </select>
-              </label>
-              <label>
-                Recordatorio{' '}
-                <select
-                  name="reminderMinutes"
-                  defaultValue={String(editing?.reminderMinutes ?? '')}
-                >
-                  <option value="">Sin recordatorio</option>
-                  <option value="1440">24 horas antes</option>
-                  <option value="60">1 hora antes</option>
-                  <option value="15">15 minutos antes</option>
-                </select>
-              </label>
-              <label>
-                Importe{' '}
-                <input
-                  name="cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  defaultValue={editing?.cost ?? ''}
-                />
-              </label>
-              <label>
-                Cobertura{' '}
-                <select name="coverage" defaultValue={editing?.coverage ?? ''}>
-                  <option value="">Desconocida</option>
-                  <option value="all">Total</option>
-                  <option value="partial">Parcial</option>
-                  <option value="none">Sin cobertura</option>
-                </select>
-              </label>
-            </div>
-            <AppointmentStudyPicker studyIds={editing?.studyIds} />
-            <AppointmentReminderNote permission={permission}/>
-            {permission === 'default' && (
-              <button
-                className="button secondary button-sm"
-                type="button"
-                onClick={() => {
-                  void Notification.requestPermission().then(setPermission);
-                }}
-              >
-                Activar notificaciones
-              </button>
-            )}
-            {formOpen && message && (
-              <p className="form-error" role="alert">
-                {message}
-              </p>
-            )}
-            <div className="dialog-actions">
-              <button
-                className="button secondary"
-                type="button"
-                onClick={cancelForm}
-                disabled={busy}
-              >
-                Cancelar
-              </button>
-              <button className="button primary" type="submit">
-                {busy ? 'Guardando…' : 'Guardar turno'}
-              </button>
-            </div>
-          </fieldset>
-        </form>
-      </dialog>
-
       <div className="appointments-toolbar">
         <label className="appointments-search">
           <svg className="icon" aria-hidden="true">
             <use href="#i-search" />
           </svg>
-          <span className="sr-only">Buscar turnos</span>
+          <span className="sr-only">Buscar turnos, consultas y recetas</span>
           <input
             id="appointment-search"
             type="search"
-            placeholder="Buscar por profesional, nota o fecha…"
+            placeholder="Buscar por profesional, especialidad o fecha…"
             value={query}
             onInput={event => setQuery((event.target as HTMLInputElement).value)}
           />
         </label>
       </div>
 
-      {!formOpen && message && (
+      {message && (
         <p className="appointment-message" role="status">
           {message}
         </p>
@@ -376,7 +152,9 @@ export function Appointments() {
                     {TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ??
                       item.timeZone}
                   </p>
+                  {item.specialty && <p className="event-specialty">{item.specialty}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
+                  {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
                   <AppointmentStudyList studyIds={item.studyIds} />
                   {status === 'upcoming' && <AppointmentCalendar appointment={item} />}
                   {(item.cost !== null || item.coverage || item.reminderMinutes) && (
@@ -421,10 +199,17 @@ export function Appointments() {
                     className="button ghost button-sm"
                     type="button"
                     disabled={Boolean(item.syncStatus)}
-                    onClick={() => openEdit(item)}
+                    onClick={() => setEditingAppointment(item)}
                   >
-                    Editar
+                    Editar turno
                   </button>
+                  {status === 'overdue' && (
+                    <button className="button secondary button-sm" type="button"
+                            disabled={Boolean(item.syncStatus)}
+                            onClick={() => setEditingAppointment({...item, status: 'completed'})}>
+                      Registrar consulta
+                    </button>
+                  )}
                   <button
                     className="button ghost button-sm appointment-delete"
                     type="button"
@@ -454,13 +239,11 @@ export function Appointments() {
             <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>
               Limpiar búsqueda
             </button>
-          ) : (
-            <button className="button secondary button-sm" type="button" onClick={openNew}>
-              Nuevo turno
-            </button>
-          )}
+          ) : null}
         </div>
       )}
+
+      <MedicalEvents query={normalizedQuery} />
 
       <ConfirmActionDialog
         open={Boolean(pendingDelete)}

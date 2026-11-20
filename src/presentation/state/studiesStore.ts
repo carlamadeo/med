@@ -164,7 +164,8 @@ export const visibleEpisodes = computed<Episode[]>(() => {
             illness: draft.illness,
             observations: draft.observations ?? [],
             medications: draft.medications ?? [],
-            closed: draft.closed === true,
+            closed: draft.closed === true || Boolean(draft.endDate),
+            endDate: draft.endDate,
             revision: draft.revision ?? '',
             syncStatus: entry.status,
         };
@@ -180,8 +181,10 @@ export const visibleAppointments = computed<Appointment[]>(() => {
         if (entry.kind !== 'appointment-save' || !entry.appointmentDraft || entry.id === undefined) continue;
         const draft = entry.appointmentDraft;
         const index = result.findIndex(item => item.id === draft.id);
+        const {removePrescription, ...fields} = draft;
         const local: Appointment = {
-            ...draft,
+            ...fields,
+            prescription: removePrescription || entry.attachment ? undefined : result[index]?.prescription,
             id: draft.id ?? `pending-${entry.id}`,
             revision: draft.revision ?? '',
             syncStatus: entry.status

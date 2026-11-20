@@ -2,6 +2,7 @@ import {enqueueOffline} from '../utils/enqueueOffline';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
+import {episodeDuration, episodeEndDateError} from '@domain/episodes';
 import {normalize, todayLocal} from '@domain/utils';
 import {formatStudyDate} from '@domain/library';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
@@ -38,10 +39,10 @@ interface FormMedication {
     instructions?: string;
 }
 
-function createEmptyObservation(): FormObservation {
+function createEmptyObservation(date = todayLocal()): FormObservation {
     return {
         _key: createKey(),
-        date: todayLocal(),
+        date,
         text: '',
         symptoms: [],
     };
@@ -90,6 +91,7 @@ export function Episodes() {
     const [observations, setObservations] = useState<FormObservation[]>(() => [createEmptyObservation()]);
     const [medications, setMedications] = useState<FormMedication[]>(() => [createEmptyMedication()]);
     const [formOpen, setFormOpen] = useState(false);
+    const [closed, setClosed] = useState(false);
     const [query, setQuery] = useState('');
     const [pendingDelete, setPendingDelete] = useState<Episode | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -132,6 +134,7 @@ export function Episodes() {
     }
 
     function resetForm() {
+        setClosed(false);
         setObservations([createEmptyObservation()]);
         setMedications([createEmptyMedication()]);
     }
@@ -236,10 +239,17 @@ export function Episodes() {
             illness,
             observations: validObservations.length > 0 ? validObservations.map(toDomainObservation) : undefined,
             medications: validMedications.length > 0 ? validMedications.map(toDomainMedication) : undefined,
-            closed: data.has('closed'),
+            closed,
+            endDate: String(data.get('endDate') ?? '') || undefined,
             id: editing?.id,
             revision: editing?.revision,
         };
+
+        const validationError = episodeEndDateError(draft.endDate, draft.observations ?? []);
+        if (validationError) {
+            setMessage(validationError);
+            return;
+        }
 
         setBusy(true);
         setMessage('');
@@ -250,7 +260,8 @@ export function Episodes() {
                     illness: draft.illness,
                     observations: draft.observations ?? [],
                     medications: draft.medications ?? [],
-                    closed: Boolean(draft.closed),
+                    closed: draft.closed || Boolean(draft.endDate),
+                    endDate: draft.endDate,
                     revision: '1',
                 };
                 episodes.value = [...episodes.value.filter((episode) => episode.id !== saved.id), saved];
@@ -309,7 +320,8 @@ export function Episodes() {
     function startEdit(episode: Episode) {
         setMessage('');
         setEditing(episode);
-        const obs = episode.observations.length > 0 ? episode.observations.map(toFormObservation) : [createEmptyObservation()];
+        setClosed(Boolean(episode.closed || episode.endDate));
+        const obs = episode.observations.length > 0 ? episode.observations.map(toFormObservation) : [createEmptyObservation('')];
         const meds = episode.medications.length > 0 ? episode.medications.map(toFormMedication) : [createEmptyMedication()];
         setObservations(obs);
         setMedications(meds);
@@ -469,8 +481,7 @@ export function Episodes() {
             <ul id="episodes-list" className="episode-list">
                 {visible.map((episode) => {
                     const observations = [...episode.observations].sort((a, b) => a.date.localeCompare(b.date));
-                    const dates = observations.map((item) => item.date).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
-                    const duration = dates.length ? Math.round((Date.parse(`${dates[dates.length - 1]}T00:00:00Z`) - Date.parse(`${dates[0]}T00:00:00Z`)) / 86400000) + 1 : null;
+                    const duration = episodeDuration(episode);
                     const activeMeds = episode.medications.filter((medication) => medication.name);
                     const syncLabel = episode.syncStatus === 'conflict' ? 'Requiere revisión'
                         : episode.syncStatus === 'failed' ? 'No se puede sincronizar'
@@ -480,13 +491,13 @@ export function Episodes() {
                         <div className="episode-top">
                             <div className="episode-title">
                                 <h3>{episode.illness || 'Episodio de salud'}</h3>
-                                <p>{episode.closed ? 'Finalizado' : 'En curso'}{duration !== null ? ` · ${duration} ${duration === 1 ? 'día' : 'días'}` : ''}</p>
+                                <p>{episode.closed || episode.endDate ? 'Finalizado' : 'En curso'}{duration !== null ? ` · ${duration} ${duration === 1 ? 'día' : 'días'}` : ''}</p>
+                                {episode.endDate && <p>Finalización <time dateTime={episode.endDate}>{formatStudyDate(episode.endDate)}</time></p>}
                             </div>
                             {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
                         </div>
 
                         <div className="episode-stats">
-                            <span>{observations.length} {observations.length === 1 ? 'día' : 'días'}</span>
                             <span>{activeMeds.length} {activeMeds.length === 1 ? 'medicamento' : 'medicamentos'}</span>
                         </div>
 
@@ -575,9 +586,14 @@ export function Episodes() {
                 <fieldset disabled={busy}>
                     <label>Enfermedad <input name="illness" defaultValue={editing?.illness ?? ''}
                                              placeholder="Ej: Gripe, Lumbalgia, Sinusitis..."/></label>
-                    <label className="episode-check"><input name="closed" type="checkbox"
-                                                            defaultChecked={editing?.closed ?? false}/> Episodio
-                        finalizado</label>
+                    <label className="episode-check">
+                        <input name="closed" type="checkbox" checked={closed}
+                               onChange={event => setClosed(event.currentTarget.checked)}/>
+                        Episodio finalizado
+                    </label>
+                    {closed && <label>Fecha de finalización
+                        <input name="endDate" type="date" defaultValue={editing?.endDate ?? ''}/>
+                    </label>}
 
                     <fieldset>
                         <legend>Observaciones (días de ocurrencia)</legend>

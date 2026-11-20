@@ -116,7 +116,6 @@ export type ViewMode =
     | 'categoria'
     | 'portales'
     | 'operaciones'
-    | 'eventos'
     | 'episodios'
     | 'turnos'
     | 'intake';
@@ -157,6 +156,7 @@ export interface Episode {
     observations: SymptomObservation[];
     medications: Medication[];
     closed?: boolean;
+    endDate?: string;
     revision: string;
     syncStatus?: 'pending' | 'conflict' | 'failed';
 }
@@ -166,6 +166,7 @@ export interface EpisodeDraft {
     observations?: SymptomObservation[];
     medications?: Medication[];
     closed?: boolean;
+    endDate?: string;
     id?: string;
     createId?: string;
     revision?: string;
@@ -176,18 +177,27 @@ export interface AppointmentDraft {
     time: string;
     timeZone: string;
     professional: string;
+    specialty?: string;
     notes: string;
     status: 'scheduled' | 'completed' | 'cancelled' | 'absent';
     cost: number | null;
     coverage: 'all' | 'partial' | 'none' | null;
     reminderMinutes?: 15 | 60 | 1440 | null;
     studyIds?: string[];
+    prescriptionFile?: File;
+    removePrescription?: boolean;
     id?: string;
     createId?: string;
     revision?: string;
 }
 
-export interface Appointment extends AppointmentDraft {
+export interface AppointmentPrescription {
+    name: string;
+    mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+}
+
+export interface Appointment extends Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> {
+    prescription?: AppointmentPrescription;
     id: string;
     revision: string;
     syncStatus?: 'pending' | 'conflict' | 'failed';

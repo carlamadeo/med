@@ -3,7 +3,6 @@ import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libr
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
-import {MedicalEvents} from './MedicalEvents';
 import {Portals} from './Portals';
 import {IntakeCandidates} from './IntakeCandidates';
 import {Episodes} from './Episodes';
@@ -56,7 +55,6 @@ export function StudyListContainer({
                 <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volvera a intentar al recuperar la conexion.</p>
             )}
             {view.value === 'operaciones' && <Operations/>}
-            {view.value === 'eventos' && <MedicalEvents/>}
             {view.value === 'episodios' && <Episodes/>}
             {view.value === 'turnos' && <Appointments/>}
             {view.value === 'portales' && <Portals onViewStudies={portal => {
@@ -67,7 +65,7 @@ export function StudyListContainer({
             {view.value === 'intake' && (
                 <IntakeCandidates onOpenEditor={onOpenCandidate}/>
             )}
-            {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'eventos' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
+            {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
                 <>
                     <div className="section-head library-search-head">
                         <div className="library-head-main">

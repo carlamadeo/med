@@ -2404,16 +2404,10 @@
     gap: 1rem;
 }
 
-.events-head h2 {
+.events-head h3 {
     font-size: 1.35rem;
     font-weight: 650;
     letter-spacing: -0.03em;
-}
-
-.events-desc {
-    margin-top: 0.2rem;
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
 }
 
 .events-head-actions {
@@ -2421,48 +2415,6 @@
     align-items: center;
     gap: 0.5rem;
     flex: none;
-}
-
-.events-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.events-search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: min(22rem, 100%);
-    min-height: 2.25rem;
-    padding: 0 0.625rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    color: var(--color-text-tertiary);
-    box-shadow: var(--shadow-xs);
-}
-
-.events-search .icon {
-    width: 0.9375rem;
-    height: 0.9375rem;
-    flex: none;
-}
-
-.events-search input {
-    width: 100%;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: 0.8125rem;
-}
-
-.events-search:focus-within {
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 3px var(--color-brand-light);
 }
 
 .events-message {
@@ -2538,6 +2490,7 @@
 }
 
 .event-title {
+    margin: 0;
     font-size: 0.9375rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -2600,29 +2553,6 @@
 
 .event-delete {
     color: var(--color-error);
-}
-
-.event-empty {
-    display: grid;
-    gap: 0.5rem;
-    justify-items: center;
-    padding: 3rem 1.5rem;
-    border: 1px dashed var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
-    text-align: center;
-}
-
-.event-empty-icon {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-hover);
-    color: var(--color-text-tertiary);
 }
 
 .dialog.event-dialog {
@@ -3579,8 +3509,7 @@
     gap: 1rem;
 }
 
-.appointments-head h2,
-.appointments > h2 {
+.appointments-head h2 {
     font-size: 1.35rem;
     font-weight: 650;
     letter-spacing: -0.03em;
@@ -3598,58 +3527,24 @@
     flex: none;
 }
 
-.appointments-form {
-    display: grid;
-    gap: 0.75rem;
+.appointment-prescription {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
 }
 
-.appointments-form fieldset {
-    display: grid;
-    gap: 0.65rem;
-    padding: 0;
-    border: 0;
-}
-
-.appointments-form legend {
-    margin-bottom: 0.35rem;
+.appointment-prescription-name {
     color: var(--color-text-secondary);
-    font-size: 0.75rem;
-    font-weight: 550;
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
 }
 
-.appointment-form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
-}
-
-.appointment-form-grid label {
-    display: grid;
-    gap: 0.3rem;
-    min-width: 0;
-    color: var(--color-text-secondary);
-    font-size: 0.75rem;
-}
-
-.appointment-form-grid label.wide {
-    grid-column: 1 / -1;
-}
-
-.appointment-form-grid input,
-.appointment-form-grid select,
-.appointment-form-grid textarea {
-    width: 100%;
-    min-width: 0;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    font-size: 0.8125rem;
-}
-
-.appointment-form-grid textarea {
-    min-height: 4rem;
-    resize: vertical;
+.appointment-prescription-remove {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
 }
 
 .appointment-note {
@@ -3658,8 +3553,7 @@
     line-height: 1.4;
 }
 
-.appointment-dialog .appointment-study-picker,
-.appointments-form .appointment-study-picker {
+.appointment-dialog .appointment-study-picker {
     min-width: 0;
     margin: 0.5rem 0;
     padding: 0.5rem 0.75rem;
@@ -3720,11 +3614,6 @@
 
 .appointment-study-note {
     color: var(--color-text-secondary);
-}
-
-.appointments-form .dialog-actions {
-    padding-top: 0.15rem;
-    margin-top: 0.15rem;
 }
 
 .appointments-toolbar {
@@ -3862,6 +3751,7 @@
 
 .appointment-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
     justify-content: flex-end;
     grid-column: 1 / -1;
@@ -3920,14 +3810,6 @@
     .appointments-head-actions {
         width: 100%;
         justify-content: space-between;
-    }
-
-    .appointment-form-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .appointment-form-grid label.wide {
-        grid-column: auto;
     }
 
     .appointment-card {

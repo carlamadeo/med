@@ -128,3 +128,11 @@ describe('episodes', () => {
         expect(cached).toEqual([]);
     });
 });
+
+it('stores an explicit end date and rejects an end before the first observation', async () => {
+    const saved = await driveEpisodeRepo.save({...baseEpisode, endDate: '2024-01-05'});
+    expect((await driveEpisodeRepo.list())[0]).toMatchObject({closed: true, endDate: '2024-01-05'});
+    await expect(driveEpisodeRepo.save({...saved, endDate: '2023-12-31'})).rejects.toThrow('anterior');
+    await driveEpisodeRepo.save({...saved, closed: false, endDate: undefined});
+    expect((await driveEpisodeRepo.list())[0]?.endDate).toBeUndefined();
+});

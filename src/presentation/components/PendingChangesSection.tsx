@@ -19,6 +19,7 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
     return <>
         <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
         <p>Profesional: {value.professional || '—'}</p>
+        {value.specialty && <p>Especialidad: {value.specialty}</p>}
         <p>Detalles: {value.notes || '—'}</p>
         <p>Estado: {statuses[value.status]}</p>
         <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} ·
@@ -88,6 +89,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                         {entry.draft && (
                             <span> · {entry.draft.date} · {entry.draft.types.join(', ')} · {entry.draft.doctor}</span>
                         )}
+                        {entry.kind === 'appointment-save' && (entry.attachmentName || entry.appointmentDraft?.removePrescription) &&
+                            <p>Receta: {entry.attachmentName || 'Se quitará el archivo'}</p>}
                         {entry.lastError && <p>{entry.lastError}</p>}
                         {entry.draft && (
                             <details>
@@ -128,6 +131,7 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                     const remoteAppointment = appointments.value.find(item => item.id === entry.appointmentId);
                                     return remoteAppointment ? <>
                                         <p>Versión de Drive</p><AppointmentDetails value={remoteAppointment}/>
+                                        {remoteAppointment.prescription && <p>Receta: {remoteAppointment.prescription.name}</p>}
                                         <p>Revisión de Drive: {remoteAppointment.revision}</p>
                                         <button type="button" className="button secondary"
                                                 disabled={isSyncing || !navigator.onLine || !remoteAppointment.revision}

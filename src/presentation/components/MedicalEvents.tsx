@@ -12,13 +12,12 @@ import {EventRelatedPicker} from './EventRelatedPicker';
 
 const outbox = new Outbox();
 
-export function MedicalEvents() {
+export function MedicalEvents({query}: {query: string}) {
     const studyAttachments = studies.value.filter(hasStudyAttachment);
     const [editing, setEditing] = useState<MedicalEvent | null>(null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [formOpen, setFormOpen] = useState(false);
-    const [query, setQuery] = useState('');
     const [pendingDelete, setPendingDelete] = useState<MedicalEvent | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -185,51 +184,35 @@ export function MedicalEvents() {
         }
     }
 
-    const normalizedQuery = normalize(query);
     const events = visibleMedicalEvents.value;
     const specialties = specialtyNames(events, COMMON_SPECIALTIES);
     const visible = events
         .filter((event) => {
-            if (!normalizedQuery) return true;
+            if (!query) return true;
             const relatedTitles = (event.studyIds ?? []).map((id) => studies.value.find((study) => study.id === id)?.title ?? '');
             return [event.kind === 'consultation' ? 'consulta' : 'receta', event.date, event.doctor, event.specialty, event.notes, ...relatedTitles]
-                .some((value) => normalize(value ?? '').includes(normalizedQuery));
+                .some((value) => normalize(value ?? '').includes(query));
         })
         .sort((a, b) => b.date.localeCompare(a.date));
 
     return <section className="events" aria-labelledby="events-title">
         <div className="events-head">
             <div>
-                <p className="eyebrow">Seguimiento</p>
-                <h2 id="events-title">Consultas y recetas</h2>
-                <p className="events-desc">Consultas médicas, indicaciones y recetas con sus estudios y documentos.</p>
+                <h3 id="events-title">Consultas y recetas sin turno</h3>
             </div>
             <div className="events-head-actions">
-                <span className="count-badge">{visibleMedicalEvents.value.length}</span>
                 <button className="button primary" type="button" onClick={openNew}>
                     <svg className="icon">
                         <use href="#i-plus"/>
                     </svg>
-                    Agregar consulta
+                    Registrar sin turno
                 </button>
             </div>
         </div>
 
-        <div className="events-toolbar">
-            <label className="events-search">
-                <svg className="icon">
-                    <use href="#i-search"/>
-                </svg>
-                <span className="sr-only">Buscar consultas y recetas</span>
-                <input id="event-search" type="search" placeholder="Buscar por profesional, especialidad o estudio…"
-                       value={query}
-                       onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
-            </label>
-        </div>
-
         {!formOpen && message && <p className="events-message" role="status">{message}</p>}
 
-        {visible.length ? (
+        {visible.length > 0 && (
             <ul id="events-list" className="event-list">
                 {visible.map((event) => {
                     const studyIds = event.studyIds ?? [];
@@ -251,7 +234,7 @@ export function MedicalEvents() {
                             {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
                         </div>
 
-                        <h3 className="event-title">{event.doctor || 'Profesional sin nombre'}</h3>
+                        <h4 className="event-title">{event.doctor || 'Profesional sin nombre'}</h4>
                         {event.specialty && <p className="event-specialty">{event.specialty}</p>}
                         {event.notes && <p className="event-notes">{event.notes}</p>}
 
@@ -295,18 +278,6 @@ export function MedicalEvents() {
                     </li>;
                 })}
             </ul>
-        ) : (
-            <div className="event-empty">
-                <span className="event-empty-icon"><svg className="icon"><use href="#i-stethoscope"/></svg></span>
-                <p>{normalizedQuery ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas.'}</p>
-                {normalizedQuery ? (
-                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
-                        búsqueda</button>
-                ) : (
-                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar
-                        consulta</button>
-                )}
-            </div>
         )}
 
         <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title"

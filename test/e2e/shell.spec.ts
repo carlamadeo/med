@@ -86,7 +86,9 @@ test.beforeEach(async ({page}) => {
     });
     await page.route('**/types.json', (route) => route.fulfill({json: ['Mamografía', 'Resonancia', 'Laboratorio', 'Consulta']}));
     await page.addInitScript((key) => {
-        sessionStorage.setItem(key, JSON.stringify({accessToken: 'synthetic-token', expires: Date.now() + 3600000}));
+        if (!new URLSearchParams(location.search).has('sin-sesion')) {
+            sessionStorage.setItem(key, JSON.stringify({accessToken: 'synthetic-token', expires: Date.now() + 3600000}));
+        }
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     }, sessionKey);
 });
@@ -103,14 +105,13 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await navigateTo(page, 'operaciones');
     await expect(page.locator('#operations-title')).toHaveText('Operaciones');
 
-    await navigateTo(page, 'eventos');
-    await expect(page.locator('#events-title')).toHaveText('Consultas y recetas');
-
     await navigateTo(page, 'episodios');
     await expect(page.locator('#episodes-title')).toHaveText('Episodios de salud');
 
     await navigateTo(page, 'turnos');
-    await expect(page.locator('#appointments-title')).toHaveText('Turnos médicos');
+    await expect(page.locator('#appointments-title')).toHaveText('Turnos, consultas y recetas');
+    await expect(page.locator('#events-title')).toHaveText('Consultas y recetas sin turno');
+    await expect(page.locator('#nav-eventos')).toHaveCount(0);
 });
 
 test('abre el menú móvil y navega a Resumen', async ({page}) => {
@@ -409,7 +410,7 @@ test('mantiene las secciones secundarias legibles en ambos temas', async ({page}
     await page.emulateMedia({reducedMotion: 'reduce'});
     const sections = [
         ['resumen', '#resumen'], ['portales', '#portals-title'], ['operaciones', '#operations-title'],
-        ['eventos', '#events-title'], ['episodios', '#episodes-title'], ['turnos', '#appointments-title'],
+        ['episodios', '#episodes-title'], ['turnos', '#appointments-title'],
         ['intake', '#intake-title'],
     ];
     for (const theme of ['light', 'dark']) {
@@ -420,6 +421,10 @@ test('mantiene las secciones secundarias legibles en ambos temas', async ({page}
             await navigateTo(page, view!);
             await expect(page.locator(selector!)).toBeVisible();
             if (await page.locator('#menuBtn').isVisible()) await expect(page.locator('#sidebar')).toBeHidden();
+            if (view !== 'resumen') {
+                await expect(page.locator('#library')).toHaveCSS('padding-top', '24px');
+                await expect(page.locator('#library')).toHaveCSS('padding-bottom', '40px');
+            }
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         }
     }
@@ -432,7 +437,8 @@ test('abre y cierra formularios y acciones del archivo', async ({page}) => {
     const forms = [
         ['portales', '.portals-head button', '#portal-dialog'],
         ['operaciones', '.operations-head button', '#operation-dialog'],
-        ['eventos', '.events-head button', '#event-dialog'],
+        ['turnos', '.events-head button', '#event-dialog'],
+        ['turnos', '.appointments-head button', '#appointment-dialog'],
         ['episodios', '.episodes-head button', '#episode-dialog'],
     ];
     for (const [view, trigger, dialog] of forms) {
@@ -477,8 +483,8 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     await page.setViewportSize({width: 320, height: 700});
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
-    await navigateTo(page, 'eventos');
-    await page.locator('.events-head').getByRole('button', {name: 'Agregar consulta'}).click();
+    await navigateTo(page, 'turnos');
+    await page.locator('.events-head').getByRole('button', {name: 'Registrar sin turno'}).click();
     const dialog = page.getByRole('dialog', {name: 'Agregar consulta o receta'});
     const specialty = dialog.getByLabel('Especialidad');
     await specialty.fill('Cardiología');
@@ -507,7 +513,7 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     ]));
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await dialog.getByRole('button', {name: 'Cancelar'}).click();
-    await page.locator('.events-head').getByRole('button', {name: 'Agregar consulta'}).click();
+    await page.locator('.events-head').getByRole('button', {name: 'Registrar sin turno'}).click();
     await expect(specialty).toHaveValue('');
     await expect(dialog.getByLabel('Buscar estudios relacionados')).toBeHidden();
 });
@@ -533,7 +539,7 @@ test('muestra registros largos completos en las secciones secundarias', async ({
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     for (const [view, selector] of [['portales', '.portal-card-title h3'], ['operaciones', '.operation-title h3'],
-        ['eventos', '.event-title'], ['episodios', '.episode-title h3']]) {
+        ['turnos', '.event-title'], ['episodios', '.episode-title h3']]) {
         await navigateTo(page, view!);
         const title = page.locator(selector!);
         await expect(title).toHaveText(name);
@@ -591,4 +597,58 @@ test('mantiene las acciones del editor fuera del área desplazable', async ({pag
     expect(contentBounds!.y + contentBounds!.height).toBeLessThanOrEqual(actionsBounds!.y);
     await expect(editor.getByLabel('Enlace al visor web')).toBeInViewport();
     await expect(editor.getByRole('button', {name: 'Guardar cambios'})).toBeInViewport();
+});
+
+test('registra la consulta y descarga la receta desde el turno', async ({page}) => {
+    await page.goto('/?sin-sesion');
+    await page.locator('#enter-demo').click();
+    await navigateTo(page, 'turnos');
+
+    await page.getByRole('button', {name: 'Nuevo turno'}).click();
+    const dialog = page.locator('#appointment-dialog');
+    await dialog.getByLabel('Fecha').fill('2024-03-01');
+    await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
+    await dialog.getByLabel('Profesional').fill('Dra. Pérez');
+    await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
+    await dialog.getByRole('button', {name: 'Guardar turno'}).click();
+    await expect(dialog).toBeHidden();
+
+    const card = page.locator('.appointment-card').filter({hasText: 'Dra. Pérez'});
+    await card.getByRole('button', {name: 'Registrar consulta'}).click();
+    await expect(dialog.getByLabel('Estado')).toHaveValue('completed');
+    await dialog.getByLabel('Notas de la consulta').fill('Control en una semana');
+    const file = {name: 'receta.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n')};
+    await dialog.getByLabel(/Adjuntar receta/).setInputFiles(file);
+    await dialog.getByRole('button', {name: 'Guardar turno'}).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole('searchbox', {name: 'Buscar turnos, consultas y recetas'}).fill('otorrinolaringologia');
+    await expect(card).toContainText('Realizado');
+    await expect(card).toContainText('Control en una semana');
+    await expect(card).toContainText('receta.pdf');
+    const download = page.waitForEvent('download');
+    await card.getByRole('button', {name: 'Descargar receta'}).click();
+    expect((await download).suggestedFilename()).toBe(file.name);
+});
+
+test('permite finalizar un episodio con una fecha distinta de la última observación', async ({page}) => {
+    await page.goto('/?sin-sesion');
+    await page.locator('#enter-demo').click();
+    await navigateTo(page, 'episodios');
+
+    await page.locator('.episodes-head').getByRole('button').click();
+    const dialog = page.locator('#episode-dialog');
+    await dialog.getByLabel('Enfermedad').fill('Otitis de prueba');
+    await dialog.getByLabel('Fecha', {exact: true}).fill('2024-03-09');
+    await dialog.getByLabel('Texto libre').fill('Primera observación');
+    await dialog.getByLabel('Episodio finalizado').check();
+    await dialog.getByLabel('Fecha de finalización').fill('2024-03-12');
+    await dialog.getByRole('button', {name: 'Guardar episodio'}).click();
+    await expect(dialog).toBeHidden();
+
+    const card = page.locator('.episode-card').filter({hasText: 'Otitis de prueba'});
+    await expect(card).toContainText('Finalizado · 4 días');
+    await expect(card.locator('time[datetime="2024-03-12"]')).toBeVisible();
+    await card.getByRole('button', {name: 'Editar'}).click();
+    await expect(dialog.getByLabel('Fecha de finalización')).toHaveValue('2024-03-12');
 });

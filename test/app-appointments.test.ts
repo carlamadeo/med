@@ -4,10 +4,9 @@ import {$, mountPage} from './page';
 
 it('creates a turn and preserves a zero cost', async () => {
     await mountPage();
-    act(() => {
-        $('#nav-turnos').click();
-    });
-    const form = document.querySelector<HTMLFormElement>('.appointments-form')!;
+    act(() => $('#nav-turnos').click());
+    act(() => $('.appointments-head button').click());
+    const form = document.querySelector<HTMLFormElement>('#appointment-form')!;
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-20';
     (form.elements.namedItem('time') as HTMLInputElement).value = '10:30';
     (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';

@@ -2,7 +2,11 @@ import {isRecoverable} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage} from '@core/storage';
 import {validateAppointment} from '@domain/appointments';
+import {cleanSpecialty} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
+import {validateDocument} from './pdf-analysis';
+
+type AppointmentDescription = Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> & {prescriptionName?: string};
 
 export class DriveAppointmentRepository {
     constructor(private client: DriveClient) {
@@ -11,9 +15,14 @@ export class DriveAppointmentRepository {
     private parse(file: DriveFileResponse): Appointment {
         const ID_PATTERN = /^[\w-]+$/;
         if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.misEstudios !== 'turno-v1') throw new Error('Turno no disponible.');
-        const item = this.client.parseDescription<AppointmentDraft>(file, 'Drive tiene un turno cuya ficha no se puede leer.');
+        const item = this.client.parseDescription<AppointmentDescription>(file, 'Drive tiene un turno cuya ficha no se puede leer.');
         if (validateAppointment(item).length || !['scheduled', 'completed', 'cancelled', 'absent'].includes(item.status) || ![null, 'all', 'partial', 'none'].includes(item.coverage)) throw new Error('Drive tiene un turno cuya ficha no se puede leer.');
-        return {...item, id: file.id, revision: file.version};
+        const {prescriptionName, ...fields} = item;
+        const {mimeType} = file;
+        const prescription: Appointment['prescription'] = typeof prescriptionName === 'string' && prescriptionName &&
+            (mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png')
+            ? {name: prescriptionName, mimeType} : undefined;
+        return {...fields, id: file.id, revision: file.version, ...(prescription ? {prescription} : {})};
     }
 
     async list(): Promise<Appointment[]> {
@@ -33,48 +42,60 @@ export class DriveAppointmentRepository {
         return items;
     }
 
-    async save(draft: AppointmentDraft): Promise<Appointment> {
+    async save(draft: AppointmentDraft, expectedToken?: string): Promise<Appointment> {
         const errors = validateAppointment(draft);
         if (errors.length) throw new Error(errors[0]);
-        const token = await this.client.getAccessToken();
+        const token = expectedToken ?? await this.client.getAccessToken();
+        await this.client.assertSession(token);
         const owner = await this.client.cacheOwner();
-        const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds} = draft;
-        const fields = {
-            date,
-            time,
-            timeZone,
-            professional,
-            notes,
-            status,
-            cost,
-            coverage,
+        const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds,
+            prescriptionFile, removePrescription} = draft;
+        const specialty = cleanSpecialty(draft.specialty);
+        const newMime = prescriptionFile ? await validateDocument(prescriptionFile) : undefined;
+        const id = draft.id ?? draft.createId ?? await this.client.reserveId(token);
+        const metadataUrl = this.fileUrl(id);
+        const existing = draft.id
+            ? this.parse(await this.client.request(metadataUrl, {}, token).then(r => r.json() as Promise<DriveFileResponse>))
+            : null;
+        if (existing && (!draft.revision || existing.revision !== draft.revision)) throw new DriveConflictError('turno');
+
+        const previousName = removePrescription ? undefined : existing?.prescription?.name;
+        const prescriptionName = prescriptionFile ? prescriptionFile.name || 'Receta' : previousName;
+        const description = JSON.stringify({
+            date, time, timeZone, professional, notes, status, cost, coverage,
+            ...(specialty ? {specialty} : {}),
             ...(reminderMinutes ? {reminderMinutes} : {}),
             ...(studyIds?.length ? {studyIds: [...new Set(studyIds)]} : {}),
-        };
-        const description = JSON.stringify(fields);
+            ...(prescriptionName ? {prescriptionName} : {}),
+        });
         let file: DriveFileResponse;
-        if (draft.id) {
-            const existing = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(draft.id)}`, {fields: ENTRY_FIELDS}), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
-            if (!draft.revision || this.parse(existing).revision !== draft.revision) throw new DriveConflictError('turno');
-            await this.client.assertSession(token);
-            file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(draft.id)}`, {fields: ENTRY_FIELDS}), this.client.jsonBody('PATCH', {description}), token).then(r => r.json() as Promise<DriveFileResponse>);
+        if (existing && !prescriptionFile && !(removePrescription && existing.prescription)) {
+            file = await this.client.request(metadataUrl, this.client.jsonBody('PATCH', {description}), token)
+                .then(r => r.json() as Promise<DriveFileResponse>);
         } else {
-            const id = draft.createId ?? await this.client.reserveId();
-            const folder = await this.client.getFolderId();
-            await this.client.assertSession(token);
+            const mimeType = newMime ?? 'application/json';
+            const media = prescriptionFile ?? new Blob([description], {type: mimeType});
+            const metadata: Record<string, unknown> = {
+                name: `${date} Turno`, description, mimeType,
+            };
+            if (!existing) {
+                metadata.id = id;
+                metadata.parents = [await this.client.getFolderId(token)];
+                metadata.appProperties = {misEstudios: 'turno-v1'};
+            }
+            const path = existing ? `files/${encodeURIComponent(id)}` : 'files';
             try {
-                file = await this.client.upload('files', 'POST', {
-                    id,
-                    name: `${draft.date} Turno`,
-                    description,
-                    mimeType: 'application/json',
-                    parents: [folder],
-                    appProperties: {misEstudios: 'turno-v1'}
-                }, new Blob([description], {type: 'application/json'}), 'application/json', undefined, token);
+                file = await this.client.upload(path, existing ? 'PATCH' : 'POST', metadata, media, mimeType, undefined, token);
             } catch (error) {
-                if (this.client.shouldRethrowCreateError(draft.createId, error)) throw error;
-                file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
-                if (file.description !== description) throw new DriveConflictError('turno');
+                if (existing || this.client.shouldRethrowCreateError(draft.createId, error)) throw error;
+                file = await this.client.request(metadataUrl, {}, token).then(r => r.json() as Promise<DriveFileResponse>);
+                if (file.description !== description || file.mimeType !== mimeType) throw new DriveConflictError('turno');
+                if (prescriptionFile) {
+                    const stored = await this.getPrescription(this.parse(file), token);
+                    const hash = async (blob: Blob) => new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
+                    const [localHash, storedHash] = await Promise.all([hash(prescriptionFile), hash(stored)]);
+                    if (localHash.some((byte, index) => byte !== storedHash[index])) throw new DriveConflictError('turno');
+                }
             }
         }
         const saved = this.parse(file);
@@ -101,9 +122,32 @@ export class DriveAppointmentRepository {
         await storage.updateSessionDirectory<Appointment>(owner, 'appointmentsCache', (cached) => cached ? cached.filter(item => item.id !== id) : null);
     }
 
-    async get(id: string): Promise<Appointment> {
-        const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS})).then(r => r.json() as Promise<DriveFileResponse>);
+    private fileUrl(id: string, params: Record<string, string> = {fields: ENTRY_FIELDS}): string {
+        return this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, params);
+    }
+
+    async get(id: string, expectedToken?: string): Promise<Appointment> {
+        const file = await this.client.request(this.fileUrl(id), {}, expectedToken).then(r => r.json() as Promise<DriveFileResponse>);
         return this.parse(file);
+    }
+
+    async getPrescription(appointment: Appointment, expectedToken?: string): Promise<File> {
+        const {id, revision, prescription} = appointment;
+        if (!prescription) throw new Error('Este turno no tiene una receta adjunta.');
+        const token = expectedToken ?? await this.client.getAccessToken();
+        const confirmRevision = async () => {
+            const current = await this.get(id, token);
+            if (current.revision !== revision || current.prescription?.mimeType !== prescription.mimeType ||
+                current.prescription.name !== prescription.name) throw new DriveConflictError('turno');
+        };
+        await confirmRevision();
+        const response = await this.client.request(this.fileUrl(id, {alt: 'media'}), {}, token);
+        const blob = await response.blob();
+        const mimeType = await validateDocument(blob.slice(0, 8));
+        if (mimeType !== prescription.mimeType) throw new Error('El archivo de Drive no coincide con el formato de la receta.');
+        await confirmRevision();
+        await this.client.assertSession(token);
+        return new File([blob], prescription.name, {type: mimeType});
     }
 
     async listDeleted(): Promise<Array<{

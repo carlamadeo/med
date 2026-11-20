@@ -17,8 +17,7 @@ const titles: Record<ViewMode, string> = {
     categoria: 'Biblioteca',
     portales: 'Portales',
     operaciones: 'Operaciones',
-    turnos: 'Turnos',
-    eventos: 'Consultas y recetas',
+    turnos: 'Turnos, consultas y recetas',
     episodios: 'Episodios',
     intake: 'Bandeja de entrada',
 };

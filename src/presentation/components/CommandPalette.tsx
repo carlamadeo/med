@@ -107,8 +107,7 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
         {id: 'action-library', label: 'Ir a la biblioteca', icon: 'i-folder', run: go('cronologia')},
         {id: 'action-portals', label: 'Ir a portales', icon: 'i-globe', run: go('portales')},
         {id: 'action-operations', label: 'Ir a operaciones', icon: 'i-scissors', run: go('operaciones')},
-        {id: 'action-turnos', label: 'Ir a turnos', icon: 'i-calendar', run: go('turnos')},
-        {id: 'action-events', label: 'Ir a consultas y recetas', icon: 'i-stethoscope', run: go('eventos')},
+        {id: 'action-turnos', label: 'Ir a turnos, consultas y recetas', icon: 'i-calendar', run: go('turnos')},
         {id: 'action-episodes', label: 'Ir a episodios', icon: 'i-layers', run: go('episodios')},
         {id: 'action-intake', label: 'Ir a bandeja de entrada', icon: 'i-scan', run: go('intake')},
         ...(query.trim() ? [{
