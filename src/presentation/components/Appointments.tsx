@@ -2,7 +2,7 @@ import {useState} from 'preact/hooks';
 import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
-import {setEditingAppointment, visibleAppointments} from '../state/store';
+import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
 import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
 import {AppointmentCalendar} from './AppointmentCalendar';
 import {AppointmentStudyList} from './AppointmentStudies';
@@ -47,7 +47,7 @@ export function Appointments() {
     .filter(appointment => {
       if (!normalizedQuery) return true;
       return [appointment.date, appointment.time, appointment.professional, appointment.specialty,
-        appointment.location, appointment.notes, appointment.prescription?.name,
+        appointment.location, appointment.reason, appointment.notes, appointment.prescription?.name,
         appointment.prescription ? 'receta' : '',
         appointment.status === 'completed' ? 'consulta' : 'turno'].some(
         value => normalize(value ?? '').includes(normalizedQuery)
@@ -155,6 +155,7 @@ export function Appointments() {
                   </p>
                   {item.specialty && <p className="event-specialty">{item.specialty}</p>}
                   {item.location && <p className="appointment-location">{item.location}</p>}
+                  {item.reason && <p className="appointment-notes">Motivo: {item.reason}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
                   <AppointmentStudyList studyIds={item.studyIds} />
@@ -205,11 +206,11 @@ export function Appointments() {
                   >
                     Editar turno
                   </button>
-                  {status === 'overdue' && (
+                  {status !== 'upcoming' && (
                     <button className="button secondary button-sm" type="button"
                             disabled={Boolean(item.syncStatus)}
-                            onClick={() => setEditingAppointment({...item, status: 'completed'})}>
-                      Registrar consulta
+                            onClick={() => setEditingConsultation(item)}>
+                      {status === 'overdue' ? 'Registrar consulta' : 'Editar consulta'}
                     </button>
                   )}
                   <button

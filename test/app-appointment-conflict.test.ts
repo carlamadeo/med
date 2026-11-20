@@ -22,6 +22,7 @@ it('compares and retries an offline appointment edit after a remote change', asy
         time: '10:30',
         timeZone: 'America/Argentina/Buenos_Aires',
         professional: 'Inicial',
+        reason: 'Control inicial',
         notes: '',
         status: 'scheduled',
         cost: null,
@@ -29,7 +30,9 @@ it('compares and retries an offline appointment edit after a remote change', asy
         studyIds: [SEED_PDF_ID]
     });
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
-    await queue.enqueueAppointmentSave('account-one', {...created, professional: 'Local', studyIds: [SEED_JSON_ID]});
+    await queue.enqueueAppointmentSave('account-one', {
+        ...created, professional: 'Local', reason: 'Seguimiento local', studyIds: [SEED_JSON_ID],
+    });
     const file = fakeDriveFile(created.id)!;
     file.description = JSON.stringify({...JSON.parse(file.description), professional: 'Remoto'});
     touchRemote(created.id);
@@ -40,6 +43,8 @@ it('compares and retries an offline appointment edit after a remote change', asy
     await vi.waitFor(async () => expect((await queue.list('account-one'))[0]?.status).toBe('conflict'));
     await vi.waitFor(() => expect($('#pending-changes').textContent).toContain('Remoto'));
     expect($('#pending-changes').textContent).toContain('Local');
+    expect($('#pending-changes').textContent).toContain('Seguimiento local');
+    expect($('#pending-changes').textContent).toContain('Control inicial');
     expect($('#pending-changes').textContent).toContain('Ecografía abdominal');
     expect($('#pending-changes').textContent).toContain('Análisis de sangre');
     const button = [...document.querySelectorAll<HTMLButtonElement>('#pending-changes button')].find(item => item.textContent === 'Conservar mi cambio')!;
@@ -49,6 +54,7 @@ it('compares and retries an offline appointment edit after a remote change', asy
     });
     await vi.waitFor(async () => expect(await queue.list('account-one')).toHaveLength(0));
     expect(JSON.parse(file.description).professional).toBe('Local');
+    expect(JSON.parse(file.description).reason).toBe('Seguimiento local');
     expect(JSON.parse(file.description).studyIds).toEqual([SEED_JSON_ID]);
     expect(driveAuth.cachedAccountId()).toBe('account-one');
 });

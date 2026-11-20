@@ -2,7 +2,7 @@ import {http, HttpResponse} from 'msw';
 import {render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
-import {driveAuth} from '@data';
+import {driveAppointmentRepo, driveAuth} from '@data';
 import {fakeCalendarEvents, fakeCalendars} from './fake-calendar';
 import {$, mountPage} from './page';
 import {server} from './server';
@@ -47,20 +47,21 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     (form.elements.namedItem('professional') as HTMLInputElement).value = 'Dra. Perez';
     (form.elements.namedItem('specialty') as HTMLInputElement).value = 'Cardiología';
     (form.elements.namedItem('location') as HTMLInputElement).value = 'Av. Santa Fe 1234';
-    (form.elements.namedItem('notes') as HTMLTextAreaElement).value = 'Llevar orden';
+    (form.elements.namedItem('reason') as HTMLTextAreaElement).value = '  Control anual  ';
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
     expect($('.appointments').textContent).toContain('Av. Santa Fe 1234');
     expect($('.appointments').textContent).toContain('Dra. Perez');
+    expect((await driveAppointmentRepo.list())[0]?.reason).toBe('Control anual');
 
     const cal = fakeCalendars()[0]!;
     expect(cal.summary).toBe('Turnos');
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
         summary: 'Dra. Perez',
         location: 'Av. Santa Fe 1234',
-        description: 'Especialidad: Cardiología\nLugar: Av. Santa Fe 1234\nNotas: Llevar orden',
+        description: 'Especialidad: Cardiología\nLugar: Av. Santa Fe 1234',
         reminders: {
             useDefault: false,
             overrides: [
@@ -77,11 +78,13 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     const editForm = document.querySelector<HTMLFormElement>('#appointment-form')!;
     (editForm.elements.namedItem('time') as HTMLInputElement).value = '15:00';
     (editForm.elements.namedItem('location') as HTMLInputElement).value = 'Sede Belgrano';
+    (editForm.elements.namedItem('reason') as HTMLTextAreaElement).value = '   ';
     await act(async () => {
         editForm.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
     expect($('.appointments').textContent).toContain('Sede Belgrano');
+    expect((await driveAppointmentRepo.list())[0]?.reason).toBeUndefined();
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
         location: 'Sede Belgrano',
         reminders: {
