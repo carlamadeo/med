@@ -2,7 +2,7 @@
 @media (max-width: 720px), (pointer: coarse) {
     /* WebKit can zoom the page when a smaller text field receives focus. */
     input[type='search'],
-    .appointment-dialog input[type='search'],
+    .appointment-dialog .field :is(input, select, textarea),
     .command-search input,
     .event-related-panel input[type='search'],
     .operation-form-grid input,

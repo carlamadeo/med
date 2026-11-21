@@ -227,6 +227,33 @@ test('busca turnos en móvil con texto de 16 píxeles y conserva la escala al sa
     expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
 });
 
+test('guarda un turno en móvil y muestra la ficha sin recortes', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await navigateTo(page, 'turnos');
+    await page.getByRole('button', {name: 'Nuevo turno'}).click();
+
+    const dialog = page.getByRole('dialog', {name: 'Agendar turno'});
+    const professional = dialog.getByLabel('Profesional');
+    const reason = dialog.getByLabel('Motivo de la consulta');
+    const name = 'ProfesionalDePrueba'.repeat(5);
+    const longReason = 'MotivoDePrueba'.repeat(10);
+    await dialog.getByLabel('Fecha').fill('2024-03-01');
+    await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
+    await professional.fill(name);
+    await expect(professional).toHaveCSS('font-size', '16px');
+    await reason.fill(longReason);
+    await expect(reason).toHaveCSS('font-size', '16px');
+    await dialog.getByRole('button', {name: 'Guardar turno'}).click();
+    await expect(dialog).toBeHidden();
+
+    const card = page.locator('.appointment-card').filter({hasText: name});
+    await expect(card).toContainText(longReason);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
+});
+
 test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');

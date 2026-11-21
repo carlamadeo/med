@@ -3724,6 +3724,7 @@
     display: grid;
     gap: 0.35rem;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .appointment-card-top {
