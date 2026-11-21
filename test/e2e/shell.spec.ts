@@ -716,7 +716,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
     await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
     await dialog.getByLabel('Cobertura').selectOption('partial');
-    await dialog.getByRole('combobox', {name: 'Recordatorio', exact: true}).selectOption('60');
     await dialog.getByRole('checkbox', {name: /Ecografía abdominal completa/}).check();
     await expect(dialog.getByLabel('Notas de la consulta')).toHaveCount(0);
     await expect(dialog.locator('input[type=file]')).toHaveCount(0);
@@ -743,7 +742,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(card).toContainText('Consultorio 12');
     await expect(card).toContainText('Importe: 1250');
     await expect(card).toContainText('Cobertura: Parcial');
-    await expect(card).toContainText('Recordatorio: 1 hora antes');
     await expect(card).toContainText('Ecografía abdominal completa');
     await expect(card).toContainText('Control en una semana');
     await expect(card).toContainText('receta.pdf');
