@@ -199,9 +199,11 @@ export function MedicalEvents({query}: {query: string}) {
         <div className="events-head">
             <div>
                 <h3 id="events-title">Consultas y recetas sin turno</h3>
+                <p className="events-desc">Consultas, indicaciones o recetas registradas sin turno previo.</p>
             </div>
             <div className="events-head-actions">
-                <button className="button primary" type="button" onClick={openNew}>
+                <span className="count-badge">{events.length}</span>
+                <button className="button secondary" type="button" onClick={openNew}>
                     <svg className="icon">
                         <use href="#i-plus"/>
                     </svg>
@@ -212,7 +214,7 @@ export function MedicalEvents({query}: {query: string}) {
 
         {!formOpen && message && <p className="events-message" role="status">{message}</p>}
 
-        {visible.length > 0 && (
+        {visible.length > 0 ? (
             <ul id="events-list" className="event-list">
                 {visible.map((event) => {
                     const studyIds = event.studyIds ?? [];
@@ -227,7 +229,7 @@ export function MedicalEvents({query}: {query: string}) {
                             <span className="event-kind"
                                   data-tone={event.kind === 'consultation' ? 'primary' : 'neutral'}>
                                 <svg className="icon"><use
-                                    href={event.kind === 'consultation' ? '#i-stethoscope' : '#i-message'}/></svg>
+                                    href={event.kind === 'consultation' ? '#i-stethoscope' : '#i-clipboard'}/></svg>
                                 {label}
                             </span>
                             <time className="event-date" dateTime={event.date}>{formatStudyDate(event.date)}</time>
@@ -278,6 +280,11 @@ export function MedicalEvents({query}: {query: string}) {
                     </li>;
                 })}
             </ul>
+        ) : (
+            <div className="event-empty">
+                <span className="event-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-clipboard"/></svg></span>
+                <p>{query ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas sin turno.'}</p>
+            </div>
         )}
 
         <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title"
@@ -306,15 +313,21 @@ export function MedicalEvents({query}: {query: string}) {
                 <div className="event-form-body">
                     <fieldset disabled={busy}>
                         <div className="event-form-grid">
-                            <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
-                                <option value="consultation">Consulta</option>
-                                <option value="prescription">Receta</option>
-                            </select></label>
+                            <label>
+                                Tipo
+                                <span className="select-control">
+                                    <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
+                                        <option value="consultation">Consulta</option>
+                                        <option value="prescription">Receta</option>
+                                    </select>
+                                    <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                                </span>
+                            </label>
                             <label>Fecha <input id="event-date" name="date" type="date" required
                                                 defaultValue={editing?.date ?? ''}/></label>
-                            <label className="wide">Médico o profesional <input name="doctor" maxLength={120}
+                            <label className="wide"><span className="field-label">Médico o profesional <small aria-hidden="true">Opcional</small></span> <input name="doctor" maxLength={120}
                                                                                 defaultValue={editing?.doctor ?? ''}/></label>
-                            <label className="wide">Especialidad <input name="specialty" list="event-specialties" maxLength={120}
+                            <label className="wide"><span className="field-label">Especialidad <small aria-hidden="true">Opcional</small></span> <input name="specialty" list="event-specialties" maxLength={120}
                                                                         placeholder="Elegí o escribí una especialidad"
                                                                         defaultValue={editing?.specialty ?? ''}/></label>
                             <datalist id="event-specialties">
@@ -322,7 +335,7 @@ export function MedicalEvents({query}: {query: string}) {
                                     <option key={name} value={name}/>
                                 ))}
                             </datalist>
-                            <label className="wide">Notas <textarea id="event-notes" name="notes"
+                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea id="event-notes" name="notes"
                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
 

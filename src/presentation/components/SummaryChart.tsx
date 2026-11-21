@@ -6,7 +6,7 @@ interface SummaryChartProps {
 
 const WIDTH = 760;
 const HEIGHT = 260;
-const PAD = {top: 18, right: 16, bottom: 30, left: 38};
+const PAD = {top: 20, right: 16, bottom: 36, left: 42};
 
 interface Point {
     x: number;

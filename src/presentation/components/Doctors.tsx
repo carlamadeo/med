@@ -18,8 +18,14 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
     return (
         <section className="portals" aria-labelledby="doctors-title">
             <div className="portals-head">
-                <h2 id="doctors-title">Estudios por profesional</h2>
-                <span className="count-badge">{doctors.length} {doctors.length === 1 ? 'profesional' : 'profesionales'}</span>
+                <div>
+                    <p className="eyebrow">Directorio</p>
+                    <h2 id="doctors-title">Estudios por profesional</h2>
+                    <p className="portals-desc">Profesionales registrados en tus estudios.</p>
+                </div>
+                <div className="portals-head-actions">
+                    <span className="count-badge" aria-label={`${doctors.length} ${doctors.length === 1 ? 'profesional' : 'profesionales'}`}>{doctors.length}</span>
+                </div>
             </div>
             {loading.value ? (
                 <p className="list-status" role="status">Cargando tus estudios…</p>
@@ -28,6 +34,7 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
                             action={<button className="button secondary" type="button" onClick={onRetryLoad}>Reintentar</button>}/>
             ) : doctors.length === 0 ? (
                 <div className="portal-empty" role="status">
+                    <span className="portal-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-stethoscope"/></svg></span>
                     <p>Agregá el nombre del profesional en la ficha de un estudio para verlo acá.</p>
                 </div>
             ) : (

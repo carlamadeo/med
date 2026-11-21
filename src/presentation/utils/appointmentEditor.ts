@@ -31,10 +31,15 @@ export const TIMEZONE_OPTIONS: Array<{value: string; label: string}> = [
     {value: 'UTC', label: 'UTC'},
 ];
 
+export function normalizeTimeZone(timeZone: string): string {
+    return timeZone === 'America/Buenos_Aires' ? 'America/Argentina/Buenos_Aires' : timeZone;
+}
+
 export function getTimeZoneOptions(defaultTimeZone: string): Array<{value: string; label: string}> {
-    return TIMEZONE_OPTIONS.some((option) => option.value === defaultTimeZone)
+    const normalized = normalizeTimeZone(defaultTimeZone);
+    return TIMEZONE_OPTIONS.some((option) => option.value === normalized)
         ? TIMEZONE_OPTIONS
-        : [{value: defaultTimeZone, label: defaultTimeZone}, ...TIMEZONE_OPTIONS];
+        : [{value: normalized, label: normalized}, ...TIMEZONE_OPTIONS];
 }
 
 interface AppointmentSaveResult {

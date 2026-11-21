@@ -3,6 +3,7 @@ import {render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAppointmentRepo, driveAuth} from '@data';
+import {getTimeZoneOptions, normalizeTimeZone} from '@presentation/utils/appointmentEditor';
 import {fakeCalendarEvents, fakeCalendars} from './fake-calendar';
 import {$, mountPage} from './page';
 import {server} from './server';
@@ -30,7 +31,7 @@ it('creates a turn and preserves a zero cost', async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
-    expect(document.querySelector('.appointments')?.textContent).toContain('Importe: 0');
+    expect(document.querySelector('.appointments')?.textContent).toContain('Importe: $0');
     expect(document.querySelector('.appointments')?.textContent).not.toContain('Agregar al calendario');
     expect(fakeCalendars()).toHaveLength(1);
     const cal = fakeCalendars()[0]!;
@@ -139,4 +140,12 @@ it('preserves the appointment in Drive and warns inside the dialog if Google Cal
     expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(true);
     expect($('.appointments').textContent).toContain('Dra. Perez');
     expect($('.appointments').textContent).toContain('Av. Santa Fe 1234');
+});
+
+it('normalizes legacy Buenos Aires timezone alias to the labeled option', () => {
+    expect(normalizeTimeZone('America/Buenos_Aires')).toBe('America/Argentina/Buenos_Aires');
+    expect(getTimeZoneOptions('America/Buenos_Aires')[0]).toEqual({
+        value: 'America/Argentina/Buenos_Aires',
+        label: 'Buenos Aires (GMT-3)',
+    });
 });

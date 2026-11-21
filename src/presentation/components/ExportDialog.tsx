@@ -274,7 +274,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 </label>
 
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={handleClose}>Cancelar
+                    <button type="button" className="button secondary" disabled={busy} onClick={handleClose}>Cancelar
                     </button>
                     <button type="submit" className="button primary" id="export-confirm"
                             disabled={busy || sessionLost || !hasRecords || Boolean(blocker)}>

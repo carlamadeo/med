@@ -206,7 +206,7 @@ export function Resumen() {
                     </div>
                     <p className="kpi-value">{totalDaysIllThisYear}</p>
                     <div className="kpi-foot">
-                        <span className="delta"><svg className="icon"><use href="#i-trend"/></svg> {totalEpisodesThisYear} episodios</span>
+                        <span className="delta" data-tone="neutral">{totalEpisodesThisYear} {totalEpisodesThisYear === 1 ? 'episodio' : 'episodios'}</span>
                         <span className="kpi-note">este año</span>
                     </div>
                 </article>
@@ -214,7 +214,7 @@ export function Resumen() {
                 <article className="card kpi-card">
                     <div className="kpi-top">
                         <span className="kpi-label">Medicamentos actuales</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-message"/></svg></span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-pill"/></svg></span>
                     </div>
                     <p className="kpi-value">{currentMeds.length}</p>
                     <div className="kpi-foot">
@@ -317,7 +317,7 @@ export function Resumen() {
                             )}
                             {currentMeds.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-message"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-pill"/></svg>
                                     <span>Medicación: {currentMeds.slice(0, 3).map(m => `${m.name}${m.frequency ? ` ${m.frequency}` : ''}`).join('; ')}</span>
                                 </div>
                             )}

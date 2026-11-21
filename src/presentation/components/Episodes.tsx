@@ -466,7 +466,7 @@ export function Episodes() {
                     <use href="#i-search"/>
                 </svg>
                 <span className="sr-only">Buscar episodios</span>
-                <input id="episode-search" type="search" placeholder="Buscar por enfermedad, síntoma o medicamento…"
+                <input id="episode-search" type="search" placeholder="Buscar episodios, síntomas…"
                        value={query}
                        onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
             </label>
@@ -589,7 +589,7 @@ export function Episodes() {
                                                 <p>{observation.text || 'Sin notas'}</p>
                                                 <div className="episode-symptoms">
                                                     {observation.temperature !== undefined && <span
-                                                        className="episode-symptom">Temp. {observation.temperature} °C</span>}
+                                                        className="episode-symptom">Temp. {observation.temperature.toLocaleString('es-AR')} °C</span>}
                                                     {observation.symptoms.map((symptom, symptomIndex) => <span
                                                         className="episode-symptom" key={symptomIndex}>
                                                         {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` · ${symptom.description}` : ''}
@@ -604,25 +604,25 @@ export function Episodes() {
                                     <div className="episode-meds">
                                         {episode.medications.filter(m => m.name).map((medication, index) => <span className="episode-med"
                                                                                                           key={`${medication.name}-${index}`}>
-                                            <svg className="icon"><use href="#i-message"/></svg>
+                                            <svg className="icon"><use href="#i-pill"/></svg>
                                             {medication.name}{medication.frequency ? ` · ${medication.frequency}` : ''}
                                         </span>)}
                                     </div>
                                 )}
-
-                                <div className="episode-foot">
-                                    <div className="episode-actions">
-                                        <button className="button ghost button-sm" type="button"
-                                                disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar
-                                        </button>
-                                        <button className="button ghost button-sm episode-delete" type="button"
-                                                disabled={Boolean(episode.syncStatus)}
-                                                onClick={() => void deleteEpisode(episode)}>Eliminar
-                                        </button>
-                                    </div>
-                                </div>
                             </div>
                         )}
+
+                        <div className="episode-foot">
+                            <div className="episode-actions">
+                                <button className="button ghost button-sm" type="button"
+                                        disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar
+                                </button>
+                                <button className="button ghost button-sm episode-delete" type="button"
+                                        disabled={Boolean(episode.syncStatus)}
+                                        onClick={() => void deleteEpisode(episode)}>Eliminar
+                                </button>
+                            </div>
+                        </div>
                     </li>;
                 })}
             </ul>
@@ -631,10 +631,10 @@ export function Episodes() {
                 <span className="episode-empty-icon"><svg className="icon"><use href="#i-activity"/></svg></span>
                 <p>{normalizedQuery ? 'No hay episodios que coincidan con la búsqueda.' : 'Todavía no hay episodios guardados.'}</p>
                 {normalizedQuery ? (
-                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
+                    <button className="button secondary" type="button" onClick={() => setQuery('')}>Limpiar
                         búsqueda</button>
                 ) : (
-                    <button className="button secondary button-sm" type="button" onClick={openNew}>Nuevo
+                    <button className="button secondary" type="button" onClick={openNew}>Nuevo
                         episodio</button>
                 )}
             </div>
@@ -718,14 +718,14 @@ export function Episodes() {
                                             </button>
                                         </div>
                                     ))}
-                                    <button type="button" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
+                                    <button type="button" className="button secondary button-sm" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
                                 </fieldset>
                                 {observations.length > 1 &&
-                                    <button type="button" onClick={() => removeObservation(obsIndex)}
+                                    <button type="button" className="button ghost button-sm episode-delete" onClick={() => removeObservation(obsIndex)}
                                             aria-label="Quitar observación">Quitar esta observación</button>}
                             </div>
                         ))}
-                        <button type="button" onClick={addObservation}>+ Agregar día de ocurrencia</button>
+                        <button type="button" className="button secondary button-sm" onClick={addObservation}>+ Agregar día de ocurrencia</button>
                     </fieldset>
 
                     <fieldset>
@@ -753,7 +753,7 @@ export function Episodes() {
                                     </button>}
                             </div>
                         ))}
-                        <button type="button" onClick={addMedication}>+ Medicamento</button>
+                        <button type="button" className="button secondary button-sm" onClick={addMedication}>+ Medicamento</button>
                     </fieldset>
 
                     {formOpen && message && <p className="form-error" role="alert">{message}</p>}

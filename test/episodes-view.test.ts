@@ -116,4 +116,6 @@ it('expands episode detail when clicking expand button', async () => {
     expect(root.textContent).toContain('Fiebre alta');
     expect(root.textContent).toContain('Editar');
     expect(root.textContent).toContain('Eliminar');
+    expect(root.textContent).toContain('1 día');
+    expect(root.textContent).not.toContain('1 días');
 });

@@ -93,6 +93,7 @@ export function StudyPrintDialog({study, onClose}: StudyPrintDialogProps) {
                 }}>
             <div className="dialog-heading">
                 <div>
+                    <p className="eyebrow">Biblioteca</p>
                     <h2 id="study-print-title">Preparar impresión</h2>
                     <p>{study.title}</p>
                 </div>
@@ -113,7 +114,7 @@ export function StudyPrintDialog({study, onClose}: StudyPrintDialogProps) {
             </div>
             {pages && <StudyPrintPages pages={pages}/>}
             <div className="dialog-actions">
-                <button type="button" className="button quiet" onClick={onClose}>Cancelar</button>
+                <button type="button" className="button secondary" onClick={onClose}>Cancelar</button>
                 <button type="button" className="button primary" disabled={!pages}
                         onClick={() => window.print()}>Imprimir</button>
             </div>

@@ -486,6 +486,7 @@ export function ShareDialog({onReconnect, onPrint, error, busy, sessionLost}: Sh
             }}>
                 <div className="dialog-heading">
                     <div>
+                        <p className="eyebrow">Biblioteca</p>
                         <h2 id="share-title" tabIndex={-1}>{isMulti ? 'Compartir estudios' : 'Compartir estudio'}</h2>
                         <p id="share-copy">
                             {isMulti
@@ -676,7 +677,7 @@ export function ShareDialog({onReconnect, onPrint, error, busy, sessionLost}: Sh
                     <p className="hint">El nombre se usará para la copia que compartís.</p>
                 </label>}
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy}
+                    <button type="button" className="button secondary" disabled={busy}
                             onClick={handleCancel}>Cancelar
                     </button>
                     {onPrint && study && attachmentAvailable && study.driveFileId && !isSourceUnavailable(study.driveFileId) && !prepared && (

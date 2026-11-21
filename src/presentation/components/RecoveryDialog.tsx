@@ -269,7 +269,9 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 event.preventDefault();
             }}>
                 <div className="dialog-heading">
-                    <div><h2 id="recovery-title" tabIndex={-1}>Recuperar elementos eliminados</h2>
+                    <div>
+                        <p className="eyebrow">Archivo</p>
+                        <h2 id="recovery-title" tabIndex={-1}>Recuperar elementos eliminados</h2>
                         <p id="recovery-copy">Recuperá estudios, episodios, operaciones, portales, consultas, recetas y
                             turnos eliminados durante los últimos 30 días. Sin conexión se usa la última lista
                             consultada.</p>
@@ -332,9 +334,11 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                         </div>
                     ) : currentItems.length === 0 ? (
                         <div className="empty-state recovery-empty-state">
-                            <svg className="icon recovery-empty-icon" aria-hidden="true">
-                                <use href="#i-trash-off"/>
-                            </svg>
+                            <span className="empty-icon" aria-hidden="true">
+                                <svg className="icon" aria-hidden="true">
+                                    <use href="#i-trash-off"/>
+                                </svg>
+                            </span>
                             <h3>No
                                 hay {ENTITY_TYPES.find(t => t.value === activeTab)?.label.toLowerCase()} recuperables</h3>
                             <p className="recovery-empty-copy">Los elementos eliminados hace más de 30
@@ -378,7 +382,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                                                       rel="noopener noreferrer">Abrir
                     papelera de Google Drive</a></p>
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={loading} onClick={handleCancel}>Cerrar
+                    <button type="button" className="button secondary" disabled={loading} onClick={handleCancel}>Cerrar
                     </button>
                 </div>
             </form>

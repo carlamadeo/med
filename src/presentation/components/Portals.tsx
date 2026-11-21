@@ -250,7 +250,7 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                         <use href="#i-search"/>
                     </svg>
                     <span className="sr-only">Buscar portales</span>
-                    <input id="portal-search" type="search" placeholder="Buscar por nombre, enlace o nota…"
+                    <input id="portal-search" type="search" placeholder="Buscar portales…"
                            value={query} onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
                 </label>
             </div>
@@ -301,10 +301,10 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                     <span className="portal-empty-icon"><svg className="icon"><use href="#i-globe"/></svg></span>
                     <p>{normalizedQuery ? 'No hay portales que coincidan con la búsqueda.' : 'Todavía no hay portales guardados.'}</p>
                     {normalizedQuery ? (
-                        <button className="button secondary button-sm" type="button"
+                        <button className="button secondary" type="button"
                                 onClick={() => setQuery('')}>Limpiar búsqueda</button>
                     ) : (
-                        <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar
+                        <button className="button secondary" type="button" onClick={openNew}>Agregar
                             portal</button>
                     )}
                 </div>
@@ -338,9 +338,9 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                         <div className="portal-form-grid">
                             <label>Nombre <input id="portal-name" name="name" required maxLength={120}
                                                  defaultValue={editing?.displayName ?? ''}/></label>
-                            <label>Enlace <input id="portal-url" name="url" type="url"
+                            <label><span className="field-label">Enlace <small aria-hidden="true">Opcional</small></span> <input id="portal-url" name="url" type="url"
                                                  defaultValue={editing?.url ?? ''}/></label>
-                            <label className="wide">Notas <textarea name="notes"
+                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea name="notes"
                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
                         {formOpen && message && <p className="form-error" role="alert">{message}</p>}

@@ -73,11 +73,14 @@ function OperationStudyPicker({operationId, busy, onLinkChange}: Omit<OperationS
         <div className="linked-filters">
             <label>
                 Buscar estudios
-                <input id="operation-study-search" type="search" value={query}
-                       placeholder="Nombre, profesional o institución…" onInput={event => {
-                    setQuery(event.currentTarget.value);
-                    setPage(0);
-                }}/>
+                <span className="linked-search-control">
+                    <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                    <input id="operation-study-search" type="search" value={query}
+                           placeholder="Nombre, profesional o institución…" onInput={event => {
+                        setQuery(event.currentTarget.value);
+                        setPage(0);
+                    }}/>
+                </span>
             </label>
             <label>
                 Tipo de estudio

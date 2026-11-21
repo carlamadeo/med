@@ -55,24 +55,24 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
 
             <div className="summary-kpis">
                 <div className="kpi">
-                    <span className="summary-kpi-value">{aggregate.totalEpisodes}</span>
                     <span className="summary-kpi-label">Episodios</span>
+                    <span className="summary-kpi-value">{aggregate.totalEpisodes}</span>
                 </div>
                 <div className="kpi">
-                    <span className="summary-kpi-value">{aggregate.totalDaysIll}</span>
                     <span className="summary-kpi-label">Días de enfermedad</span>
+                    <span className="summary-kpi-value">{aggregate.totalDaysIll}</span>
                 </div>
                 <div className="kpi">
-                    <span className="summary-kpi-value">{decimal.format(aggregate.avgDuration)}</span>
                     <span className="summary-kpi-label">Días por episodio</span>
+                    <span className="summary-kpi-value">{decimal.format(aggregate.avgDuration)}</span>
                 </div>
                 <div className="kpi">
-                    <span className="summary-kpi-value">{mostFrequentIllness}</span>
                     <span className="summary-kpi-label">Más frecuente</span>
+                    <span className="summary-kpi-value">{mostFrequentIllness}</span>
                 </div>
                 <div className="kpi" data-severity={severity}>
-                    <span className="summary-kpi-value">{severity === 'high' ? 'Alta' : severity === 'medium' ? 'Media' : 'Baja'}</span>
                     <span className="summary-kpi-label">Mayor severidad</span>
+                    <span className="summary-kpi-value">{severity === 'high' ? 'Alta' : severity === 'medium' ? 'Media' : 'Baja'}</span>
                 </div>
             </div>
 
@@ -195,7 +195,7 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                         {aggregate.longestEpisode ? (
                             <div className="longest-episode">
                                 <span className="longest-illness">{aggregate.longestEpisode.illness}</span>
-                                <span className="longest-days">{aggregate.longestEpisode.days} días</span>
+                                <span className="longest-days">{aggregate.longestEpisode.days} {aggregate.longestEpisode.days === 1 ? 'día' : 'días'}</span>
                                 <span className="longest-range">{formatStudyDate(aggregate.longestEpisode.start)} – {formatStudyDate(aggregate.longestEpisode.end)}</span>
                             </div>
                         ) : (

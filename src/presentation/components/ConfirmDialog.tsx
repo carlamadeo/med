@@ -39,7 +39,7 @@ export function ConfirmDialog({
         if (id && !element.open) {
             openStudyId.current = id;
             element.showModal();
-            element.querySelector<HTMLButtonElement>('.quiet')?.focus();
+            element.querySelector<HTMLButtonElement>('.confirm-cancel')?.focus();
         } else if (!id && element.open) {
             element.close();
             const previousId = openStudyId.current;
@@ -57,7 +57,9 @@ export function ConfirmDialog({
                 if (id && !busy) onConfirm(id);
             }}>
                 <div className="dialog-heading">
-                    <div><h2 id="confirm-title">Eliminar estudio</h2>
+                    <div>
+                        <p className="eyebrow">Confirmar acción</p>
+                        <h2 id="confirm-title">Eliminar estudio</h2>
                         <p id="delete-copy">{study ? (isLocalDemo.value ? `«${study.title}» se eliminará de esta sesión de prueba.` : `«${study.title}» se moverá a la papelera de Google Drive.`) : ''}</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={busy}
@@ -72,7 +74,7 @@ export function ConfirmDialog({
                         onClick={onReconnect}>Reconectar Google Drive
                 </button>
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={onCancel}>Cancelar</button>
+                    <button type="button" className="button secondary confirm-cancel" disabled={busy} onClick={onCancel}>Cancelar</button>
                     <button type="submit" className="button danger" id="delete"
                             disabled={busy}>{busy ? 'Eliminando…' : 'Eliminar estudio'}</button>
                 </div>

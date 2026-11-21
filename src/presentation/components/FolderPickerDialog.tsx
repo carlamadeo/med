@@ -190,6 +190,7 @@ export function FolderPickerDialog() {
                             Desconfigurar
                         </button>
                     )}
+                    <button type="button" className="button secondary" onClick={() => setOpen(false)}>Cancelar</button>
                     <button
                         type="button"
                         className="button primary"
@@ -198,7 +199,6 @@ export function FolderPickerDialog() {
                     >
                         {currentFolderId ? 'Cambiar' : 'Guardar'}
                     </button>
-                    <button type="button" className="button secondary" onClick={() => setOpen(false)}>Cancelar</button>
                 </div>
             </dialog>
         </>

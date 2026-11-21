@@ -34,7 +34,7 @@ export function LibraryIntro({onAddStudy, onImport, isSignedIn, isLocalDemo, typ
     return (
         <section className="intro">
             <div>
-                {(!isSignedIn || view !== 'resumen') && <p className="eyebrow">Mi archivo médico</p>}
+                <p className="eyebrow">Mi archivo médico</p>
                 <h1 id="page-title" tabIndex={-1}>{isSignedIn ? titles[view] : 'Mis estudios'}</h1>
                 {!isSignedIn && <p className="lead">Tus informes, tus estudios y tus turnos, en un solo lugar privado.</p>}
             </div>

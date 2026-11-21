@@ -809,7 +809,7 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(card).toContainText('Control de audición');
     await expect(card).toContainText('Otorrinolaringología');
     await expect(card).toContainText('Consultorio 12');
-    await expect(card).toContainText('Importe: 1250');
+    await expect(card).toContainText('Importe: $1.250');
     await expect(card).toContainText('Cobertura: Parcial');
     await expect(card).toContainText('Ecografía abdominal completa');
     await expect(card).toContainText('Control en una semana');

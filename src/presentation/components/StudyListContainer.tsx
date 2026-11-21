@@ -53,7 +53,7 @@ export function StudyListContainer({
             {(pendingChangesCount > 0) && (
                 <div id="pending-changes-placeholder"/>)}
             {directoryWarning && (
-                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volvera a intentar al recuperar la conexion.</p>
+                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volverá a intentar al recuperar la conexión.</p>
             )}
             {view.value === 'operaciones' && <Operations/>}
             {view.value === 'episodios' && <Episodes/>}

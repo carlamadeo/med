@@ -45,6 +45,7 @@ export function StudyDetailDialog({study, returnFocus, onClose, onEdit, onDelete
                 onCancel={event => { event.preventDefault(); close(); }}>
             <div className="dialog-heading">
                 <div>
+                    <p className="eyebrow">Biblioteca</p>
                     <h2 id="study-detail-title">{study.title}</h2>
                     {study.syncStatus && <p>{syncMessage}</p>}
                 </div>

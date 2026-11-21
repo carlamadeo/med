@@ -62,6 +62,7 @@ export function ConfirmActionDialog({
       >
         <div className="dialog-heading">
           <div>
+            <p className="eyebrow">Confirmar acción</p>
             <h2 id={titleId}>{title}</h2>
             <p id={descId}>{message}</p>
           </div>

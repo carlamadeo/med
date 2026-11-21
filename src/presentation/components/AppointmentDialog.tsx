@@ -6,7 +6,7 @@ import {
     appointmentEditor, closeAppointmentEditor, isLocalDemo,
     visibleAppointments, visibleMedicalEvents,
 } from '../state/store';
-import {deleteAppointment, getTimeZoneOptions, saveAppointment} from '../utils/appointmentEditor';
+import {deleteAppointment, getTimeZoneOptions, normalizeTimeZone, saveAppointment} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
@@ -140,7 +140,7 @@ export function AppointmentDialog() {
     };
 
     const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
-    const defaultTimeZone = appointment?.timeZone ?? resolvedTimeZone;
+    const defaultTimeZone = normalizeTimeZone(appointment?.timeZone ?? resolvedTimeZone);
     const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
     const specialties = open && !consultation
         ? specialtyNames([...visibleAppointments.value, ...visibleMedicalEvents.value], COMMON_SPECIALTIES)
@@ -188,23 +188,26 @@ export function AppointmentDialog() {
                         </label>
                         <label className="field wide">
                             <span>Zona horaria</span>
-                            <select id="appointment-timezone" name="timeZone"
-                                    defaultValue={defaultTimeZone}
-                                    disabled={busy}>
-                                {timeZoneOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                            <span className="select-control">
+                                <select id="appointment-timezone" name="timeZone"
+                                        defaultValue={defaultTimeZone}
+                                        disabled={busy}>
+                                    {timeZoneOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                            </span>
                         </label>
                         <label className="field wide">
-                            <span>Profesional</span>
+                            <span className="field-label">Profesional <small aria-hidden="true">Opcional</small></span>
                             <input id="appointment-professional" name="professional" type="text" placeholder="Dra. Pérez"
                                    defaultValue={appointment?.professional ?? ''} disabled={busy}/>
                         </label>
                         <label className="field wide">
-                            <span>Especialidad</span>
+                            <span className="field-label">Especialidad <small aria-hidden="true">Opcional</small></span>
                             <input name="specialty" list="appointment-specialties" maxLength={120}
                                    placeholder="Elegí o escribí una especialidad"
                                    defaultValue={appointment?.specialty ?? ''} disabled={busy}/>
@@ -213,7 +216,7 @@ export function AppointmentDialog() {
                             {specialties.map(name => <option key={name} value={name}/>)}
                         </datalist>
                         <label className="field wide">
-                            <span>Lugar o dirección</span>
+                            <span className="field-label">Lugar o dirección <small aria-hidden="true">Opcional</small></span>
                             <input id="appointment-location" name="location" type="text" maxLength={240}
                                    placeholder="Consultorio, institución o dirección"
                                    defaultValue={appointment?.location ?? ''} disabled={busy}/>
@@ -221,39 +224,45 @@ export function AppointmentDialog() {
                     </>}
                     <label className={consultation ? 'field' : 'field wide'}>
                         <span>Estado</span>
-                        <select id="appointment-status" name="status"
-                                defaultValue={registering ? 'completed' : appointment?.status ?? 'scheduled'}
-                                disabled={busy}>
-                            <option value="scheduled">Programado</option>
-                            <option value="completed">Realizado</option>
-                            <option value="cancelled">Cancelado</option>
-                            <option value="absent">No asistí</option>
-                        </select>
+                        <span className="select-control">
+                            <select id="appointment-status" name="status"
+                                    defaultValue={registering ? 'completed' : appointment?.status ?? 'scheduled'}
+                                    disabled={busy}>
+                                <option value="scheduled">Programado</option>
+                                <option value="completed">Realizado</option>
+                                <option value="cancelled">Cancelado</option>
+                                <option value="absent">No asistí</option>
+                            </select>
+                            <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                        </span>
                     </label>
                     <label className="field">
-                        <span>Importe</span>
+                        <span className="field-label">Importe <small aria-hidden="true">Opcional</small></span>
                         <input id="appointment-cost" name="cost" type="number" min="0" step="0.01" placeholder="0,00"
                                defaultValue={appointment?.cost ?? ''} disabled={busy}/>
                     </label>
                     {!consultation && <>
                         <label className="field">
-                            <span>Cobertura</span>
-                            <select id="appointment-coverage" name="coverage" defaultValue={appointment?.coverage ?? ''}
-                                    disabled={busy}>
-                                <option value="">Desconocida</option>
-                                <option value="all">Total</option>
-                                <option value="partial">Parcial</option>
-                                <option value="none">Sin cobertura</option>
-                            </select>
+                            <span className="field-label">Cobertura <small aria-hidden="true">Opcional</small></span>
+                            <span className="select-control">
+                                <select id="appointment-coverage" name="coverage" defaultValue={appointment?.coverage ?? ''}
+                                        disabled={busy}>
+                                    <option value="">Desconocida</option>
+                                    <option value="all">Total</option>
+                                    <option value="partial">Parcial</option>
+                                    <option value="none">Sin cobertura</option>
+                                </select>
+                                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                            </span>
                         </label>
                         <label className="field wide">
-                            <span>Motivo de la consulta</span>
+                            <span className="field-label">Motivo de la consulta <small aria-hidden="true">Opcional</small></span>
                             <textarea id="appointment-reason" name="reason"
                                       defaultValue={appointment?.reason ?? ''} disabled={busy}/>
                         </label>
                     </>}
                     {consultation && <label className="field wide">
-                        <span>Notas de la consulta</span>
+                        <span className="field-label">Notas de la consulta <small aria-hidden="true">Opcional</small></span>
                         <textarea id="appointment-notes" name="notes" placeholder="Estudio, indicaciones o comentarios"
                                   defaultValue={appointment?.notes ?? ''} disabled={busy}/>
                     </label>}

@@ -116,7 +116,7 @@ function AutocompleteTextField({
     return (
         <div className="portal-field" ref={containerRef}>
             <label>
-                {label} <small>Opcional</small>
+                <span className="field-label">{label} <small>Opcional</small></span>
                 <input
                     ref={inputRef}
                     name={name}
@@ -310,6 +310,7 @@ export function EditorDialog({
                           style={{border: 0, padding: 0, margin: 0}}>
                     <div className="dialog-heading">
                         <div>
+                            <p className="eyebrow">Biblioteca</p>
                             <h2 id="editor-title">{isEdit ? 'Editar estudio' : 'Agregar estudio'}</h2>
                             <p>Adjuntá un informe para recibir sugerencias o completá los datos a mano.</p>
                         </div>
@@ -375,7 +376,7 @@ export function EditorDialog({
                                     tabIndex={0}
                                 />
                             </label>
-                            <label className="button quiet dropzone-camera-button">
+                            <label className="button ghost dropzone-camera-button">
                                 <span>Tomar foto</span>
                                 <input
                                     name="camera-report"
@@ -499,19 +500,21 @@ export function EditorDialog({
                         )}
                     </div>
 
-                    <fieldset className="form-section study-printed-fields">
-                        <legend className="form-section-title">Copias impresas</legend>
-                        <label>
-                            <input type="checkbox" name="printedReport" checked={printed.report}
-                                   onChange={event => setPrinted('report', event.currentTarget.checked)}/>
-                            Tengo el informe impreso
-                        </label>
-                        <label>
-                            <input type="checkbox" name="printedImage" checked={printed.image}
-                                   onChange={event => setPrinted('image', event.currentTarget.checked)}/>
-                            Tengo la imagen impresa
-                        </label>
-                    </fieldset>
+                    <div className="form-section">
+                        <fieldset className="study-printed-fields">
+                            <legend className="form-section-title">Copias impresas</legend>
+                            <label>
+                                <input type="checkbox" name="printedReport" checked={printed.report}
+                                       onChange={event => setPrinted('report', event.currentTarget.checked)}/>
+                                Tengo el informe impreso
+                            </label>
+                            <label>
+                                <input type="checkbox" name="printedImage" checked={printed.image}
+                                       onChange={event => setPrinted('image', event.currentTarget.checked)}/>
+                                Tengo la imagen impresa
+                            </label>
+                        </fieldset>
+                    </div>
 
                     <div className="form-section">
                         <h3 className="form-section-title">Datos del estudio</h3>
@@ -599,7 +602,7 @@ export function EditorDialog({
                     <div className="form-section">
                         <h3 className="form-section-title">Opciones adicionales</h3>
                         <label className="viewer-link-field">
-                            Enlace al visor web <small>Opcional</small>
+                            <span className="field-label">Enlace al visor web <small>Opcional</small></span>
                             <input
                                 name="viewer"
                                 type="url"
@@ -614,12 +617,15 @@ export function EditorDialog({
 
                         <details className="editor-advanced">
                             <summary>Vincular con operación quirúrgica</summary>
-                            <label>Operación <small>Opcional</small>
-                                <select id="operation-id" name="operationId" value={operationId}
-                                        onChange={(event) => setOperationId(event.currentTarget.value)}>
-                                    <option value="">Sin operación</option>
-                                    {operations.value.map((op) => <option key={op.id} value={op.id}>{op.name}</option>)}
-                                </select>
+                            <label><span className="field-label">Operación <small>Opcional</small></span>
+                                <span className="select-control">
+                                    <select id="operation-id" name="operationId" value={operationId}
+                                            onChange={(event) => setOperationId(event.currentTarget.value)}>
+                                        <option value="">Sin operación</option>
+                                        {operations.value.map((op) => <option key={op.id} value={op.id}>{op.name}</option>)}
+                                    </select>
+                                    <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                                </span>
                             </label>
                             <button id="create-operation" type="button" className="button quiet" onClick={() => {
                                 setCreatingOperation(!creatingOperation);
@@ -675,7 +681,7 @@ export function EditorDialog({
                         onClick={onReconnect}>Reconectar Google Drive
                 </button>
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" data-close onClick={handleClose}>
+                    <button type="button" className="button secondary" data-close onClick={handleClose}>
                         Cancelar
                     </button>
                     <button type="submit" className="button primary" id="save"

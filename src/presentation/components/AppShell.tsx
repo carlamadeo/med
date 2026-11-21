@@ -121,7 +121,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     count: appointmentsCount || undefined,
                     tone: 'warning'
                 },
-                {label: 'Episodios', icon: 'i-layers', view: 'episodios'},
+                {label: 'Episodios', icon: 'i-activity', view: 'episodios'},
             ],
         },
         {

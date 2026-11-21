@@ -85,7 +85,7 @@ export function Appointments() {
           <input
             id="appointment-search"
             type="search"
-            placeholder="Buscar por profesional, especialidad o fecha…"
+            placeholder="Buscar turnos o consultas…"
             value={query}
             onInput={event => setQuery((event.target as HTMLInputElement).value)}
           />
@@ -164,7 +164,9 @@ export function Appointments() {
                   {(item.cost !== null || item.coverage) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (
-                        <span className="tag">Importe: {item.cost}</span>
+                        <span className="tag">
+                          Importe: ${item.cost.toLocaleString('es-AR', {maximumFractionDigits: 2})}
+                        </span>
                       )}
                       {item.coverage && (
                         <span className="tag">
@@ -231,10 +233,18 @@ export function Appointments() {
               : 'Todavía no hay turnos guardados.'}
           </p>
           {normalizedQuery ? (
-            <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>
+            <button className="button secondary" type="button" onClick={() => setQuery('')}>
               Limpiar búsqueda
             </button>
-          ) : null}
+          ) : (
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => setEditingAppointment(null)}
+            >
+              Agendar primer turno
+            </button>
+          )}
         </div>
       )}
 
