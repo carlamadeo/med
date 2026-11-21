@@ -4,7 +4,7 @@ import axe from 'axe-core';
 import {isEditorOpen, setEditingStudy, studies, view} from '@presentation/state/store';
 import {mountPage, reloadLibrary} from './page';
 
-const views = ['resumen', 'cronologia', 'portales', 'operaciones', 'turnos', 'episodios', 'intake'] as const;
+const views = ['resumen', 'cronologia', 'portales', 'medicos', 'operaciones', 'turnos', 'episodios', 'intake'] as const;
 
 async function seriousViolations() {
     const results = await axe.run(document, {rules: {'color-contrast': {enabled: false}}});

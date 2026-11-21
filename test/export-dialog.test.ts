@@ -8,7 +8,7 @@ import {mockAttachmentMetadata} from './mock-attachment-metadata';
 import type {Study} from '@domain/models';
 import {ExportDialog} from '@presentation/components/ExportDialog';
 import {
-    appointments, categoryTypes, directoryWarning, episodes, medicalEvents, operations,
+    appointments, categoryTypes, directoryWarning, doctors, episodes, medicalEvents, operations,
     portals, directoriesReady, studiesReady, studyLoadSkipped, setExportError, setExporting, setStudies,
 } from '@presentation/state/store';
 
@@ -72,6 +72,7 @@ afterEach(async () => {
     directoryWarning.value = false;
     operations.value = [];
     portals.value = [];
+    doctors.value = [];
     medicalEvents.value = [];
     episodes.value = [];
     appointments.value = [];
@@ -148,6 +149,7 @@ it('keeps one snapshot of related records while fetching attachments', async () 
     setStudies([study('one', {hasPdf: true, operationId: 'op1'})]);
     operations.value = [{id: 'op1', name: 'Operación inicial', color: '', studyIds: ['one']}];
     portals.value = [{id: 'portal1', name: 'portal', displayName: 'Portal inicial', url: 'https://example.com'}];
+    doctors.value = [{id: 'doctor1', name: 'Dra. Inicial', specialty: 'Cardiología', addresses: ['Av. 1'], defaultAddress: 'Av. 1', revision: '1'}];
     medicalEvents.value = [{
         id: 'event1', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '',
         studyIds: ['one'], documentIds: [], revision: '1',
@@ -160,6 +162,7 @@ it('keeps one snapshot of related records while fetching attachments', async () 
     vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async () => {
         operations.value = [];
         portals.value = [];
+        doctors.value = [];
         medicalEvents.value = [];
         episodes.value = [];
         appointments.value = [];
@@ -171,7 +174,7 @@ it('keeps one snapshot of related records while fetching attachments', async () 
 
     const zip = await downloadedZip(createUrl);
     for (const [path, id] of [
-        ['operations.json', 'op1'], ['portals.json', 'portal1'], ['medical-events.json', 'event1'],
+        ['operations.json', 'op1'], ['portals.json', 'portal1'], ['doctors.json', 'doctor1'], ['medical-events.json', 'event1'],
         ['episodes.json', 'episode1'], ['appointments.json', 'appointment1'],
     ] as const) {
         expect(JSON.parse(await zip.file(path)!.async('text'))).toMatchObject([{id}]);

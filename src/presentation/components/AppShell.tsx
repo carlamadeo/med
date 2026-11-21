@@ -8,7 +8,7 @@ import {
     portals,
     setExporting,
     setRecoveringStudyId,
-    studyDoctors,
+    doctorDirectory,
     view,
     visibleAppointments,
     visibleOperations,
@@ -107,7 +107,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     count: studiesCount
                 },
                 {label: 'Portales', icon: 'i-globe', view: 'portales', count: portalsCount},
-                {label: 'Médicos', icon: 'i-stethoscope', view: 'medicos', count: studyDoctors.value.length},
+                {label: 'Médicos', icon: 'i-stethoscope', view: 'medicos', count: doctorDirectory.value.length},
                 {label: 'Operaciones', icon: 'i-scissors', view: 'operaciones', count: operationsCount},
             ],
         },

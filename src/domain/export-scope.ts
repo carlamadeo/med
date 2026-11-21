@@ -1,11 +1,13 @@
 import type {
     Appointment,
+    Doctor,
     Episode,
     MedicalEvent,
     Operation,
     Portal,
     Study,
 } from './models';
+import {normalizeDoctorName} from './library';
 import {normalize} from './utils';
 
 export type ExportScope = 'all' | 'filtered';
@@ -14,6 +16,7 @@ export interface ExportSnapshot {
     studies: Study[];
     operations: Operation[];
     portals: Portal[];
+    doctors?: Doctor[];
     medicalEvents: MedicalEvent[];
     episodes: Episode[];
     appointments: Appointment[];
@@ -39,6 +42,7 @@ export function selectExportSnapshot(
     );
     const operationIds = new Set(selectedStudies.map(study => study.operationId).filter(Boolean));
     const institutions = new Set(selectedStudies.map(study => normalize(study.portal)).filter(Boolean));
+    const doctorKeys = new Set(selectedStudies.map(study => normalizeDoctorName(study.doctor)).filter(Boolean));
 
     const restrictStudies = (values: string[] | undefined) =>
         values?.filter(id => selectedStudyIds.has(id));
@@ -59,6 +63,7 @@ export function selectExportSnapshot(
                     .map(study => study.id),
             })),
         portals: snapshot.portals.filter(portal => institutions.has(normalize(portal.name))),
+        doctors: (snapshot.doctors ?? []).filter(doctor => doctorKeys.has(normalizeDoctorName(doctor.name))),
         medicalEvents: snapshot.medicalEvents
             .filter(
                 event =>

@@ -18,6 +18,7 @@
     .operation-form-grid input,
     .operation-form-grid textarea,
     .portal-form-grid :is(input, textarea),
+    .doctor-dialog :is(input, textarea),
     .event-form-grid :is(input, select, textarea),
     .episode-dialog :is(input, select, textarea),
     .linked-filters :is(input, select) {
@@ -149,11 +150,11 @@ dialog::backdrop {
     border-top: 1px solid var(--color-border);
 }
 
-.dialog:is(.appointment-dialog, .operation-dialog, .export-dialog) {
+.dialog:is(.appointment-dialog, .operation-dialog, .export-dialog, .doctor-dialog) {
     scroll-padding-block-end: 6.5rem;
 }
 
-.dialog:is(.appointment-dialog, .operation-dialog, .export-dialog) .dialog-actions,
+.dialog:is(.appointment-dialog, .operation-dialog, .export-dialog, .doctor-dialog) .dialog-actions,
 #recovery .dialog-actions {
     position: sticky;
     inset-block-end: calc(-1 * var(--dialog-pad));
@@ -201,7 +202,7 @@ dialog::backdrop {
     transform: translateY(-50%);
 }
 
-#portal-form > fieldset, #operation-form > fieldset,
+#portal-form > fieldset, #doctor-form > fieldset, #operation-form > fieldset,
 #episode-form > fieldset {
     min-width: 0;
     padding: 0;

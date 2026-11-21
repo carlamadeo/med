@@ -83,8 +83,8 @@ export class DriveError extends Error {
 }
 
 export class DriveConflictError extends Error {
-    constructor(subject: 'estudio' | 'operación' | 'portal' | 'evento' | 'episodio' | 'turno' = 'estudio') {
-        const prefix = subject === 'operación' ? 'Esta operación' : subject === 'portal' ? 'Este portal' : subject === 'evento' ? 'Este evento' : subject === 'episodio' ? 'Este episodio' : subject === 'turno' ? 'Este turno' : 'Este estudio';
+    constructor(subject: 'estudio' | 'operación' | 'portal' | 'médico' | 'evento' | 'episodio' | 'turno' = 'estudio') {
+        const prefix = subject === 'operación' ? 'Esta operación' : subject === 'portal' ? 'Este portal' : subject === 'médico' ? 'Este médico' : subject === 'evento' ? 'Este evento' : subject === 'episodio' ? 'Este episodio' : subject === 'turno' ? 'Este turno' : 'Este estudio';
         super(`${prefix} cambió en Drive. Cerrá la ficha y actualizá la lista antes de volver a editar.`);
     }
 }

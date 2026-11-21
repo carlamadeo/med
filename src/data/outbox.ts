@@ -4,6 +4,7 @@ import type {
     OperationDraft,
     Portal,
     PortalDraft,
+    DoctorDraft,
     MedicalEventDraft,
     EpisodeDraft,
     AppointmentDraft
@@ -33,6 +34,12 @@ export interface OutboxAdapter {
 
     restorePortal(id: string, revision: string): Promise<void>;
 
+    saveDoctor(draft: DoctorDraft): Promise<void>;
+
+    deleteDoctor(id: string, revision: string): Promise<void>;
+
+    restoreDoctor(id: string, revision: string): Promise<void>;
+
     saveEvent(draft: MedicalEventDraft): Promise<void>;
 
     deleteEvent(id: string, revision: string): Promise<void>;
@@ -57,13 +64,14 @@ export interface OutboxAdapter {
 export interface OutboxEntry {
     id?: number;
     owner: string;
-    kind: 'save' | 'delete' | 'restore' | 'operation-save' | 'operation-delete' | 'operation-restore' | 'portal-save' | 'portal-delete' | 'portal-restore' | 'event-save' | 'event-delete' | 'event-restore' | 'episode-save' | 'episode-delete' | 'episode-restore' | 'appointment-save' | 'appointment-delete' | 'appointment-restore';
+    kind: 'save' | 'delete' | 'restore' | 'operation-save' | 'operation-delete' | 'operation-restore' | 'portal-save' | 'portal-delete' | 'portal-restore' | 'doctor-save' | 'doctor-delete' | 'doctor-restore' | 'event-save' | 'event-delete' | 'event-restore' | 'episode-save' | 'episode-delete' | 'episode-restore' | 'appointment-save' | 'appointment-delete' | 'appointment-restore';
     status: 'pending' | 'conflict' | 'failed';
     studyId?: string;
     revision?: string;
     draft?: Omit<StudyDraft, 'file'>;
     operationDraft?: OperationDraft;
     portalDraft?: PortalDraft;
+    doctorDraft?: DoctorDraft;
     eventDraft?: MedicalEventDraft;
     episodeDraft?: EpisodeDraft;
     appointmentDraft?: Omit<AppointmentDraft, 'prescriptionFile'>;
@@ -72,6 +80,7 @@ export interface OutboxEntry {
     operationId?: string;
     portalId?: string;
     portal?: Portal;
+    doctorId?: string;
     episodeId?: string;
     attachment?: Blob;
     attachmentName?: string;
@@ -114,8 +123,8 @@ export class Outbox {
             await tx.done;
             throw new Error('Hay un estudio pendiente vinculado a esta operación.');
         }
-        if (entry.studyId || entry.operationId || entry.portalId || entry.eventId || entry.episodeId || entry.appointmentId) {
-            if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId) || (entry.eventId && item.eventId === entry.eventId) || (entry.episodeId && item.episodeId === entry.episodeId) || (entry.appointmentId && item.appointmentId === entry.appointmentId))) {
+        if (entry.studyId || entry.operationId || entry.portalId || entry.doctorId || entry.eventId || entry.episodeId || entry.appointmentId) {
+            if (existing.some((item) => (entry.studyId && item.studyId === entry.studyId) || (entry.operationId && item.operationId === entry.operationId) || (entry.portalId && item.portalId === entry.portalId) || (entry.doctorId && item.doctorId === entry.doctorId) || (entry.eventId && item.eventId === entry.eventId) || (entry.episodeId && item.episodeId === entry.episodeId) || (entry.appointmentId && item.appointmentId === entry.appointmentId))) {
                 await tx.done;
                 throw new Error('Este registro ya tiene un cambio pendiente.');
             }
@@ -165,6 +174,10 @@ export class Outbox {
 
     async enqueuePortalSave(owner: string, draft: PortalDraft): Promise<void> {
         await this.enqueue({owner, kind: 'portal-save', status: 'pending', portalId: draft.id, portalDraft: draft});
+    }
+
+    async enqueueDoctorSave(owner: string, draft: DoctorDraft): Promise<void> {
+        await this.enqueue({owner, kind: 'doctor-save', status: 'pending', doctorId: draft.id, doctorDraft: draft});
     }
 
     async enqueueEventSave(owner: string, draft: MedicalEventDraft): Promise<void> {
@@ -224,6 +237,16 @@ export class Outbox {
         await this.enqueue({owner, kind: 'portal-restore', status: 'pending', portalId: id, revision});
     }
 
+    async enqueueDoctorDelete(owner: string, id: string, revision: string): Promise<void> {
+        if (!id || !revision) throw new Error('El médico no tiene una revisión válida.');
+        await this.enqueue({owner, kind: 'doctor-delete', status: 'pending', doctorId: id, revision});
+    }
+
+    async enqueueDoctorRestore(owner: string, id: string, revision: string): Promise<void> {
+        if (!id || !revision) throw new Error('El médico no tiene una revisión válida.');
+        await this.enqueue({owner, kind: 'doctor-restore', status: 'pending', doctorId: id, revision});
+    }
+
     async enqueueEpisodeDelete(owner: string, id: string, revision: string): Promise<void> {
         if (!id || !revision) throw new Error('El episodio no tiene una revisión válida.');
         await this.enqueue({owner, kind: 'episode-delete', status: 'pending', episodeId: id, revision});
@@ -265,6 +288,9 @@ export class Outbox {
         else if (entry.kind === 'portal-save' && replacement.portalDraft?.id) replacement.portalDraft.revision = revision;
         else if (entry.kind === 'portal-delete' && replacement.portal?.id) replacement.portal.revision = revision;
         else if (entry.kind === 'portal-restore' && entry.portalId) replacement.revision = revision;
+        else if (entry.kind === 'doctor-save' && replacement.doctorDraft?.id) replacement.doctorDraft.revision = revision;
+        else if (entry.kind === 'doctor-delete' && entry.doctorId) replacement.revision = revision;
+        else if (entry.kind === 'doctor-restore' && entry.doctorId) replacement.revision = revision;
         else if (entry.kind === 'event-save' && replacement.eventDraft?.id) replacement.eventDraft.revision = revision;
         else if (entry.kind === 'event-delete' && entry.eventId) replacement.revision = revision;
         else if (entry.kind === 'event-restore' && entry.eventId) replacement.revision = revision;
@@ -360,6 +386,26 @@ export class Outbox {
                                 break;
                             }
                             await remote.deletePortal(entry.portal);
+                            break;
+                        }
+                        case 'doctor-save': {
+                            if (!entry.doctorDraft) {
+                                valid = false;
+                                break;
+                            }
+                            if (!entry.doctorDraft.id && !entry.doctorDraft.createId) {
+                                entry.doctorDraft.createId = await remote.reserveId();
+                                await db.put('entries', entry);
+                            }
+                            await remote.saveDoctor(entry.doctorDraft);
+                            break;
+                        }
+                        case 'doctor-delete': {
+                            if (!entry.doctorId || !entry.revision) {
+                                valid = false;
+                                break;
+                            }
+                            await remote.deleteDoctor(entry.doctorId, entry.revision);
                             break;
                         }
                         case 'event-save': {
@@ -463,6 +509,14 @@ export class Outbox {
                                 break;
                             }
                             await remote.restorePortal(entry.portalId, entry.revision);
+                            break;
+                        }
+                        case 'doctor-restore': {
+                            if (!entry.doctorId || !entry.revision) {
+                                valid = false;
+                                break;
+                            }
+                            await remote.restoreDoctor(entry.doctorId, entry.revision);
                             break;
                         }
                         default:

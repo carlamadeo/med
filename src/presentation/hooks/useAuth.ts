@@ -6,6 +6,7 @@ import {
     studies,
     operations,
     portals,
+    doctors,
     medicalEvents,
     episodes,
     appointments,
@@ -71,6 +72,7 @@ if (!signedIn) {
                 studies.value = [];
                 operations.value = [];
                 portals.value = [];
+                doctors.value = [];
                 medicalEvents.value = [];
                 episodes.value = [];
                 appointments.value = [];

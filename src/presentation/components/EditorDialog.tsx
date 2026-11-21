@@ -46,17 +46,23 @@
  */
 import {useEditor} from '../hooks/useEditor';
 import {useFocusTrap} from '../utils/focusTrap';
-import {COMMON_SPECIALTIES, doctorNames, formatStudyDate, hasStudyAttachment, portalNames, specialtyNames, studyAttachmentName, studyTypeNames} from '@domain/library';
-import {normalize, todayLocal} from '@domain/utils';
+import {
+    COMMON_SPECIALTIES, doctorNames, formatStudyDate, hasStudyAttachment, normalizeDoctorName,
+    portalNames, specialtyNames, studyAttachmentName, studyTypeNames,
+} from '@domain/library';
+import {todayLocal} from '@domain/utils';
+import {AutocompleteTextField} from './AutocompleteTextField';
 import {MultiSelectCombobox} from './MultiSelectCombobox';
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useEffect, useState} from 'preact/hooks';
 import {
     appointments,
+    doctorDirectory,
     editingStudy,
     studies,
     operations,
     medicalEvents,
     portals,
+    visibleDoctors,
     isEditorOpen,
 } from '../state/store';
 
@@ -66,112 +72,6 @@ function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-interface AutocompleteTextFieldProps {
-    name: string;
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    options: string[];
-    placeholder: string;
-    listId: string;
-    maxLength?: number;
-    ariaDescribedBy?: string;
-}
-
-function AutocompleteTextField({
-    name,
-    label,
-    value,
-    onChange,
-    options,
-    placeholder,
-    listId,
-    maxLength = 120,
-    ariaDescribedBy,
-}: AutocompleteTextFieldProps) {
-    const [open, setOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const suppressFocusRef = useRef(false);
-
-    useEffect(() => {
-        const handleOutside = (e: Event) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleOutside);
-        document.addEventListener('focusin', handleOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleOutside);
-            document.removeEventListener('focusin', handleOutside);
-        };
-    }, []);
-
-    const query = normalize(value);
-    const filtered = query ? options.filter((option) => normalize(option).includes(query)) : options;
-
-    return (
-        <div className="portal-field" ref={containerRef}>
-            <label>
-                <span className="field-label">{label} <small>Opcional</small></span>
-                <input
-                    ref={inputRef}
-                    name={name}
-                    value={value}
-                    onInput={(e: Event) => {
-                        onChange((e.currentTarget as HTMLInputElement).value);
-                        setOpen(true);
-                    }}
-                    onFocus={() => {
-                        if (suppressFocusRef.current) {
-                            suppressFocusRef.current = false;
-                            return;
-                        }
-                        if (options.length > 0) setOpen(true);
-                    }}
-                    onKeyDown={(e: KeyboardEvent) => {
-                        if (e.key === 'Escape' && open) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setOpen(false);
-                        }
-                    }}
-                    maxLength={maxLength}
-                    placeholder={placeholder}
-                    autoComplete="off"
-                    aria-describedby={ariaDescribedBy}
-                />
-            </label>
-            {open && filtered.length > 0 && (
-                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox">
-                    {filtered.map((option) => (
-                        <li key={option} role="option">
-                            <button
-                                type="button"
-                                className="portal-autocomplete-item"
-                                // Safari can blur the input before the option receives the click.
-                                onMouseDown={event => event.preventDefault()}
-                                onClick={() => {
-                                    onChange(option);
-                                    setOpen(false);
-                                    const input = inputRef.current;
-                                    if (input && document.activeElement !== input) {
-                                        suppressFocusRef.current = true;
-                                        input.focus();
-                                    }
-                                }}
-                            >
-                                {option}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
 }
 
 // Test-only: allow setting types programmatically for e2e tests
@@ -272,12 +172,20 @@ export function EditorDialog({
     }, [setTypes]);
 
     const availablePortals = portalNames(studies.value, portals.value);
-    const availableSpecialties = specialtyNames([...studies.value, ...medicalEvents.value], COMMON_SPECIALTIES);
-    const availableDoctors = doctorNames(studies.value, [
+    const availableSpecialties = specialtyNames(
+        [...studies.value, ...medicalEvents.value, ...visibleDoctors.value],
+        COMMON_SPECIALTIES,
+    );
+    const extraDoctorNames = doctorNames(studies.value, [
         ...medicalEvents.value.map((event) => event.doctor),
         ...appointments.value.map((appointment) => appointment.professional),
         ...operations.value.map((operation) => operation.surgeon),
     ]);
+    const seenDoctors = new Set(doctorDirectory.value.map((entry) => entry.key));
+    const availableDoctors = [
+        ...doctorDirectory.value.map((entry) => entry.name),
+        ...extraDoctorNames.filter((name) => !seenDoctors.has(normalizeDoctorName(name))),
+    ];
 
     useFocusTrap(dialogRef, isEditorOpen.value);
 

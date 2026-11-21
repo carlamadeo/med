@@ -5,7 +5,7 @@ import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import {COMMON_SPECIALTIES, formatStudyDate, hasStudyAttachment, reportUrl, specialtyNames, studyAttachmentName} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
-import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
+import {isLocalDemo, medicalEvents, visibleDoctors, visibleMedicalEvents, studies} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {EventRelatedPicker} from './EventRelatedPicker';
@@ -185,7 +185,7 @@ export function MedicalEvents({query}: {query: string}) {
     }
 
     const events = visibleMedicalEvents.value;
-    const specialties = specialtyNames(events, COMMON_SPECIALTIES);
+    const specialties = specialtyNames([...events, ...visibleDoctors.value], COMMON_SPECIALTIES);
     const visible = events
         .filter((event) => {
             if (!query) return true;

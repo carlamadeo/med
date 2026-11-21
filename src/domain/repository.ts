@@ -6,12 +6,26 @@ import type {
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     DriveFile,
     Episode,
     EpisodeDraft
 } from './models';
 
-export type {Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, Episode, EpisodeDraft};
+export type {
+    Study,
+    StudyDraft,
+    Operation,
+    OperationDraft,
+    Portal,
+    PortalDraft,
+    Doctor,
+    DoctorDraft,
+    DriveFile,
+    Episode,
+    EpisodeDraft
+};
 
 export interface IntakeCandidate {
     id: string;

@@ -9,14 +9,17 @@ import type {
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     MedicalEvent,
     Episode,
     Appointment,
     ViewMode,
     Filters
 } from '@domain/models';
+import {buildDoctorDirectory, cleanDoctorAddresses, cleanDoctorName} from '@domain/doctors';
 import {
-    cleanSpecialty, filterStudiesByQuery, groupStudiesByDoctor, normalizeDoctorName, sortStudies,
+    cleanSpecialty, filterStudiesByQuery, normalizeDoctorName, sortStudies,
     type StudySortOrder,
 } from '@domain/library';
 import {normalize} from '@domain/utils';
@@ -38,6 +41,7 @@ export interface IntakeCandidate {
 export const studies = signal<Study[]>([]);
 export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
+export const doctors = signal<Doctor[]>([]);
 export const medicalEvents = signal<MedicalEvent[]>([]);
 export const episodes = signal<Episode[]>([]);
 export const appointments = signal<Appointment[]>([]);
@@ -93,7 +97,35 @@ export const visibleStudies = computed<Study[]>(() => {
     return result;
 });
 
-export const studyDoctors = computed(() => groupStudiesByDoctor(visibleStudies.value));
+export const visibleDoctors = computed<Doctor[]>(() => {
+    const result = [...doctors.value];
+    for (const entry of pendingChanges.value) {
+        if (entry.kind === 'doctor-delete' && entry.doctorId) {
+            const index = result.findIndex((doctor) => doctor.id === entry.doctorId);
+            const existing = result[index];
+            if (existing) result[index] = {...existing, syncStatus: entry.status};
+            continue;
+        }
+        if (entry.kind !== 'doctor-save' || !entry.doctorDraft || entry.id === undefined) continue;
+        const draft = entry.doctorDraft;
+        const index = result.findIndex((doctor) => doctor.id === draft.id);
+        const {addresses, defaultAddress} = cleanDoctorAddresses(draft.addresses, draft.defaultAddress);
+        const local: Doctor = {
+            id: draft.id ?? `pending-${entry.id}`,
+            name: cleanDoctorName(draft.name),
+            specialty: cleanSpecialty(draft.specialty),
+            addresses,
+            defaultAddress,
+            revision: draft.revision ?? '',
+            syncStatus: entry.status,
+        };
+        if (index >= 0) result[index] = local;
+        else result.push(local);
+    }
+    return result;
+});
+
+export const doctorDirectory = computed(() => buildDoctorDirectory(visibleStudies.value, visibleDoctors.value));
 export const libraryHasFilters = computed(() => Boolean(
     libraryQuery.value.trim() || libraryPortal.value || libraryDoctor.value || libraryOperation.value ||
     categoryTypes.value.length || librarySpecialty.value || libraryOnlyPrinted.value,
@@ -259,6 +291,8 @@ export type {
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     MedicalEvent,
     Episode,
     Appointment,

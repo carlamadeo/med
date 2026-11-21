@@ -117,6 +117,26 @@ export interface PortalDraft {
     revision?: string;
 }
 
+export interface Doctor {
+    id: string;
+    name: string;
+    specialty?: string;
+    addresses: string[];
+    defaultAddress?: string;
+    revision?: string;
+    syncStatus?: 'pending' | 'conflict' | 'failed';
+}
+
+export interface DoctorDraft {
+    id?: string;
+    createId?: string;
+    name: string;
+    specialty?: string;
+    addresses: string[];
+    defaultAddress?: string;
+    revision?: string;
+}
+
 export type ViewMode =
     'resumen'
     | 'cronologia'

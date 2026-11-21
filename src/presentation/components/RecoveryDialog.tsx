@@ -12,6 +12,7 @@ import {
     episodes,
     operations,
     portals,
+    doctors,
     medicalEvents,
     appointments,
     isLocalDemo,
@@ -24,12 +25,13 @@ import {
     driveEpisodeRepo,
     driveOperationRepo,
     drivePortalRepo,
+    driveDoctorRepo,
     driveMedicalEventRepo,
     driveAppointmentRepo,
     googleCalendarRepo,
 } from '@data';
 import {Outbox} from '@data/outbox';
-import type {Study, Episode, Operation, Portal, MedicalEvent, Appointment} from '@domain/models';
+import type {Study, Episode, Operation, Portal, Doctor, MedicalEvent, Appointment} from '@domain/models';
 
 const outbox = new Outbox();
 
@@ -46,19 +48,28 @@ interface DeletedItem {
     deletedAt: string;
     recoverable: boolean;
     revision: string;
-    type: 'study' | 'episode' | 'operation' | 'portal' | 'event' | 'appointment';
+    type: 'study' | 'episode' | 'operation' | 'portal' | 'doctor' | 'event' | 'appointment';
 }
 
-type EntityType = 'study' | 'episode' | 'operation' | 'portal' | 'event' | 'appointment';
+type EntityType = 'study' | 'episode' | 'operation' | 'portal' | 'doctor' | 'event' | 'appointment';
 
 const ENTITY_TYPES: { value: EntityType; label: string; icon: string }[] = [
     {value: 'study', label: 'Estudios', icon: 'i-file'},
     {value: 'episode', label: 'Episodios', icon: 'i-activity'},
     {value: 'operation', label: 'Operaciones', icon: 'i-scissors'},
     {value: 'portal', label: 'Portales', icon: 'i-globe'},
+    {value: 'doctor', label: 'Médicos', icon: 'i-stethoscope'},
     {value: 'event', label: 'Consultas y recetas', icon: 'i-stethoscope'},
     {value: 'appointment', label: 'Turnos', icon: 'i-calendar'},
 ];
+
+const emptyDeletedItems = (): Record<EntityType, DeletedItem[]> => ({
+    study: [], episode: [], operation: [], portal: [], doctor: [], event: [], appointment: [],
+});
+
+const emptyLoadErrors = (): Record<EntityType, string> => ({
+    study: '', episode: '', operation: '', portal: '', doctor: '', event: '', appointment: '',
+});
 
 export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -66,24 +77,20 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
     const recoveringId = recoveringStudyId.value;
     const recError = recoveryError.value;
 
-    const [deletedItems, setDeletedItems] = useState<Record<EntityType, DeletedItem[]>>({
-        study: [], episode: [], operation: [], portal: [], event: [], appointment: [],
-    });
+    const [deletedItems, setDeletedItems] = useState<Record<EntityType, DeletedItem[]>>(emptyDeletedItems);
     const [activeTab, setActiveTab] = useState<EntityType>('study');
     const [loading, setLoading] = useState(true);
-    const [loadErrors, setLoadErrors] = useState<Record<EntityType, string>>({
-        study: '', episode: '', operation: '', portal: '', event: '', appointment: '',
-    });
+    const [loadErrors, setLoadErrors] = useState<Record<EntityType, string>>(emptyLoadErrors);
 
     useFocusTrap(dialogRef, !!recoveringId);
 
     useEffect(() => driveAuth.onAuthChange((signedIn: boolean) => {
         if (!signedIn) {
             requestGeneration.current += 1;
-            setDeletedItems({study: [], episode: [], operation: [], portal: [], event: [], appointment: []});
+            setDeletedItems(emptyDeletedItems());
             setRecoveringStudyId(null);
             setRecoveryError(null);
-            setLoadErrors({study: '', episode: '', operation: '', portal: '', event: '', appointment: ''});
+            setLoadErrors(emptyLoadErrors());
         }
     }), []);
 
@@ -99,21 +106,22 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
 
     async function loadDeletedItems() {
         if (isLocalDemo.value) {
-            setDeletedItems({study: [], episode: [], operation: [], portal: [], event: [], appointment: []});
-            setLoadErrors({study: '', episode: '', operation: '', portal: '', event: '', appointment: ''});
+            setDeletedItems(emptyDeletedItems());
+            setLoadErrors(emptyLoadErrors());
             setLoading(false);
             return;
         }
         const generation = ++requestGeneration.current;
         setLoading(true);
         setRecoveryError(null);
-        setLoadErrors({study: '', episode: '', operation: '', portal: '', event: '', appointment: ''});
+        setLoadErrors(emptyLoadErrors());
 
         const repos = {
             study: driveStudyRepo,
             episode: driveEpisodeRepo,
             operation: driveOperationRepo,
             portal: drivePortalRepo,
+            doctor: driveDoctorRepo,
             event: driveMedicalEventRepo,
             appointment: driveAppointmentRepo,
         };
@@ -129,12 +137,8 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
 
             if (generation !== requestGeneration.current || await driveAuth.getAccessToken() !== token) return;
 
-            const newItems: Record<EntityType, DeletedItem[]> = {
-                study: [], episode: [], operation: [], portal: [], event: [], appointment: [],
-            };
-            const newErrors: Record<EntityType, string> = {
-                study: '', episode: '', operation: '', portal: '', event: '', appointment: '',
-            };
+            const newItems = emptyDeletedItems();
+            const newErrors = emptyLoadErrors();
 
             for (const result of results) {
                 if (result.status === 'fulfilled') {
@@ -155,7 +159,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
             setLoadErrors(newErrors);
         } catch (err) {
             if (generation === requestGeneration.current) {
-                setDeletedItems({study: [], episode: [], operation: [], portal: [], event: [], appointment: []});
+                setDeletedItems(emptyDeletedItems());
                 setRecoveryError(err instanceof Error ? err.message : 'No se pudieron consultar los elementos eliminados.');
             }
         } finally {
@@ -166,10 +170,10 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
     const handleClose = () => {
         requestGeneration.current += 1;
         dialogRef.current?.close();
-        setDeletedItems({study: [], episode: [], operation: [], portal: [], event: [], appointment: []});
+        setDeletedItems(emptyDeletedItems());
         setRecoveringStudyId(null);
         setRecoveryError(null);
-        setLoadErrors({study: '', episode: '', operation: '', portal: '', event: '', appointment: ''});
+        setLoadErrors(emptyLoadErrors());
     };
 
     const handleCancel = () => {
@@ -189,6 +193,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 episode: () => driveEpisodeRepo.restore(item.id, item.revision) as Promise<Episode>,
                 operation: () => driveOperationRepo.restore(item.id, item.revision) as Promise<Operation>,
                 portal: () => drivePortalRepo.restore(item.id, item.revision) as Promise<Portal>,
+                doctor: () => driveDoctorRepo.restore(item.id, item.revision) as Promise<Doctor>,
                 event: () => driveMedicalEventRepo.restore(item.id, item.revision) as Promise<MedicalEvent>,
                 appointment: () => driveAppointmentRepo.restore(item.id, item.revision) as Promise<Appointment>,
             };
@@ -198,6 +203,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 episode: (owner: string) => outbox.enqueueEpisodeRestore(owner, item.id, item.revision),
                 operation: (owner: string) => outbox.enqueueOperationRestore(owner, item.id, item.revision),
                 portal: (owner: string) => outbox.enqueuePortalRestore(owner, item.id, item.revision),
+                doctor: (owner: string) => outbox.enqueueDoctorRestore(owner, item.id, item.revision),
                 event: (owner: string) => outbox.enqueueEventRestore(owner, item.id, item.revision),
                 appointment: (owner: string) => outbox.enqueueAppointmentRestore(owner, item.id, item.revision),
             };
@@ -207,6 +213,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 episode: (recovered: Episode) => episodes.value = [...episodes.value, recovered],
                 operation: (recovered: Operation) => operations.value = [...operations.value, recovered],
                 portal: (recovered: Portal) => portals.value = [...portals.value, recovered],
+                doctor: (recovered: Doctor) => doctors.value = [...doctors.value, recovered],
                 event: (recovered: MedicalEvent) => medicalEvents.value = [...medicalEvents.value, recovered],
                 appointment: (recovered: Appointment) => appointments.value = [...appointments.value, recovered],
             };
@@ -221,7 +228,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                 return;
             }
 
-            type UpdateStateFn = (recovered: Study | Episode | Operation | Portal | MedicalEvent | Appointment) => void;
+            type UpdateStateFn = (recovered: Study | Episode | Operation | Portal | Doctor | MedicalEvent | Appointment) => void;
 
             const recovered = await restoreMap[item.type]();
             if (await driveAuth.getAccessToken() !== token) return;
@@ -253,11 +260,12 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
             episode: 'episode-restore',
             operation: 'operation-restore',
             portal: 'portal-restore',
+            doctor: 'doctor-restore',
             event: 'event-restore',
             appointment: 'appointment-restore',
         };
         return entry.kind === kindMap[item.type] &&
-            (entry.studyId === item.id || entry.episodeId === item.id || entry.operationId === item.id || entry.portalId === item.id || entry.eventId === item.id || entry.appointmentId === item.id);
+            (entry.studyId === item.id || entry.episodeId === item.id || entry.operationId === item.id || entry.portalId === item.id || entry.doctorId === item.id || entry.eventId === item.id || entry.appointmentId === item.id);
     });
 
     return (
@@ -273,9 +281,9 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                     <div>
                         <p className="eyebrow">Archivo</p>
                         <h2 id="recovery-title" tabIndex={-1}>Recuperar elementos eliminados</h2>
-                        <p id="recovery-copy">Recuperá estudios, episodios, operaciones, portales, consultas, recetas y
-                            turnos eliminados durante los últimos 30 días. Sin conexión se usa la última lista
-                            consultada.</p>
+                        <p id="recovery-copy">Recuperá estudios, episodios, operaciones, portales, médicos, consultas,
+                            recetas y turnos eliminados durante los últimos 30 días. Sin conexión se usa la última
+                            lista consultada.</p>
                     </div>
                     <button type="button" className="icon-button" aria-label="Cerrar" disabled={loading}
                             onClick={handleCancel}>

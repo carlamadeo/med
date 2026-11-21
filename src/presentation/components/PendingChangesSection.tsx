@@ -6,6 +6,7 @@ import {
     syncing,
     operations,
     portals,
+    doctors,
     studies,
     medicalEvents,
     appointments
@@ -62,7 +63,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                 const remote = entry.studyId ? studies.value.find((study) => study.id === entry.studyId)
                     : entry.operationId ? operations.value.find((operation) => operation.id === entry.operationId)
                         : entry.portalId ? portals.value.find((portal) => portal.id === entry.portalId)
-                            : entry.eventId ? medicalEvents.value.find((event) => event.id === entry.eventId) : undefined;
+                            : entry.doctorId ? doctors.value.find((doctor) => doctor.id === entry.doctorId)
+                                : entry.eventId ? medicalEvents.value.find((event) => event.id === entry.eventId) : undefined;
                 return (
                     <li key={entry.id} className="pending-item" data-status={entry.status}>
                         {entry.kind === 'appointment-save'
@@ -75,17 +77,19 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                         ? `Eliminar ${operations.value.find((op) => op.id === entry.operationId)?.name ?? 'operación'}`
                                         : entry.kind === 'portal-delete'
                                             ? `Eliminar ${entry.portal?.displayName ?? 'portal'}`
-                                            : entry.kind === 'episode-save'
-                                                ? entry.episodeDraft?.illness || 'Episodio de salud'
-                                                : entry.kind === 'episode-delete'
-                                                    ? 'Eliminar episodio'
-                                                    : entry.kind === 'appointment-delete'
-                                                        ? 'Eliminar turno'
-                                                        : entry.kind === 'event-delete'
-                                                            ? 'Eliminar evento'
-                                                            : entry.kind.endsWith('-restore')
-                                                                ? 'Recuperar registro'
-                                                                : entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Cambio sin datos válidos')}
+                                            : entry.kind === 'doctor-delete'
+                                                ? `Eliminar ${doctors.value.find((doc) => doc.id === entry.doctorId)?.name ?? 'médico'}`
+                                                : entry.kind === 'episode-save'
+                                                    ? entry.episodeDraft?.illness || 'Episodio de salud'
+                                                    : entry.kind === 'episode-delete'
+                                                        ? 'Eliminar episodio'
+                                                        : entry.kind === 'appointment-delete'
+                                                            ? 'Eliminar turno'
+                                                            : entry.kind === 'event-delete'
+                                                                ? 'Eliminar evento'
+                                                                : entry.kind.endsWith('-restore')
+                                                                    ? 'Recuperar registro'
+                                                                    : entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? entry.doctorDraft?.name ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Cambio sin datos válidos')}
                         {entry.status === 'conflict' ? ' · requiere revisión' : entry.status === 'failed' ? ' · no se puede sincronizar' : ''}
                         {entry.draft && (
                             <span> · {entry.draft.date} · {entry.draft.types.join(', ')} · {entry.draft.doctor}</span>
@@ -119,6 +123,14 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 <p>Notas: {entry.portalDraft.notes || '—'}</p>
                             </details>
                         )}
+                        {entry.doctorDraft && (
+                            <details>
+                                <summary>Ver datos pendientes</summary>
+                                <p>Especialidad: {entry.doctorDraft.specialty || '—'}</p>
+                                <p>Direcciones: {entry.doctorDraft.addresses.length ? entry.doctorDraft.addresses.join(' · ') : '—'}</p>
+                                <p>Predeterminada: {entry.doctorDraft.defaultAddress || '—'}</p>
+                            </details>
+                        )}
                         {entry.eventDraft && <details>
                             <summary>Ver datos pendientes</summary>
                             <p>Fecha: {entry.eventDraft.date}</p><p>Médico: {entry.eventDraft.doctor || '—'}</p>
@@ -145,7 +157,7 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                         {entry.status === 'conflict' && entry.kind !== 'appointment-save' && <details>
                             <summary>Comparar con Drive</summary>
                             <p>Mi
-                                cambio: {entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Eliminar registro')}</p>
+                                cambio: {entry.draft?.title ?? entry.operationDraft?.name ?? entry.portalDraft?.displayName ?? entry.doctorDraft?.name ?? (entry.eventDraft ? (entry.eventDraft.kind === 'consultation' ? 'Consulta' : 'Receta') : 'Eliminar registro')}</p>
                             {remote ? <>
                                 <p>Versión de
                                     Drive: {'title' in remote ? remote.title : 'displayName' in remote ? remote.displayName : 'name' in remote ? remote.name : remote.kind === 'consultation' ? 'Consulta' : 'Receta'}</p>
@@ -161,6 +173,13 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 {'type' in remote && <p>Intervención en Drive: {remote.type || '—'}</p>}
                                 {'url' in remote && <p>Enlace en Drive: {remote.url || '—'}</p>}
                                 {'notes' in remote && <p>Notas en Drive: {remote.notes || '—'}</p>}
+                                {'addresses' in remote && (
+                                    <>
+                                        <p>Especialidad en Drive: {remote.specialty || '—'}</p>
+                                        <p>Direcciones en Drive: {remote.addresses.length ? remote.addresses.join(' · ') : '—'}</p>
+                                        <p>Predeterminada en Drive: {remote.defaultAddress || '—'}</p>
+                                    </>
+                                )}
                                 <p>Revisión de Drive: {remote.revision || 'No disponible'}</p>
                                 <button type="button" className="button secondary"
                                         disabled={isSyncing || !navigator.onLine || !remote.revision}

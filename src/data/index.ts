@@ -24,6 +24,10 @@ export {
 } from './drive-portal-repository';
 
 export {
+    DriveDoctorRepository,
+} from './drive-doctor-repository';
+
+export {
     DriveMedicalEventRepository,
 } from './drive-medical-event-repository';
 
@@ -48,6 +52,7 @@ import {DriveAuthRepository} from './drive-auth-repository';
 import {DriveStudyRepository} from './drive-study-repository';
 import {DriveOperationRepository} from './drive-operation-repository';
 import {DrivePortalRepository} from './drive-portal-repository';
+import {DriveDoctorRepository} from './drive-doctor-repository';
 import {DriveMedicalEventRepository} from './drive-medical-event-repository';
 import {DriveEpisodeRepository} from './drive-episode-repository';
 import {DriveAppointmentRepository} from './drive-appointment-repository';
@@ -60,6 +65,7 @@ export const driveAuth = new DriveAuthRepository(driveClient);
 export const driveStudyRepo = new DriveStudyRepository(driveClient);
 export const driveOperationRepo = new DriveOperationRepository(driveClient);
 export const drivePortalRepo = new DrivePortalRepository(driveClient);
+export const driveDoctorRepo = new DriveDoctorRepository(driveClient);
 export const driveMedicalEventRepo = new DriveMedicalEventRepository(driveClient);
 export const driveEpisodeRepo = new DriveEpisodeRepository(driveClient);
 export const driveAppointmentRepo = new DriveAppointmentRepository(driveClient);
