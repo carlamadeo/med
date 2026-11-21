@@ -1,4 +1,5 @@
 import {openDB, type DBSchema, type IDBPDatabase} from 'idb';
+import type {PrintedCopies} from '@domain/models';
 
 interface MisEstudiosDB extends DBSchema {
     studies: { key: string; value: StudyRecord; indexes: { 'by-date': string; 'by-type': string } };
@@ -19,6 +20,7 @@ interface StudyRecord {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;

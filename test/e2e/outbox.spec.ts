@@ -41,10 +41,13 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
     await editor.getByRole('combobox', {name: 'Tipos de estudio'}).click();
     await editor.getByRole('option', {name: 'Ecografía', exact: true}).click();
     await editor.getByRole('textbox', {name: /Especialidad/}).fill('Endocrinología pediátrica');
+    await editor.getByRole('checkbox', {name: 'Tengo la imagen impresa'}).check();
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).click();
     await editor.getByRole('button', {name: 'Guardar estudio'}).click();
     const row = page.getByRole('row').filter({hasText: 'Estudio pendiente QA'});
     await expect(row).toContainText('Pendiente de sincronización');
+    const imageMark = row.getByRole('img', {name: 'Imagen impresa. Sin enlace al visor.'});
+    await expect(imageMark).toHaveAttribute('data-printed', 'true');
     const specialty = page.getByRole('combobox', {name: 'Filtrar por especialidad'});
     await specialty.selectOption({label: 'Endocrinología pediátrica'});
     await expect(row).toContainText('Endocrinología pediátrica');
@@ -52,11 +55,13 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
     await context.setOffline(false);
     await expect(row).not.toContainText('Pendiente de sincronización', {timeout: 15000});
     expect(uploads).toBe(1);
+    expect(JSON.parse(String(files[0]?.description)).printed).toEqual({report: false, image: true});
     await page.reload();
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
     await navigateTo(page, 'cronologia');
     await specialty.selectOption({label: 'Endocrinología pediátrica'});
     await expect(row).toContainText('Endocrinología pediátrica');
+    await expect(imageMark).toHaveAttribute('data-printed', 'true');
     expect(uploads).toBe(1);
 });
 
@@ -142,10 +147,11 @@ test('conserva el cambio pendiente cuando Drive tiene una revisión más recient
     await page.goto('/');
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
     await navigateTo(page, 'cronologia');
-    const edit = page.getByRole('button', {name: 'Editar Ficha original'});
-    await expect(edit).toBeVisible();
+    const detail = page.getByRole('button', {name: 'Ver detalle de Ficha original'});
+    await expect(detail).toBeVisible();
     await context.setOffline(true);
-    await edit.click();
+    await detail.click();
+    await page.getByRole('dialog', {name: 'Ficha original'}).getByRole('button', {name: 'Editar'}).click();
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Cambio sin conexión');
     await editor.getByRole('button', {name: 'Guardar cambios'}).click();

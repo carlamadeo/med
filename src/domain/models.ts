@@ -1,3 +1,8 @@
+export interface PrintedCopies {
+    report: boolean;
+    image: boolean;
+}
+
 export interface Study {
     id: string;
     title: string;
@@ -8,6 +13,7 @@ export interface Study {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
@@ -31,6 +37,7 @@ export interface StudyDraft {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     /** New PDF to attach (replaces the current one when editing). */
     file?: File;
     /** When editing without a new `file`, drop the PDF currently attached. */
