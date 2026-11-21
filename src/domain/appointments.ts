@@ -79,7 +79,7 @@ export interface GoogleCalendarEventPayload {
     end: {dateTime: string; timeZone: string};
     reminders: {
         useDefault: false;
-        overrides: [];
+        overrides: Array<{method: 'popup'; minutes: number}>;
     };
 }
 
@@ -107,6 +107,15 @@ export function buildGoogleCalendarEvent(
         location ? `Lugar: ${location}` : '',
         notes ? `Notas: ${notes}` : '',
     ].filter(Boolean);
+    const overrides: GoogleCalendarEventPayload['reminders']['overrides'] = [];
+    if (appointment.calendarReminders === 'standard') {
+        for (const days of [7, 1]) {
+            const day = new Date(`${appointment.date}T00:00:00Z`);
+            day.setUTCDate(day.getUTCDate() - days);
+            const reminder = appointmentInstant({...appointment, date: day.toISOString().slice(0, 10), time: '11:00'});
+            if (reminder) overrides.push({method: 'popup', minutes: (start.getTime() - reminder.getTime()) / 60_000});
+        }
+    }
 
     return {
         id: eventId,
@@ -118,7 +127,7 @@ export function buildGoogleCalendarEvent(
         end: {dateTime: end.toISOString(), timeZone: appointment.timeZone},
         reminders: {
             useDefault: false,
-            overrides: [],
+            overrides,
         },
     };
 }

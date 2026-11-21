@@ -236,7 +236,7 @@ export class DriveClient {
             this.disconnect();
             throw new DriveSessionError();
         }
-        return this.accessToken;
+        return this.requestToken;
     }
 
     async assertSession(token: string): Promise<void> {
@@ -300,6 +300,10 @@ export class DriveClient {
         return this.connected ? this.verifiedAccountId : null;
     }
 
+    protected get requestToken(): string {
+        return this.accessToken;
+    }
+
     async request(url: string, options: RequestInit = {}, expectedToken?: string): Promise<Response> {
         if (!this.connected) {
             this.disconnect();
@@ -309,7 +313,7 @@ export class DriveClient {
         if (destination.origin !== 'https://www.googleapis.com') {
             throw new Error('Google Drive devolvió una dirección inválida.');
         }
-        const token = this.accessToken;
+        const token = this.requestToken;
         if (expectedToken !== undefined && token !== expectedToken) throw new DriveSessionError();
         const headers = new Headers(options.headers);
         headers.set('Authorization', `Bearer ${token}`);
@@ -320,9 +324,9 @@ export class DriveClient {
             options.signal?.throwIfAborted();
             throw new Error('No se pudo conectar con Google Drive. Revisá tu conexión.');
         }
-        if (token !== this.accessToken) throw new DriveSessionError();
+        if (token !== this.requestToken) throw new DriveSessionError();
         if (response.status === 401) {
-            if (token === this.accessToken) this.disconnect();
+            this.disconnect();
             throw new DriveSessionError();
         }
         if (!response.ok) throw new DriveError(response.status);
