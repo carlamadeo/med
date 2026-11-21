@@ -60,6 +60,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
         (appointment) => appointment.status === 'scheduled' && appointmentStatus(appointment, new Date()) === 'upcoming',
     ).length;
     const pendingCount = pendingChanges.value.length;
+    const showArchiveActions = isSignedIn && view.value !== 'resumen';
 
     useFocusTrap(sidebarRef, open);
 
@@ -177,7 +178,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     {groups.map((group) => (
                         <div className="nav-group" key={group.label}>
                             <p className="nav-label">{group.label}</p>
-                            {group.items.map((item) => (
+                            {group.items.filter((item) => !item.action || showArchiveActions).map((item) => (
                                 <button
                                     key={item.label}
                                     id={`nav-${item.view ?? item.action ?? item.label}`}
@@ -200,7 +201,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                 </nav>
 
                 <div className="sidebar-foot">
-                    <FolderPickerDialog/>
+                    <div hidden={!showArchiveActions}><FolderPickerDialog/></div>
                     <p className="privacy-note">
                         <svg className="icon">
                             <use href="#i-lock"/>
@@ -251,29 +252,33 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
 
                     <div className="topbar-actions">
                         <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> {isLocalDemo.value ? 'Modo local de prueba' : 'Cuenta privada verificada'}</span>
-                        {onOpenSearch && (
+                        {showArchiveActions && onOpenSearch && (
                             <button className="icon-button" id="open-command-palette" type="button"
                                     title="Buscar en el archivo (⌘K / Ctrl+K)" aria-label="Buscar en el archivo"
-                                    hidden={!isSignedIn} onClick={onOpenSearch}>
+                                    onClick={onOpenSearch}>
                                 <svg className="icon">
                                     <use href="#i-search"/>
                                 </svg>
                             </button>
                         )}
-                        <button className="icon-button optional" id="export-history" type="button"
-                                title="Exportar historia" aria-label="Exportar historia" hidden={!isSignedIn}
-                                onClick={() => setExporting(true)}>
-                            <svg className="icon">
-                                <use href="#i-download"/>
-                            </svg>
-                        </button>
-                        <button className="icon-button" id="recover-studies" type="button" title="Recuperar informe"
-                                aria-label="Recuperar informe" hidden={!isSignedIn}
-                                onClick={() => setRecoveringStudyId('recovery')}>
-                            <svg className="icon">
-                                <use href="#i-restore"/>
-                            </svg>
-                        </button>
+                        {showArchiveActions && (
+                            <>
+                                <button className="icon-button optional" id="export-history" type="button"
+                                        title="Exportar historia" aria-label="Exportar historia"
+                                        onClick={() => setExporting(true)}>
+                                    <svg className="icon">
+                                        <use href="#i-download"/>
+                                    </svg>
+                                </button>
+                                <button className="icon-button" id="recover-studies" type="button"
+                                        title="Recuperar informe" aria-label="Recuperar informe"
+                                        onClick={() => setRecoveringStudyId('recovery')}>
+                                    <svg className="icon">
+                                        <use href="#i-restore"/>
+                                    </svg>
+                                </button>
+                            </>
+                        )}
                         <ThemeToggle/>
                         <button className="button quiet topbar-signout" id="signout" type="button" hidden={!isSignedIn}
                                 onClick={onSignOut}>Salir

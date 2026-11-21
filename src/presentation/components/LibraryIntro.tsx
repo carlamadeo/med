@@ -1,6 +1,5 @@
 import {useLayoutEffect} from 'preact/hooks';
 import type {ViewMode} from '@domain/models';
-import {libraryQuery, resetLibraryFilters, view as archiveView} from '../state/store';
 
 interface LibraryIntroProps {
     onAddStudy: () => void;
@@ -39,31 +38,17 @@ export function LibraryIntro({onAddStudy, onImport, isSignedIn, isLocalDemo, typ
                 <h1 id="page-title" tabIndex={-1}>{isSignedIn ? titles[view] : 'Mis estudios'}</h1>
                 {!isSignedIn && <p className="lead">Tus informes, tus estudios y tus turnos, en un solo lugar privado.</p>}
             </div>
-            {isSignedIn && view === 'resumen' && (
-                <form className="summary-search" role="search" onSubmit={event => {
-                    event.preventDefault();
-                    const term = new FormData(event.currentTarget).get('query');
-                    resetLibraryFilters();
-                    libraryQuery.value = typeof term === 'string' ? term.trim() : '';
-                    archiveView.value = 'cronologia';
-                    requestAnimationFrame(() => document.querySelector<HTMLElement>('.library-search input')?.focus());
-                }}>
-                    <label htmlFor="summary-search">Buscar un estudio</label>
-                    <div className="summary-search-fields">
-                        <input id="summary-search" type="search" name="query" placeholder="Nombre, profesional o institución"/>
-                        <button className="button secondary" type="submit">Buscar</button>
-                    </div>
-                </form>
+            {isSignedIn && library && (
+                <div className="intro-actions">
+                    <button className="button primary" data-add type="button" onClick={onAddStudy} disabled={!typesReady}>
+                        <svg className="icon"><use href="#i-plus"/></svg>
+                        Agregar estudio
+                    </button>
+                    {!isLocalDemo && <button type="button" className="button secondary" onClick={onImport}>
+                        Importar estudios
+                    </button>}
+                </div>
             )}
-            <div className="intro-actions" hidden={!isSignedIn || (!library && view !== 'resumen')}>
-                <button className="button primary" data-add type="button" onClick={onAddStudy} disabled={!typesReady}>
-                    <svg className="icon"><use href="#i-plus"/></svg>
-                    Agregar estudio
-                </button>
-                {library && !isLocalDemo && <button type="button" className="button secondary" onClick={onImport}>
-                    Importar estudios
-                </button>}
-            </div>
         </section>
     );
 }

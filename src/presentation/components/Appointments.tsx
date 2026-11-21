@@ -126,6 +126,10 @@ export function Appointments() {
                     .format(new Date(year, month - 1, 1))
                     .replace('.', '')
                 : '';
+            const timeZoneLabel =
+              item.timeZone === 'America/Argentina/Buenos_Aires' || item.timeZone === 'America/Buenos_Aires'
+                ? ''
+                : TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ?? item.timeZone;
             const syncLabel =
               item.syncStatus === 'conflict'
                 ? 'Requiere revisión'
@@ -148,9 +152,7 @@ export function Appointments() {
                     </span>
                   </div>
                   <p className="appointment-card-meta">
-                    {item.time} ·{' '}
-                    {TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ??
-                      item.timeZone}
+                    {item.time}{timeZoneLabel && ` · ${timeZoneLabel}`}
                   </p>
                   {item.specialty && <p className="event-specialty">{item.specialty}</p>}
                   {item.location && <p className="appointment-location">{item.location}</p>}

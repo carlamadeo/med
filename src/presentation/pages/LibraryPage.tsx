@@ -77,6 +77,7 @@ export function LibraryPage() {
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [importGeneration, setImportGeneration] = useState(0);
+    const isSummary = view.value === 'resumen';
 
     const clearEditorError = useCallback(() => setEditorError(null), []);
 
@@ -104,7 +105,7 @@ export function LibraryPage() {
     // Keyboard shortcuts
     useEffect(() => {
         const handleShortcut = (event: KeyboardEvent) => {
-            if (!isSignedIn.value || event.defaultPrevented) return;
+            if (!isSignedIn.value || view.value === 'resumen' || event.defaultPrevented) return;
             if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
                 event.preventDefault();
                 setPaletteOpen((prev) => !prev);
@@ -469,21 +470,17 @@ export function LibraryPage() {
                                 ? 'No se pudo leer una ficha de Drive.'
                                 : `No se pudieron leer ${studyLoadSkipped.value} fichas de Drive.`}
                             {' Los estudios disponibles siguen visibles. '}
-                            <button className="button secondary button-sm" type="button"
-                                    disabled={offline.value} onClick={() => void loadStudies(true)}>Volver a consultar Drive</button>
+                            {!isSummary && (
+                                <button className="button secondary button-sm" type="button"
+                                        disabled={offline.value} onClick={() => void loadStudies(true)}>Volver a consultar Drive</button>
+                            )}
                         </div>
                     )}
-                    <section id="library" aria-label="Biblioteca"
-                             className={view.value === 'resumen' ? 'library library-resumen' : 'library'}
+                    <section id="library" aria-label={isSummary ? 'Resumen' : 'Biblioteca'}
+                             className={isSummary ? 'library library-resumen' : 'library'}
                              hidden={!isSignedIn.value}>
-                        {view.value === 'resumen' ? (
-                            <Resumen
-                                onNavigate={(next) => {
-                                    view.value = next;
-                                }}
-                                onRetryLoad={() => void loadStudies(true)}
-                                _onRetryDirectories={() => void loadDirectories()}
-                            />
+                        {isSummary ? (
+                            <Resumen/>
                         ) : (
                             <StudyListContainer
                                 key={isSignedIn.value ? 'signed-in' : 'signed-out'}
@@ -512,7 +509,7 @@ export function LibraryPage() {
                             configured={driveAuth.configured}
                         />
                     </section>
-                    {isSignedIn.value && <PendingChangesSection
+                    {isSignedIn.value && !isSummary && <PendingChangesSection
                         onDiscard={discardPending}
                         onRetrySync={prepareOutbox}
                         onResolveConflict={(entry, revision) => void resolveConflict(entry, revision)}
@@ -557,7 +554,7 @@ export function LibraryPage() {
                 sessionLost={sessionLost}
             />
             <CommandPalette
-                open={paletteOpen}
+                open={paletteOpen && isSignedIn.value && !isSummary}
                 onClose={() => setPaletteOpen(false)}
                 onOpenStudy={(study) => openEditor(study)}
                 onAddStudy={() => openEditor(null)}

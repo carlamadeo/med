@@ -1,14 +1,11 @@
-import {
-    upcomingAppointment
-} from '@domain/summary';
+import {upcomingAppointment} from '@domain/summary';
 import {computeEpisodesAggregate, formatMonth} from '@domain/episodes-aggregate';
-import type {ViewMode, Episode, Appointment, Operation, MedicalEvent} from '@domain/models';
+import type {Episode, Appointment, Operation, MedicalEvent} from '@domain/models';
 import {
     error,
     loading,
     offline,
     pendingChanges,
-    setEditingAppointment,
     visibleAppointments,
     visibleEpisodes,
     visibleOperations,
@@ -16,13 +13,6 @@ import {
     visibleStudies,
 } from '../state/store';
 import {SummaryChart} from './SummaryChart';
-import {AppointmentStudyList} from './AppointmentStudies';
-
-interface ResumenProps {
-    onNavigate: (view: ViewMode) => void;
-    onRetryLoad: () => void;
-    _onRetryDirectories: () => void;
-}
 
 const syncLabels = {
     pending: 'Pendiente',
@@ -128,11 +118,7 @@ function getSpecialtiesThisYear(appointments: readonly Appointment[], events: re
     return [...specs].slice(0, 5);
 }
 
-export function Resumen({
-                            onNavigate,
-                            onRetryLoad,
-                            _onRetryDirectories,
-                        }: ResumenProps) {
+export function Resumen() {
     const episodes = visibleEpisodes.value;
     const appointments = visibleAppointments.value;
     const operations = visibleOperations.value;
@@ -185,10 +171,6 @@ export function Resumen({
                     </span>
                     <h2>No se pudo abrir el archivo</h2>
                     <p>{error.value}</p>
-                    <button className="button primary" type="button" onClick={onRetryLoad}>
-                        <svg className="icon"><use href="#i-refresh"/></svg>
-                        Reintentar
-                    </button>
                 </section>
             </div>
         );
@@ -296,45 +278,23 @@ export function Resumen({
                         </div>
 
                         {appointment && appointmentDate ? (
-                            <>
-                                <div className="appointment">
-                                    <div className="date-tile"
-                                         aria-label={`${appointmentDate.day} de ${appointmentDate.month}`}>
-                                        <span>{appointmentDate.month}</span>
-                                        <strong>{appointmentDate.day}</strong>
-                                    </div>
-                                    <div className="appointment-body">
-                                        <p className="appointment-title">{appointment.professional || 'Turno médico'}</p>
-                                        <p className="appointment-meta">
-                                            {appointment.time}
-                                            {appointment.specialty && ` · ${appointment.specialty}`}
-                                            {appointment.coverage && ` · Cobertura: ${appointment.coverage === 'all' ? 'Total' : appointment.coverage === 'partial' ? 'Parcial' : 'Ninguna'}`}
-                                        </p>
-                                    </div>
+                            <div className="appointment">
+                                <div className="date-tile"
+                                     aria-label={`${appointmentDate.day} de ${appointmentDate.month}`}>
+                                    <span>{appointmentDate.month}</span>
+                                    <strong>{appointmentDate.day}</strong>
                                 </div>
-                                <AppointmentStudyList studyIds={appointment.studyIds}/>
-                                <div className="side-foot appointment-actions">
-                                    <button className="button secondary button-sm" type="button"
-                                            disabled={Boolean(appointment.syncStatus)}
-                                            onClick={() => setEditingAppointment(appointment)}>Editar turno
-                                    </button>
-                                    <button className="button ghost button-sm" type="button"
-                                            onClick={() => onNavigate('turnos')}>Ver turnos
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="side-empty">
-                                <p>No hay turnos próximos.</p>
-                                <div className="appointment-actions">
-                                    <button className="button secondary button-sm" type="button"
-                                            onClick={() => setEditingAppointment(null)}>Agendar turno
-                                    </button>
-                                    <button className="button ghost button-sm" type="button"
-                                            onClick={() => onNavigate('turnos')}>Ver turnos
-                                    </button>
+                                <div className="appointment-body">
+                                    <p className="appointment-title">{appointment.professional || 'Turno médico'}</p>
+                                    <p className="appointment-meta">
+                                        {appointment.time}
+                                        {appointment.specialty && ` · ${appointment.specialty}`}
+                                        {appointment.coverage && ` · Cobertura: ${appointment.coverage === 'all' ? 'Total' : appointment.coverage === 'partial' ? 'Parcial' : 'Ninguna'}`}
+                                    </p>
                                 </div>
                             </div>
+                        ) : (
+                            <p className="side-empty">No hay turnos próximos.</p>
                         )}
                     </section>
 
@@ -351,7 +311,7 @@ export function Resumen({
                             )}
                             {topActiveSymptoms.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-thermometer"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-activity"/></svg>
                                     <span>Síntomas activos: {topActiveSymptoms.map(s => `${s.name}${s.maxIntensity ? ` (${s.maxIntensity}/5)` : ''}`).join(', ')}</span>
                                 </div>
                             )}
@@ -369,7 +329,7 @@ export function Resumen({
                             )}
                             {specialties.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-user"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-stethoscope"/></svg>
                                     <span>Especialidades este año: {specialties.join(', ')}</span>
                                 </div>
                             )}
