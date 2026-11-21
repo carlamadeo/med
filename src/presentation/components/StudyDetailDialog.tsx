@@ -72,20 +72,37 @@ export function StudyDetailDialog({study, returnFocus, onClose, onEdit, onDelete
                         : hasStudyAttachment(study) ? 'Archivo adjunto no disponible' : 'Sin archivo adjunto'}</li>
                     <li>{viewerAvailable ? <a href={study.viewer} target="_blank" rel="noopener noreferrer">Abrir visor</a>
                         : study.viewer ? 'Visor no disponible' : 'Sin enlace al visor'}</li>
-                    {documentIds.map(id => {
-                        const document = archive.find(item => item.id === id);
-                        return <li key={id}>{document && hasStudyAttachment(document) && document.driveFileId &&
-                            !isSourceUnavailable(document.driveFileId) ? (
-                            <a href={reportUrl(document.driveFileId)} target="_blank" rel="noopener noreferrer">{document.title}</a>
-                        ) : document?.title ?? 'Documento asociado no disponible'}</li>;
-                    })}
                 </ul>
             </section>
+            {documentIds.length > 0 && (
+                <section className="study-detail-section" aria-labelledby="study-detail-related">
+                    <h3 id="study-detail-related">Estudios relacionados</h3>
+                    <ul>
+                        {documentIds.map(id => {
+                            const document = archive.find(item => item.id === id);
+                            return <li key={id}>{document && hasStudyAttachment(document) && document.driveFileId &&
+                                !isSourceUnavailable(document.driveFileId) ? (
+                                <a href={reportUrl(document.driveFileId)} target="_blank" rel="noopener noreferrer">{document.title}</a>
+                            ) : document?.title ?? 'Documento asociado no disponible'}</li>;
+                        })}
+                    </ul>
+                </section>
+            )}
             <section className="study-detail-section" aria-labelledby="study-detail-copies">
                 <h3 id="study-detail-copies">Copias impresas</h3>
-                <ul>
-                    <li>{study.printed?.report ? 'Informe impreso' : 'Informe sin impresión registrada'}</li>
-                    <li>{study.printed?.image ? 'Imagen impresa' : 'Imagen sin impresión registrada'}</li>
+                <ul className="study-detail-copy-list">
+                    {[
+                        {label: 'Informe', printed: study.printed?.report, status: 'Impreso'},
+                        {label: 'Imagen', printed: study.printed?.image, status: 'Impresa'},
+                    ].map(({label, printed, status}) => (
+                        <li key={label}>
+                            <span>{label}</span>
+                            <span className="status-pill" data-tone={printed ? 'success' : 'neutral'}>
+                                {printed && <svg className="icon" aria-hidden="true"><use href="#i-check"/></svg>}
+                                {printed ? status : 'Sin registro'}
+                            </span>
+                        </li>
+                    ))}
                 </ul>
             </section>
             <div className="dialog-actions">

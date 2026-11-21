@@ -1811,7 +1811,7 @@
     min-width: 0;
 }
 
-.portal-card-title h3 {
+.portal-card-title :is(h3, h4) {
     overflow: hidden;
     font-size: 0.875rem;
     font-weight: 600;
@@ -4137,10 +4137,32 @@ label.linked-row {
 
 
 .dialog.editor {
+    --editor-field-font-size: var(--text-xs);
+
     width: min(calc(100vw - 2rem), 44rem);
     max-height: 90dvh;
     padding: 1.25rem;
     overflow: hidden;
+}
+
+.dialog.editor .form-section :is(
+    input:not([type="checkbox"], [type="file"]),
+    select,
+    textarea,
+    .combobox-trigger,
+    .combobox-placeholder,
+    .combobox-tag,
+    .combobox-option,
+    .portal-autocomplete-item
+) {
+    font-size: var(--editor-field-font-size);
+}
+
+@media (max-width: 560px), (pointer: coarse) {
+    .dialog.editor {
+        /* Keep editable fields at 16px to avoid zoom on focus in WebKit. */
+        --editor-field-font-size: 1rem;
+    }
 }
 
 .dialog.editor #editor-form {
@@ -4958,9 +4980,21 @@ fieldset#study-types.study-types {
     margin-top: 0.25rem;
 }
 
-.doctor-card-specialty {
-    color: var(--color-brand);
-    font-weight: 550;
+.doctor-groups {
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.doctor-group {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.doctor-group h3 {
+    font-size: 1rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
 }
 
 .doctor-address-list {
@@ -4984,6 +5018,16 @@ fieldset#study-types.study-types {
     color: var(--color-text-secondary);
     font-size: 0.75rem;
     overflow-wrap: anywhere;
+}
+
+#doctor-form .portal-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.doctor-dialog .portal-autocomplete-dropdown {
+    position: static;
+    max-height: min(9rem, 25dvh);
+    box-shadow: none;
 }
 
 .doctor-addresses-fieldset {
@@ -5013,14 +5057,19 @@ fieldset#study-types.study-types {
 
 .doctor-address-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.5rem;
+}
+
+.doctor-address-row > input {
+    grid-column: 1 / -1;
 }
 
 .portal-form-grid label.doctor-default-radio {
     display: inline-flex;
     align-items: center;
+    justify-self: start;
     gap: 0.35rem;
     min-height: 2.75rem;
     color: var(--color-text-secondary);
@@ -5089,12 +5138,6 @@ fieldset#study-types.study-types {
     color: var(--color-text-inverse);
     font-size: 0.6875rem;
     font-weight: 600;
-}
-
-@media (max-width: 560px) {
-    .doctor-address-row {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }
 
 

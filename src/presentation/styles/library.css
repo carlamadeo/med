@@ -25,44 +25,6 @@
     font-size: var(--text-sm);
 }
 
-.library-search-controls,
-.library-printed-filter {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.library-search-controls {
-    flex-wrap: wrap;
-    max-width: 100%;
-}
-
-@media screen and (width > 960px) {
-    .library-search-controls {
-        flex-wrap: nowrap;
-    }
-}
-
-.library-printed-filter {
-    min-height: 2.75rem;
-    padding-inline: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-    cursor: pointer;
-}
-
-.library-printed-filter:has(input:checked) {
-    border-color: var(--color-brand);
-    background: var(--color-brand-light);
-    color: var(--color-brand);
-}
-
-.library-printed-filter input {
-    margin: 0;
-}
-
 .library-classification-filters {
     display: flex;
     flex-wrap: wrap;
@@ -225,13 +187,16 @@
 }
 
 .library-table .study-source {
-    position: relative;
-    color: var(--color-text-tertiary);
+    color: var(--color-text-secondary);
+}
+
+.library-table a.study-source:not(:hover) {
+    background: var(--color-surface-hover);
 }
 
 .library-table span.study-source {
-    border-color: transparent;
     background: transparent;
+    opacity: 0.45;
     cursor: default;
 }
 
@@ -239,17 +204,8 @@
     color: var(--color-success);
 }
 
-.library-table .row-actions .study-source .study-source-check {
-    position: absolute;
-    inset-inline-end: 0.28rem;
-    inset-block-end: 0.28rem;
-    width: 0.85rem;
-    height: 0.85rem;
-    padding: 0.08rem;
-    border-radius: 50%;
-    background: var(--color-success);
-    color: var(--color-surface);
-    stroke-width: 3;
+.library-table span.study-source[data-printed='true'] {
+    opacity: 0.7;
 }
 
 .study-specialty {
@@ -468,7 +424,7 @@
 }
 
 @media print {
-    .library-search-controls,
+    .library-search,
     .library-type-filter,
     .library-selection-bar,
     .library-table .row-actions {
@@ -666,6 +622,22 @@
     padding: 0;
     margin: var(--space-2) 0 0;
     list-style: none;
+}
+
+.study-detail-copy-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.study-detail-copy-list .status-pill {
+    font-size: var(--text-xs);
+    white-space: normal;
 }
 
 .study-printed-fields {
