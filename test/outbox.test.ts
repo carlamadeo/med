@@ -34,6 +34,12 @@ const adapter = (account = owner): OutboxAdapter => ({
     }),
     restorePortal: vi.fn(async () => {
     }),
+    saveDoctor: vi.fn(async () => {
+    }),
+    deleteDoctor: vi.fn(async () => {
+    }),
+    restoreDoctor: vi.fn(async () => {
+    }),
     saveEvent: vi.fn(async () => {
     }),
     deleteEvent: vi.fn(async () => {
@@ -380,6 +386,8 @@ describe('directory changes in the offline queue', () => {
         ['appointment-delete', (q: Outbox) => q.enqueueAppointmentDelete(owner, 'id', '2'), 'deleteAppointment'],
         ['operation-restore', (q: Outbox) => q.enqueueOperationRestore(owner, 'id', '2'), 'restoreOperation'],
         ['portal-restore', (q: Outbox) => q.enqueuePortalRestore(owner, 'id', '2'), 'restorePortal'],
+        ['doctor-delete', (q: Outbox) => q.enqueueDoctorDelete(owner, 'id', '2'), 'deleteDoctor'],
+        ['doctor-restore', (q: Outbox) => q.enqueueDoctorRestore(owner, 'id', '2'), 'restoreDoctor'],
         ['event-restore', (q: Outbox) => q.enqueueEventRestore(owner, 'id', '2'), 'restoreEvent'],
         ['episode-restore', (q: Outbox) => q.enqueueEpisodeRestore(owner, 'id', '2'), 'restoreEpisode'],
         ['appointment-restore', (q: Outbox) => q.enqueueAppointmentRestore(owner, 'id', '2'), 'restoreAppointment'],
@@ -401,6 +409,40 @@ describe('directory changes in the offline queue', () => {
         await queue.sync(owner, remote);
         expect(remote.saveEpisode).toHaveBeenCalledWith(expect.objectContaining({createId: 'reserved-1'}));
         expect(remote.saveAppointment).toHaveBeenCalledWith(expect.objectContaining({createId: 'reserved-1'}));
+        expect(await queue.list(owner)).toEqual([]);
+    });
+
+    it('reserves ID and retries conflict for offline doctor saves', async () => {
+        await queue.enqueueDoctorSave(owner, {
+            name: 'Dra. Paz',
+            specialty: 'Cardiología',
+            addresses: ['Av. Santa Fe 100', 'Av. Cabildo 200'],
+            defaultAddress: 'Av. Cabildo 200',
+        });
+        const remote = adapter();
+        vi.mocked(remote.reserveId).mockResolvedValueOnce('doctor-id');
+        vi.mocked(remote.saveDoctor).mockRejectedValueOnce(new Error('sin red'));
+        await queue.sync(owner, remote);
+        expect((await queue.list(owner))[0]?.doctorDraft?.createId).toBe('doctor-id');
+        await queue.sync(owner, remote);
+        expect(remote.saveDoctor).toHaveBeenLastCalledWith(
+            expect.objectContaining({createId: 'doctor-id', name: 'Dra. Paz'}),
+        );
+
+        await queue.enqueueDoctorSave(owner, {
+            id: 'doctor-1',
+            revision: '1',
+            name: 'Dra. Paz',
+            addresses: ['Av. Santa Fe 100'],
+            defaultAddress: 'Av. Santa Fe 100',
+        });
+        vi.mocked(remote.saveDoctor).mockRejectedValueOnce(new DriveConflictError('médico'));
+        await queue.sync(owner, remote);
+        const conflict = (await queue.list(owner))[0]!;
+        expect(conflict.status).toBe('conflict');
+        await queue.retryConflict(owner, conflict.id!, '2');
+        await queue.sync(owner, remote);
+        expect(remote.saveDoctor).toHaveBeenLastCalledWith(expect.objectContaining({id: 'doctor-1', revision: '2'}));
         expect(await queue.list(owner)).toEqual([]);
     });
 });

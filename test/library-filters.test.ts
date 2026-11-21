@@ -91,6 +91,38 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     expect(root.textContent).toContain('Tu archivo empieza acá');
 });
 
+it('combines the printed filter with search, including printed copies without digital sources', async () => {
+    view.value = 'cronologia';
+    document.body.append(root);
+    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: false, driveModifiedTime: '', revision: '1', driveFileId: ''};
+    setStudies([
+        {...base, id: '1', title: 'Radiografía de rodilla', printed: {report: true, image: false}},
+        {...base, id: '2', title: 'Radiografía de tórax'},
+        {...base, id: '3', title: 'Ecografía abdominal', printed: {report: false, image: true}},
+    ]);
+    await act(() => render(h(StudyListContainer, {
+        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
+        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Otro'],
+        offline: false, directoryWarning: false, pendingChangesCount: 0,
+    }), root));
+
+    const filter = root.querySelector<HTMLInputElement>('input[name="onlyPrinted"]');
+    expect(filter).not.toBeNull();
+    await act(() => filter!.click());
+    expect(filteredStudies.value.map(study => study.id)).toEqual(['1', '3']);
+    const search = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(() => {
+        search.value = 'tórax';
+        search.dispatchEvent(new Event('input', {bubbles: true}));
+    });
+    expect(filteredStudies.value).toHaveLength(0);
+    const clear = [...root.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Limpiar filtros');
+    await act(() => clear!.click());
+    expect(filter?.checked).toBe(false);
+    expect(filteredStudies.value).toHaveLength(3);
+});
+
 it('allows changing sort order by clicking table headers in the study list', async () => {
     view.value = 'cronologia';
     const base = {driveFileId: 'drive-id', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};

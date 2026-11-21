@@ -10,6 +10,7 @@ import {
     view,
     operations,
     portals,
+    doctors,
     medicalEvents,
     episodes,
     appointments,
@@ -60,6 +61,7 @@ function readExportSnapshot(): ExportSnapshot {
         studies: studies.value,
         operations: operations.value,
         portals: portals.value,
+        doctors: doctors.value,
         medicalEvents: medicalEvents.value,
         episodes: episodes.value,
         appointments: appointments.value,
@@ -135,7 +137,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
             return;
         }
         const studiesToExport = getStudiesToExport();
-        const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
+        const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || doctors.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
         if (studiesToExport.length === 0 && (scope === 'filtered' || !hasOtherRecords)) {
             setExportError('No hay registros para exportar');
             return;
@@ -174,7 +176,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
         }
     };
 
-    const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
+    const hasOtherRecords = operations.value.length > 0 || portals.value.length > 0 || doctors.value.length > 0 || medicalEvents.value.length > 0 || episodes.value.length > 0 || appointments.value.length > 0;
     const studyCount = getStudiesToExport().length;
     const hasRecords = studyCount > 0 || (scope === 'all' && hasOtherRecords);
     const preview = selectExportSnapshot(readExportSnapshot(), scope, new Set(filteredStudies.value.map(study => study.id)));
@@ -224,7 +226,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <span className="export-summary-icon"><svg className="icon"><use href="#i-download"/></svg></span>
                     <div>
                         <strong>{studyCount} {studyCount === 1 ? 'estudio' : 'estudios'}</strong>
-                        <span>{includeAttachments ? attachmentCount : 0} archivos adjuntos · {preview.operations.length} operaciones · {preview.portals.length} portales · {preview.medicalEvents.length} consultas y recetas · {preview.episodes.length} episodios · {preview.appointments.length} turnos.</span>
+                        <span>{includeAttachments ? attachmentCount : 0} archivos adjuntos · {preview.operations.length} operaciones · {preview.portals.length} portales · {preview.doctors?.length ?? 0} médicos · {preview.medicalEvents.length} consultas y recetas · {preview.episodes.length} episodios · {preview.appointments.length} turnos.</span>
                     </div>
                 </div>
 
@@ -274,7 +276,7 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                 </label>
 
                 <div className="dialog-actions">
-                    <button type="button" className="button quiet" disabled={busy} onClick={handleClose}>Cancelar
+                    <button type="button" className="button secondary" disabled={busy} onClick={handleClose}>Cancelar
                     </button>
                     <button type="submit" className="button primary" id="export-confirm"
                             disabled={busy || sessionLost || !hasRecords || Boolean(blocker)}>
@@ -340,6 +342,15 @@ async function createExportZip(
         notes: p.notes,
     }));
     zip.file('portals.json', JSON.stringify(portalsList, null, 2));
+
+    const doctorsList = (snapshot.doctors ?? []).map(d => ({
+        id: d.id,
+        name: d.name,
+        specialty: d.specialty,
+        addresses: d.addresses,
+        defaultAddress: d.defaultAddress,
+    }));
+    zip.file('doctors.json', JSON.stringify(doctorsList, null, 2));
 
     const eventsList = snapshot.medicalEvents.map(e => ({
         id: e.id,

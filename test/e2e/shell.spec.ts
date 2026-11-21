@@ -187,9 +187,119 @@ test('permite desplazarse solo de arriba abajo al agendar un turno en móvil', a
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 
     const save = dialog.getByRole('button', {name: 'Guardar turno'});
-    await save.scrollIntoViewIfNeeded();
     await expect(save).toBeInViewport({ratio: 1});
+    const footer = dialog.locator('.dialog-actions');
+    const dialogBottom = await dialog.evaluate(element => element.getBoundingClientRect().bottom);
+    expect(dialogBottom - await footer.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThan(3);
+    await dialog.getByRole('searchbox', {name: 'Buscar estudios para el turno'}).scrollIntoViewIfNeeded();
     expect(await dialog.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await expect(save).toBeInViewport({ratio: 1});
+});
+
+test('muestra todas las categorías de recuperación y fechas con el mismo formato', async ({page}) => {
+    const deletedAt = new Date(Date.now() - 86400000);
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        if (!query.includes('trashed = true') || !query.includes('estudio-v1')) return route.fallback();
+        return route.fulfill({json: {files: [{
+            ...files[0], trashed: true, appProperties: {misEstudios: 'estudio-v1', deletedAt: deletedAt.toISOString()},
+        }]}});
+    });
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Recuperar informe'}).click();
+    const tabs = page.getByRole('tablist', {name: 'Tipos de elementos'});
+    const record = page.getByRole('tabpanel').filter({hasText: 'Mamografía bilateral'});
+    const dates = await page.evaluate(value => {
+        const options: Intl.DateTimeFormatOptions = {day: 'numeric', month: 'short', year: 'numeric'};
+        return [new Date(2026, 10, 12), new Date(value)].map(date => date.toLocaleDateString('es-AR', options));
+    }, deletedAt.toISOString());
+    await expect(record).toContainText(`Fecha: ${dates[0]} · Eliminado: ${dates[1]}`);
+    for (const [width, height] of [[1440, 900], [390, 844], [320, 700]] as const) {
+        await page.setViewportSize({width, height});
+        expect(await tabs.evaluate(element => element.scrollWidth)).toBe(await tabs.evaluate(element => element.clientWidth));
+        for (const tab of await tabs.getByRole('tab').all()) {
+            await expect(tab).toBeInViewport({ratio: 1});
+        }
+    }
+    await tabs.getByRole('tab', {name: /Estudios/}).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(tabs.getByRole('tab', {name: /Turnos/})).toHaveAttribute('aria-selected', 'true');
+});
+
+test('muestra los nombres completos en la barra superior compacta', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    for (const [view, label] of [
+        ['cronologia', 'Biblioteca'], ['operaciones', 'Operaciones'], ['episodios', 'Episodios'],
+        ['turnos', 'Turnos y consultas'], ['intake', 'Bandeja de entrada'],
+    ] as const) {
+        await navigateTo(page, view);
+        const route = page.getByRole('navigation', {name: 'Ruta de navegación'});
+        const current = route.locator('[aria-current="page"]');
+        await expect(current).toHaveText(label);
+        for (const width of [320, 360, 375, 390]) {
+            await page.setViewportSize({width, height: 700});
+            expect(await current.evaluate(element => {
+                const text = document.createRange();
+                text.selectNodeContents(element);
+                const parent = element.parentElement!.getBoundingClientRect();
+                return Array.from(text.getClientRects()).every(rect => rect.right <= parent.right + 1);
+            })).toBe(true);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+        }
+        await page.setViewportSize({width: 320, height: 700});
+    }
+});
+
+test('muestra y permite usar los controles de ordenamiento en Biblioteca compacta', async ({page, browserName}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const header = page.locator('.library-table thead');
+    const sort = header.getByRole('button', {name: 'Estudio'});
+    await expect(header).toHaveCSS('clip-path', 'none');
+    await expect(sort).toBeInViewport({ratio: 1});
+    const dateSort = header.getByRole('button', {name: 'Fecha'});
+    expect((await dateSort.boundingBox())?.y).toBe((await sort.boundingBox())?.y);
+    if (browserName === 'chromium') {
+        await page.getByLabel('Solo impresos').focus();
+        await page.keyboard.press('Tab');
+        await expect(sort).toBeFocused();
+    }
+    await sort.click();
+    await expect(header.getByRole('columnheader', {name: 'Estudio'})).toHaveAttribute('aria-sort', 'ascending');
+});
+
+test('mantiene a la vista las acciones de operación y exportación en móvil', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'operaciones');
+    await page.locator('.operations-head button').click();
+    const operation = page.getByRole('dialog', {name: 'Agregar operación'});
+    await expect(operation.getByRole('button', {name: 'Guardar operación'})).toBeInViewport({ratio: 1});
+    await expect(operation.getByRole('button', {name: 'Cancelar'})).toBeInViewport({ratio: 1});
+    await page.keyboard.press('Escape');
+    await navigateTo(page, 'export');
+    const exportDialog = page.getByRole('dialog', {name: 'Exportar historia'});
+    await expect(exportDialog.getByRole('button', {name: 'Exportar'})).toBeInViewport({ratio: 1});
+    await expect(exportDialog.getByRole('button', {name: 'Cancelar'})).toBeInViewport({ratio: 1});
+});
+
+test('describe dónde se guardan los cambios en el menú del modo local', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await expect(page.getByRole('status', {name: 'Modo de prueba local'})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Abrir menú'}).click();
+    const menu = page.getByRole('dialog', {name: 'Navegación principal'});
+    await expect(menu.getByText('Los cambios quedan en esta sesión de prueba.')).toBeVisible();
+    await expect(menu.getByText('Sin cuenta conectada')).toBeVisible();
 });
 
 test('busca turnos en móvil con texto de 16 píxeles y conserva la escala al salir', async ({page}) => {
@@ -247,7 +357,11 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
     const search = library.getByRole('searchbox', {name: 'Buscar estudios'});
     await expect(rows).toHaveCount(3);
     await expect(table.getByRole('columnheader', {name: 'Estado'})).toHaveCount(0);
-    for (const [label, icon] of [['Abrir PDF', '#i-file'], ['Abrir visor', '#i-eye'], ['Abrir imagen', '#i-scan']]) {
+    for (const [label, icon] of [
+        ['Abrir informe de Mamografía bilateral', '#i-file'],
+        ['Abrir visor de Resonancia de rodilla', '#i-image'],
+        ['Abrir informe de Orden de laboratorio', '#i-file'],
+    ]) {
         const link = table.getByRole('link', {name: new RegExp(`^${label}`)});
         await expect(link).toBeVisible();
         await expect(link).toHaveText('');
@@ -288,7 +402,7 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
 });
 
 
-test('imprime todas las páginas del archivo adjunto y permite elegir la ficha', async ({page, browserName}) => {
+test('imprime todas las páginas del archivo adjunto desde Compartir', async ({page, browserName}) => {
     const stream = (content: string) => `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
     const attachment = Buffer.from(pdf([
         '<< /Type /Catalog /Pages 2 0 R >>',
@@ -308,14 +422,16 @@ test('imprime todas las páginas del archivo adjunto y permite elegir la ficha',
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    const print = library.getByRole('button', {name: 'Imprimir Mamografía bilateral'});
-    await print.focus();
+    const share = library.getByRole('button', {name: 'Compartir Mamografía bilateral'});
+    await share.focus();
     await page.keyboard.press('Enter');
+    const shareDialog = page.getByRole('dialog', {name: 'Compartir estudio'});
+    await shareDialog.getByRole('button', {name: 'Imprimir archivo'}).click();
     const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
-    await expect(preview.getByRole('radio', {name: 'Archivo adjunto'})).toBeChecked();
+    await expect(shareDialog).toBeHidden();
     await expect(preview.getByRole('img', {name: 'Página 1 del archivo adjunto'})).toBeVisible();
     await expect(preview.getByRole('img', {name: 'Página 2 del archivo adjunto'})).toBeVisible();
-    await expect(preview.locator('.study-print-record')).toHaveCount(0);
+    await expect(preview.getByRole('radio')).toHaveCount(0);
     await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeEnabled();
 
     await page.emulateMedia({media: 'print'});
@@ -344,11 +460,13 @@ test('imprime todas las páginas del archivo adjunto y permite elegir la ficha',
         expect(pages).toEqual([true, true]);
     }
     await page.emulateMedia({media: 'screen'});
-    await preview.getByRole('radio', {name: 'Ficha del estudio'}).check();
-    await expect(preview.locator('.study-print-record')).toContainText('Mamografía bilateral');
+    await page.evaluate(() => { window.print = () => document.body.setAttribute('data-print-invoked', 'true'); });
+    await preview.getByRole('button', {name: 'Imprimir', exact: true}).click();
+    await expect(page.locator('body')).toHaveAttribute('data-print-invoked', 'true');
     await page.keyboard.press('Escape');
     await expect(preview).toBeHidden();
-    await expect(print).toBeFocused();
+    await expect(share).toBeFocused();
+    await expect(library.getByRole('link', {name: /Abrir informe de Mamografía bilateral/})).toHaveAttribute('data-printed', 'false');
 });
 
 test('previsualiza una imagen y distingue un adjunto que no se puede cargar', async ({page}) => {
@@ -371,8 +489,11 @@ test('previsualiza una imagen y distingue un adjunto que no se puede cargar', as
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const row = page.getByRole('row').filter({hasText: 'Orden de laboratorio'});
-    const print = row.getByRole('button', {name: 'Imprimir Orden de laboratorio'});
-    await print.click();
+    const startPrint = async () => {
+        await row.getByRole('button', {name: 'Compartir Orden de laboratorio'}).click();
+        await page.getByRole('dialog', {name: 'Compartir estudio'}).getByRole('button', {name: 'Imprimir archivo'}).click();
+    };
+    await startPrint();
     const preview = page.getByRole('dialog', {name: 'Preparar impresión'});
     const image = preview.getByRole('img', {name: 'Página 1 del archivo adjunto'});
     await expect(image).toHaveJSProperty('naturalWidth', 30);
@@ -385,12 +506,13 @@ test('previsualiza una imagen y distingue un adjunto que no se puede cargar', as
     )).toBe(true);
 
     unavailable = true;
-    await print.click();
+    await startPrint();
     await expect(preview.getByRole('alert')).toContainText('No se pudo preparar el archivo adjunto');
     await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeDisabled();
-    await preview.getByRole('radio', {name: 'Ficha del estudio'}).check();
-    await expect(preview.locator('.study-print-record')).toContainText('Orden de laboratorio');
-    await expect(preview.getByRole('button', {name: 'Imprimir', exact: true})).toBeEnabled();
+    await expect(preview.getByRole('button', {name: 'Reintentar'})).toBeVisible();
+    await page.emulateMedia({media: 'print'});
+    await expect(page.locator('.study-print-output')).toBeAttached();
+    await expect(page.getByRole('region', {name: 'Biblioteca'})).toBeHidden();
 });
 
 test('revisa estudios relacionados con teclado y conserva el tema', async ({page}) => {
@@ -398,9 +520,10 @@ test('revisa estudios relacionados con teclado y conserva el tema', async ({page
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    const edit = library.getByRole('button', {name: 'Editar Mamografía bilateral'});
-    await edit.focus();
+    const detail = library.getByRole('button', {name: 'Ver detalle de Mamografía bilateral'});
+    await detail.focus();
     await page.keyboard.press('Enter');
+    await page.getByRole('dialog', {name: 'Mamografía bilateral'}).getByRole('button', {name: 'Editar'}).click();
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     await expect(editor).toBeVisible();
     await expect(editor.locator('#current-report-name')).toHaveText('2026-11-12 Mamografía bilateral.pdf');
@@ -409,7 +532,7 @@ test('revisa estudios relacionados con teclado y conserva el tema', async ({page
     await expect(editor.getByText('Otros estudios de Mamografía')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
-    await expect(edit).toBeFocused();
+    await expect(detail).toBeFocused();
 
     await page.emulateMedia({reducedMotion: 'reduce'});
     const toggle = page.getByRole('button', {name: /Cambiar a modo/});
@@ -438,12 +561,9 @@ test('muestra todos los iconos del estudio en un ancho de 320 píxeles', async (
     await expect(library.getByRole('searchbox', {name: 'Buscar estudios'})).toBeVisible();
     const row = library.getByRole('row').filter({hasText: 'Mamografía bilateral'});
     const actions = [
-        row.getByRole('link', {name: 'Abrir PDF de Mamografía bilateral'}),
-        row.getByRole('link', {name: 'Abrir visor de Mamografía bilateral'}),
-        row.getByRole('button', {name: 'Editar Mamografía bilateral'}),
-        row.getByRole('button', {name: 'Imprimir Mamografía bilateral'}),
+        row.getByRole('link', {name: /^Abrir informe de Mamografía bilateral/}),
+        row.getByRole('link', {name: /^Abrir visor de Mamografía bilateral/}),
         row.getByRole('button', {name: 'Compartir Mamografía bilateral'}),
-        row.getByRole('button', {name: 'Eliminar Mamografía bilateral'}),
     ];
     for (const action of actions) {
         await expect(action.locator('svg')).toBeVisible();
@@ -453,12 +573,52 @@ test('muestra todos los iconos del estudio en un ancho de 320 píxeles', async (
         expect(box.x + box.width).toBeLessThanOrEqual(320);
     }
     await expect(row.getByText('Más acciones', {exact: true})).toHaveCount(0);
-    await row.getByRole('button', {name: 'Eliminar Mamografía bilateral'}).click();
+    await row.getByRole('checkbox').check();
+    await expect(page.getByRole('dialog', {name: 'Mamografía bilateral'})).toBeHidden();
+    await row.locator('time').click();
+    await page.getByRole('dialog', {name: 'Mamografía bilateral'}).getByRole('button', {name: 'Eliminar'}).click();
     const confirm = page.getByRole('dialog', {name: 'Eliminar estudio'});
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', {name: 'Cancelar'}).click();
     await expect(row).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('marca y desmarca una copia física desde el detalle y elimina el estudio', async ({page}) => {
+    await page.goto('/?sin-sesion');
+    await page.locator('#enter-demo').click();
+    await navigateTo(page, 'cronologia');
+    const library = page.getByRole('region', {name: 'Biblioteca'});
+    const title = 'Ecografía abdominal completa';
+    const row = library.getByRole('row').filter({hasText: title});
+    const detail = page.getByRole('dialog', {name: title, exact: true});
+    const editor = page.getByRole('dialog', {name: 'Editar estudio'});
+    const edit = async () => {
+        await row.getByRole('button', {name: `Ver detalle de ${title}`}).click();
+        await detail.getByRole('button', {name: 'Editar'}).click();
+    };
+    const image = editor.getByRole('checkbox', {name: 'Tengo la imagen impresa'});
+    await edit();
+    await image.check();
+    await editor.getByRole('button', {name: 'Guardar cambios'}).click();
+    await expect(editor).toBeHidden();
+    await expect(row.getByRole('img', {name: 'Imagen impresa. Sin enlace al visor.'})).toBeVisible();
+
+    await library.getByRole('checkbox', {name: 'Solo impresos'}).check();
+    await expect(library.getByRole('button', {name: /Ver detalle de Hemograma/})).toHaveCount(0);
+    await edit();
+    await expect(image).toBeChecked();
+    await image.uncheck();
+    await editor.getByRole('button', {name: 'Guardar cambios'}).click();
+    await expect(library.getByText('No hay resultados')).toBeVisible();
+    await expect(library.getByRole('heading', {name: 'Estudios guardados'})).toBeFocused();
+    await library.getByRole('button', {name: 'Limpiar filtros'}).click();
+
+    await row.getByRole('button', {name: `Ver detalle de ${title}`}).click();
+    await detail.getByRole('button', {name: 'Eliminar'}).click();
+    await page.getByRole('dialog', {name: 'Eliminar estudio'}).getByRole('button', {name: 'Eliminar estudio'}).click();
+    await expect(row).toHaveCount(0);
+    await expect(library.getByRole('heading', {name: 'Estudios guardados'})).toBeFocused();
 });
 
 test('muestra el inicio de Biblioteca al navegar desde Resumen desplazado', async ({page}) => {
@@ -556,7 +716,7 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     await navigateTo(page, 'turnos');
     await page.locator('.events-head').getByRole('button', {name: 'Registrar sin turno'}).click();
     const dialog = page.getByRole('dialog', {name: 'Agregar consulta o receta'});
-    const specialty = dialog.getByLabel('Especialidad');
+    const specialty = dialog.getByRole('textbox', {name: 'Especialidad'});
     await specialty.fill('Cardiología');
     await specialty.press('Tab');
     await expect(dialog.getByLabel('Buscar estudios relacionados')).toBeHidden();
@@ -690,17 +850,23 @@ test('el modo local conserva la biblioteca al cancelar el editor', async ({page}
     await expect(page.getByText('Ecografía abdominal completa')).toBeVisible();
 });
 
-test('mantiene las acciones del editor fuera del área desplazable', async ({page}) => {
+test('permite desplazar el editor solo en vertical y mantiene visibles sus acciones', async ({page}) => {
     await page.setViewportSize({width: Math.min(page.viewportSize()!.width, 800), height: 600});
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
     const library = page.getByRole('region', {name: 'Biblioteca'});
-    await library.getByRole('button', {name: 'Editar Mamografía bilateral'}).click();
+    await library.getByRole('button', {name: 'Ver detalle de Mamografía bilateral'}).click();
+    await page.getByRole('dialog', {name: 'Mamografía bilateral'}).getByRole('button', {name: 'Editar'}).click();
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     const content = editor.locator('.editor-content');
     const actions = editor.locator('.dialog-actions');
     await expect(editor).toBeVisible();
+    const widths = await content.evaluate((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+    }));
+    expect(widths.scrollWidth).toBe(widths.clientWidth);
     const geometry = await content.evaluate((element) => {
         element.scrollTop = element.scrollHeight;
         return {scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight};
@@ -723,7 +889,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     const dialog = page.locator('#appointment-dialog');
     await dialog.getByLabel('Fecha').fill('2024-03-01');
     await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
-    await dialog.getByLabel('Zona horaria').selectOption('America/Argentina/Buenos_Aires');
     await dialog.getByLabel('Profesional').fill('Dra. Pérez');
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
     await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
@@ -753,7 +918,7 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(card).toContainText('Control de audición');
     await expect(card).toContainText('Otorrinolaringología');
     await expect(card).toContainText('Consultorio 12');
-    await expect(card).toContainText('Importe: 1250');
+    await expect(card).toContainText('Importe: $1.250');
     await expect(card).toContainText('Cobertura: Parcial');
     await expect(card).toContainText('Ecografía abdominal completa');
     await expect(card).toContainText('Control en una semana');
@@ -815,8 +980,11 @@ test('elige y guarda una especialidad al editar un estudio anterior', async ({pa
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
-    const edit = page.getByRole('button', {name: 'Editar Orden de laboratorio'});
-    await edit.click();
+    const edit = async () => {
+        await page.getByRole('button', {name: 'Ver detalle de Orden de laboratorio'}).click();
+        await page.getByRole('dialog', {name: 'Orden de laboratorio'}).getByRole('button', {name: 'Editar'}).click();
+    };
+    await edit();
 
     const editor = page.getByRole('dialog', {name: 'Editar estudio'});
     const specialty = editor.getByRole('textbox', {name: /Especialidad/});
@@ -834,6 +1002,6 @@ test('elige y guarda una especialidad al editar un estudio anterior', async ({pa
     await page.reload();
     await expect(page.locator('#resumen')).toBeVisible();
     await navigateTo(page, 'cronologia');
-    await edit.click();
+    await edit();
     await expect(specialty).toHaveValue('Cardiología');
 });

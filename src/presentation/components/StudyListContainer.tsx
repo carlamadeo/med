@@ -1,5 +1,5 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
+import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryOnlyPrinted, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
@@ -53,7 +53,7 @@ export function StudyListContainer({
             {(pendingChangesCount > 0) && (
                 <div id="pending-changes-placeholder"/>)}
             {directoryWarning && (
-                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volvera a intentar al recuperar la conexion.</p>
+                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volverá a intentar al recuperar la conexión.</p>
             )}
             {view.value === 'operaciones' && <Operations/>}
             {view.value === 'episodios' && <Episodes/>}
@@ -77,23 +77,30 @@ export function StudyListContainer({
                     <div className="section-head library-search-head">
                         <div className="library-head-main">
                             <div className="section-title">
-                                <h2 id="library-title">Estudios guardados</h2>
+                                <h2 id="library-title" tabIndex={-1}>Estudios guardados</h2>
                                 <span id="count" className="count" aria-live="polite" aria-atomic="true">
                                     {studiesList.length}<span className="sr-only"> estudios</span>
                                 </span>
                             </div>
                             <LibraryTabs availableTypes={availableTypes}/>
                         </div>
-                        <div className="search library-search">
-                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                            <input
-                                ref={searchInput}
-                                type="search"
-                                aria-label="Buscar estudios"
-                                placeholder="Nombre, profesional o institución"
-                                value={libraryQuery.value}
-                                onInput={(event) => libraryQuery.value = event.currentTarget.value}
-                            />
+                        <div className="library-search-controls">
+                            <div className="search library-search">
+                                <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                                <input
+                                    ref={searchInput}
+                                    type="search"
+                                    aria-label="Buscar estudios"
+                                    placeholder="Nombre, profesional o institución"
+                                    value={libraryQuery.value}
+                                    onInput={(event) => libraryQuery.value = event.currentTarget.value}
+                                />
+                            </div>
+                            <label className="library-printed-filter">
+                                <input type="checkbox" name="onlyPrinted" checked={libraryOnlyPrinted.value}
+                                       onChange={event => libraryOnlyPrinted.value = event.currentTarget.checked}/>
+                                Solo impresos
+                            </label>
                         </div>
                     </div>
                     {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value} <button type="button" className="button quiet button-sm" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}

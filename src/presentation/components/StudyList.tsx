@@ -1,7 +1,7 @@
 /** Lista de estudios en formato tabla. */
 import {useRef, useState} from 'preact/hooks';
-import {StudyPrintDialog} from './StudyPrintDialog';
-import {formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel, type StudySortOrder} from '@domain/library';
+import {StudyDetailDialog} from './StudyDetailDialog';
+import {formatStudyDate, hasStudyAttachment, reportUrl, type StudySortOrder} from '@domain/library';
 import {isSourceUnavailable, studies as allStudies} from '../state/store';
 import type {Study} from '@domain/models';
 
@@ -19,6 +19,29 @@ function isShareableStudy(study: Study): boolean {
     return !study.syncStatus && Boolean(
         hasStudyAttachment(study) || study.viewer || study.documentIds?.length,
     );
+}
+
+interface StudySourceProps {
+    icon: 'file' | 'image';
+    printed?: boolean;
+    name: string;
+    href?: string;
+    unavailable: string;
+}
+
+function StudySource({icon, printed = false, name, href, unavailable}: StudySourceProps) {
+    const copy = icon === 'file' ? 'Informe' : 'Imagen';
+    const printStatus = printed ? (icon === 'file' ? 'Informe impreso' : 'Imagen impresa') : `${copy} sin impresión registrada`;
+    const action = icon === 'file' ? 'Abrir informe' : 'Abrir visor';
+    const label = href ? `${action} de ${name}. ${printStatus}.` : `${printStatus}. ${unavailable}.`;
+    const props = {className: 'icon-button study-source', 'data-printed': printed, 'aria-label': label, title: label};
+    const glyph = <>
+        <svg className="icon" aria-hidden="true"><use href={`#i-${icon}`}/></svg>
+        {printed && <svg className="icon study-source-check" aria-hidden="true"><use href="#i-check"/></svg>}
+    </>;
+    return href
+        ? <a {...props} href={href} target="_blank" rel="noopener noreferrer">{glyph}</a>
+        : <span {...props} role="img">{glyph}</span>;
 }
 
 interface StudyListProps {
@@ -41,14 +64,21 @@ export function StudyList({
                                onSortChange,
                                studies: studiesList
                            }: StudyListProps) {
-    const [printing, setPrinting] = useState<Study | null>(null);
+    const [detailId, setDetailId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [pagination, setPagination] = useState({studies: studiesList, page: 0});
     const table = useRef<HTMLTableElement>(null);
+    const detailTrigger = useRef<HTMLButtonElement | null>(null);
+    const detailStudy = detailId ? studiesList.find(study => study.id === detailId) : undefined;
     const page = pagination.studies === studiesList ? pagination.page : 0;
     const start = page * PAGE_SIZE;
     const end = Math.min(start + PAGE_SIZE, studiesList.length);
     const pageStudies = studiesList.slice(start, end);
+
+    const openDetail = (study: Study, trigger: HTMLButtonElement | null) => {
+        detailTrigger.current = trigger;
+        setDetailId(study.id);
+    };
 
     const shareableStudiesInList = studiesList.filter(isShareableStudy);
     const availableById = new Map<string, Study>();
@@ -176,11 +206,9 @@ export function StudyList({
                         </tr>
                     ) : pageStudies.flatMap((study, index) => {
                         const hasAttachment = hasStudyAttachment(study);
-                        const attachmentAvailable = hasAttachment && !isSourceUnavailable(study.driveFileId);
+                        const attachmentAvailable = hasAttachment && Boolean(study.driveFileId) && !isSourceUnavailable(study.driveFileId);
                         const viewerAvailable = Boolean(study.viewer) && !isSourceUnavailable(study.viewer);
-                        const attachmentLabel = studyAttachmentLabel(study);
-                        const pending = Boolean(study.syncStatus);
-                        const canShare = hasAttachment || study.viewer || study.documentIds?.length;
+                        const canShare = isShareableStudy(study);
                         const isDateSorted = sortOrder === 'date-desc' || sortOrder === 'date-asc';
                         const year = /^\d{4}/.test(study.date) ? study.date.slice(0, 4) : '';
                         const prevStudy = index > 0 ? studiesList[index - 1] : undefined;
@@ -199,19 +227,25 @@ export function StudyList({
                         }
 
                         rows.push(
-                            <tr key={study.id} role="row">
+                            <tr key={study.id} role="row" className="study-row" onClick={event => {
+                                if (event.target instanceof Element && !event.target.closest('a, button, input, .study-source')) {
+                                    openDetail(study, event.currentTarget.querySelector('.study-title'));
+                                }
+                            }}>
                                 <td role="cell">
                                     <div className="study-cell">
                                         <input
                                             type="checkbox"
                                             className="study-select-checkbox"
                                             checked={activeSelectedIds.has(study.id)}
-                                            disabled={pending || !canShare}
+                                            disabled={!canShare}
                                             aria-label={`Seleccionar ${study.title} para compartir`}
                                             onChange={(event) => toggleSelect(study.id, event.currentTarget.checked)}
                                         />
                                         <span className="study-text">
-                                            <span className="study-title">{study.title}</span>
+                                            <button className="study-title" type="button" aria-haspopup="dialog" title={study.title}
+                                                    aria-label={`Ver detalle de ${study.title}`}
+                                                    onClick={event => openDetail(study, event.currentTarget)}>{study.title}</button>
                                             {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
                                             <span className="study-types">
                                                 {study.types.length ? (
@@ -240,45 +274,28 @@ export function StudyList({
                                     <time className="date-cell" dateTime={study.date}>{formatStudyDate(study.date)}</time>
                                 </td>
                                 <td role="cell" className="person-cell library-study-metadata" data-empty={!study.doctor}>
-                                    <span className="library-mobile-label" aria-hidden="true">Profesional </span>
-                                    {study.doctor || '—'}
+                                    <span className="library-study-value" title={study.doctor || undefined}>
+                                        <span className="library-mobile-label" aria-hidden="true">Profesional </span>
+                                        {study.doctor || '—'}
+                                    </span>
                                 </td>
                                 <td role="cell" className="portal-cell library-study-metadata" data-empty={!study.portal}>
-                                    <span className="library-mobile-label" aria-hidden="true">Institución </span>
-                                    {study.portal || '—'}
+                                    <span className="library-study-value" title={study.portal || undefined}>
+                                        <span className="library-mobile-label" aria-hidden="true">Institución </span>
+                                        {study.portal || '—'}
+                                    </span>
                                 </td>
                                 <td role="cell">
                                     <div className="row-actions">
-                                        {attachmentAvailable && (
-                                            <a className="icon-button" href={reportUrl(study.driveFileId)}
-                                               target="_blank" rel="noopener noreferrer"
-                                               title={attachmentLabel} aria-label={`${attachmentLabel} de ${study.title}`}>
-                                                <svg className="icon" aria-hidden="true">
-                                                    <use href={study.attachmentMime ? '#i-scan' : '#i-file'}/>
-                                                </svg>
-                                            </a>
-                                        )}
-                                        {viewerAvailable && (
-                                            <a className="icon-button" href={study.viewer} target="_blank" rel="noopener noreferrer"
-                                               title="Abrir visor" aria-label={`Abrir visor de ${study.title}`}>
-                                                <svg className="icon" aria-hidden="true"><use href="#i-eye"/></svg>
-                                            </a>
-                                        )}
-                                        <button className="icon-button" type="button" title="Editar" disabled={pending}
-                                                aria-label={`Editar ${study.title}`} onClick={() => onEdit(study)}>
-                                            <svg className="icon" aria-hidden="true"><use href="#i-edit"/></svg>
-                                        </button>
-                                        <button className="icon-button" type="button" title="Imprimir" aria-label={`Imprimir ${study.title}`}
-                                                onClick={() => setPrinting(study)}>
-                                            <svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>
-                                        </button>
-                                        <button className="icon-button" type="button" title="Compartir" disabled={pending || !canShare}
+                                        <StudySource icon="file" name={study.title} printed={study.printed?.report}
+                                                     unavailable={hasAttachment || study.pendingAttachment ? 'Archivo adjunto no disponible' : 'Sin archivo adjunto'}
+                                                     href={attachmentAvailable ? reportUrl(study.driveFileId) : undefined}/>
+                                        <StudySource icon="image" name={study.title} printed={study.printed?.image}
+                                                     unavailable={study.viewer ? 'Visor no disponible' : 'Sin enlace al visor'}
+                                                     href={viewerAvailable ? study.viewer : undefined}/>
+                                        <button className="icon-button" type="button" title="Compartir" disabled={!canShare}
                                                 aria-label={`Compartir ${study.title}`} onClick={() => onShare?.(study)}>
                                             <svg className="icon" aria-hidden="true"><use href="#i-share"/></svg>
-                                        </button>
-                                        <button className="icon-button row-action-danger" type="button" title="Eliminar" disabled={pending}
-                                                aria-label={`Eliminar ${study.title}`} onClick={() => onDelete(study)}>
-                                            <svg className="icon" aria-hidden="true"><use href="#i-trash"/></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -298,7 +315,8 @@ export function StudyList({
                         onClick={() => changePage(page + 1)}>Siguiente</button>
             </nav>
         )}
-        {printing && <StudyPrintDialog key={printing.id} study={printing} onClose={() => setPrinting(null)}/>}
+        {detailStudy && <StudyDetailDialog study={detailStudy} returnFocus={detailTrigger.current}
+                                           onClose={() => setDetailId(null)} onEdit={onEdit} onDelete={onDelete}/>}
         </>
     );
 }

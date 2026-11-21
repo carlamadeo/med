@@ -1,12 +1,23 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
+import {buildProfessionalOptions, resolveProfessionalSpecialty} from '../utils/appointmentEditor';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import {COMMON_SPECIALTIES, formatStudyDate, hasStudyAttachment, reportUrl, specialtyNames, studyAttachmentName} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
-import {isLocalDemo, medicalEvents, visibleMedicalEvents, studies} from '../state/store';
+import {
+    doctorDirectory,
+    isLocalDemo,
+    medicalEvents,
+    operations,
+    studies,
+    visibleAppointments,
+    visibleDoctors,
+    visibleMedicalEvents,
+} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
+import {AutocompleteTextField} from './AutocompleteTextField';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {EventRelatedPicker} from './EventRelatedPicker';
 
@@ -18,8 +29,11 @@ export function MedicalEvents({query}: {query: string}) {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [formOpen, setFormOpen] = useState(false);
+    const [doctor, setDoctor] = useState('');
+    const [specialty, setSpecialty] = useState('');
     const [pendingDelete, setPendingDelete] = useState<MedicalEvent | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const autoSpecialtyRef = useRef<string | null>(null);
 
     useFocusTrap(dialogRef, formOpen);
 
@@ -33,12 +47,27 @@ export function MedicalEvents({query}: {query: string}) {
     const openNew = () => {
         setMessage('');
         setEditing(null);
+        setDoctor('');
+        setSpecialty('');
+        autoSpecialtyRef.current = null;
         setFormOpen(true);
     };
 
     const openEdit = (event: MedicalEvent) => {
+        const initialSpecialty = resolveProfessionalSpecialty(
+            event.doctor,
+            doctorDirectory.value,
+            visibleAppointments.value,
+            visibleMedicalEvents.value,
+        );
         setMessage('');
         setEditing(event);
+        setDoctor(event.doctor ?? '');
+        setSpecialty(event.specialty ?? '');
+        autoSpecialtyRef.current =
+            event.specialty && initialSpecialty && normalize(initialSpecialty) === normalize(event.specialty)
+                ? event.specialty
+                : null;
         setFormOpen(true);
     };
 
@@ -50,6 +79,27 @@ export function MedicalEvents({query}: {query: string}) {
     const cancelForm = () => {
         setMessage('');
         closeForm();
+    };
+
+    const handleDoctorChange = (nextValue: string) => {
+        setDoctor(nextValue);
+        const nextSpecialty = resolveProfessionalSpecialty(
+            nextValue,
+            doctorDirectory.value,
+            visibleAppointments.value,
+            visibleMedicalEvents.value,
+        );
+        if (!specialty.trim()) {
+            if (nextSpecialty) {
+                setSpecialty(nextSpecialty);
+                autoSpecialtyRef.current = nextSpecialty;
+            } else {
+                autoSpecialtyRef.current = null;
+            }
+        } else if (autoSpecialtyRef.current !== null && specialty === autoSpecialtyRef.current) {
+            setSpecialty(nextSpecialty);
+            autoSpecialtyRef.current = nextSpecialty || null;
+        }
     };
 
     async function save(form: HTMLFormElement) {
@@ -185,7 +235,13 @@ export function MedicalEvents({query}: {query: string}) {
     }
 
     const events = visibleMedicalEvents.value;
-    const specialties = specialtyNames(events, COMMON_SPECIALTIES);
+    const specialties = specialtyNames([...events, ...visibleDoctors.value, ...visibleAppointments.value], COMMON_SPECIALTIES);
+    const professionalOptions = buildProfessionalOptions(
+        doctorDirectory.value,
+        visibleAppointments.value,
+        events,
+        operations.value,
+    );
     const visible = events
         .filter((event) => {
             if (!query) return true;
@@ -199,9 +255,11 @@ export function MedicalEvents({query}: {query: string}) {
         <div className="events-head">
             <div>
                 <h3 id="events-title">Consultas y recetas sin turno</h3>
+                <p className="events-desc">Consultas, indicaciones o recetas registradas sin turno previo.</p>
             </div>
             <div className="events-head-actions">
-                <button className="button primary" type="button" onClick={openNew}>
+                <span className="count-badge">{events.length}</span>
+                <button className="button secondary" type="button" onClick={openNew}>
                     <svg className="icon">
                         <use href="#i-plus"/>
                     </svg>
@@ -212,7 +270,7 @@ export function MedicalEvents({query}: {query: string}) {
 
         {!formOpen && message && <p className="events-message" role="status">{message}</p>}
 
-        {visible.length > 0 && (
+        {visible.length > 0 ? (
             <ul id="events-list" className="event-list">
                 {visible.map((event) => {
                     const studyIds = event.studyIds ?? [];
@@ -227,7 +285,7 @@ export function MedicalEvents({query}: {query: string}) {
                             <span className="event-kind"
                                   data-tone={event.kind === 'consultation' ? 'primary' : 'neutral'}>
                                 <svg className="icon"><use
-                                    href={event.kind === 'consultation' ? '#i-stethoscope' : '#i-message'}/></svg>
+                                    href={event.kind === 'consultation' ? '#i-stethoscope' : '#i-clipboard'}/></svg>
                                 {label}
                             </span>
                             <time className="event-date" dateTime={event.date}>{formatStudyDate(event.date)}</time>
@@ -278,6 +336,11 @@ export function MedicalEvents({query}: {query: string}) {
                     </li>;
                 })}
             </ul>
+        ) : (
+            <div className="event-empty">
+                <span className="event-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-clipboard"/></svg></span>
+                <p>{query ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas sin turno.'}</p>
+            </div>
         )}
 
         <dialog ref={dialogRef} id="event-dialog" className="dialog event-dialog" aria-labelledby="event-dialog-title"
@@ -306,23 +369,46 @@ export function MedicalEvents({query}: {query: string}) {
                 <div className="event-form-body">
                     <fieldset disabled={busy}>
                         <div className="event-form-grid">
-                            <label>Tipo <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
-                                <option value="consultation">Consulta</option>
-                                <option value="prescription">Receta</option>
-                            </select></label>
+                            <label>
+                                Tipo
+                                <span className="select-control">
+                                    <select name="kind" required defaultValue={editing?.kind ?? 'consultation'}>
+                                        <option value="consultation">Consulta</option>
+                                        <option value="prescription">Receta</option>
+                                    </select>
+                                    <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                                </span>
+                            </label>
                             <label>Fecha <input id="event-date" name="date" type="date" required
                                                 defaultValue={editing?.date ?? ''}/></label>
-                            <label className="wide">Médico o profesional <input name="doctor" maxLength={120}
-                                                                                defaultValue={editing?.doctor ?? ''}/></label>
-                            <label className="wide">Especialidad <input name="specialty" list="event-specialties" maxLength={120}
-                                                                        placeholder="Elegí o escribí una especialidad"
-                                                                        defaultValue={editing?.specialty ?? ''}/></label>
-                            <datalist id="event-specialties">
-                                {specialties.map(name => (
-                                    <option key={name} value={name}/>
-                                ))}
-                            </datalist>
-                            <label className="wide">Notas <textarea id="event-notes" name="notes"
+                            <AutocompleteTextField
+                                id="event-doctor"
+                                name="doctor"
+                                label="Médico o profesional"
+                                value={doctor}
+                                onChange={handleDoctorChange}
+                                options={professionalOptions}
+                                placeholder="Dra. Pérez"
+                                listId="event-professionals"
+                                className="wide"
+                                disabled={busy}
+                            />
+                            <AutocompleteTextField
+                                id="event-specialty"
+                                name="specialty"
+                                label="Especialidad"
+                                value={specialty}
+                                onChange={(nextValue) => {
+                                    autoSpecialtyRef.current = null;
+                                    setSpecialty(nextValue);
+                                }}
+                                options={specialties}
+                                placeholder="Elegí o escribí una especialidad"
+                                listId="event-specialties"
+                                className="wide"
+                                disabled={busy}
+                            />
+                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea id="event-notes" name="notes"
                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
 

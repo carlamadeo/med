@@ -3,6 +3,7 @@ import {storage} from '@core/storage';
 import {isValidDate, viewerURL} from '@domain/utils';
 import {documentAssociationIds} from '@domain/document-compatibility';
 import {cleanSpecialty} from '@domain/library';
+import type {PrintedCopies} from '@domain/models';
 import type {DriveFileMetadata, Study} from '@domain/repository';
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -15,6 +16,13 @@ const MARKER = 'estudio-v1';
 const FOLDER_MARKER = 'carpeta-v1';
 const PDF_MIME = 'application/pdf';
 const ID_PATTERN = /^[\w-]+$/;
+
+function parsePrintedCopies(value: unknown): PrintedCopies | undefined {
+    if (!value || typeof value !== 'object' || !('report' in value) || !('image' in value)) return;
+    if (typeof value.report === 'boolean' && typeof value.image === 'boolean') {
+        return {report: value.report, image: value.image};
+    }
+}
 
 function getSessionKey(clientId: string): string {
     return `mis-estudios:drive-session:${clientId}`;
@@ -75,8 +83,8 @@ export class DriveError extends Error {
 }
 
 export class DriveConflictError extends Error {
-    constructor(subject: 'estudio' | 'operación' | 'portal' | 'evento' | 'episodio' | 'turno' = 'estudio') {
-        const prefix = subject === 'operación' ? 'Esta operación' : subject === 'portal' ? 'Este portal' : subject === 'evento' ? 'Este evento' : subject === 'episodio' ? 'Este episodio' : subject === 'turno' ? 'Este turno' : 'Este estudio';
+    constructor(subject: 'estudio' | 'operación' | 'portal' | 'médico' | 'evento' | 'episodio' | 'turno' = 'estudio') {
+        const prefix = subject === 'operación' ? 'Esta operación' : subject === 'portal' ? 'Este portal' : subject === 'médico' ? 'Este médico' : subject === 'evento' ? 'Este evento' : subject === 'episodio' ? 'Este episodio' : subject === 'turno' ? 'Este turno' : 'Este estudio';
         super(`${prefix} cambió en Drive. Cerrá la ficha y actualizá la lista antes de volver a editar.`);
     }
 }
@@ -375,6 +383,7 @@ export class DriveClient {
             portal: entry.portal || '',
             viewer,
             reportName: file.mimeType === PDF_MIME ? entry.reportName || 'Informe.pdf' : file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? entry.reportName || 'Informe' : '',
+            printed: parsePrintedCopies(entry.printed),
             hasPdf: file.mimeType === PDF_MIME,
             ...(file.mimeType === 'image/jpeg' || file.mimeType === 'image/png' ? {attachmentMime: file.mimeType} : {}),
             driveFileId: file.id,

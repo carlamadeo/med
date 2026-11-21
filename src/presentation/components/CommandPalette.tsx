@@ -108,7 +108,7 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
         {id: 'action-doctors', label: 'Ir a médicos', icon: 'i-stethoscope', run: go('medicos')},
         {id: 'action-operations', label: 'Ir a operaciones', icon: 'i-scissors', run: go('operaciones')},
         {id: 'action-turnos', label: 'Ir a turnos, consultas y recetas', icon: 'i-calendar', run: go('turnos')},
-        {id: 'action-episodes', label: 'Ir a episodios', icon: 'i-layers', run: go('episodios')},
+        {id: 'action-episodes', label: 'Ir a episodios', icon: 'i-activity', run: go('episodios')},
         {id: 'action-intake', label: 'Ir a bandeja de entrada', icon: 'i-scan', run: go('intake')},
         ...(query.trim() ? [{
             id: 'action-filter-library',

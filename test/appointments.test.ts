@@ -5,7 +5,6 @@ import {
     buildGoogleCalendarEvent,
     cleanLocation,
     googleCalendarEventId,
-    googleCalendarReminderMinutes,
     validateAppointment,
 } from '@domain/appointments';
 import type {AppointmentDraft} from '@domain/models';
@@ -69,20 +68,7 @@ describe('appointments', () => {
         expect(first).not.toContain('drive-qa-123');
     });
 
-    it('calculates Google Calendar reminders for 1 week before and the day before at 11:00', () => {
-        expect(googleCalendarReminderMinutes({...draft, date: '2026-11-20', time: '14:30'})).toEqual([10290, 1650]);
-        expect(googleCalendarReminderMinutes({...draft, date: '2026-11-20', time: '09:00'})).toEqual([9960, 1320]);
-        expect(
-            googleCalendarReminderMinutes({
-                ...draft,
-                date: '2026-11-02',
-                time: '11:00',
-                timeZone: 'America/New_York',
-            }),
-        ).toEqual([10140, 1440]);
-    });
-
-    it('builds descriptive Google Calendar event payloads with 30 minute duration', async () => {
+    it('builds descriptive Google Calendar event payloads with "Turno ..." summary and no notifications', async () => {
         const eventId = await googleCalendarEventId('appt-1');
         const payload = buildGoogleCalendarEvent(
             {
@@ -101,21 +87,30 @@ describe('appointments', () => {
         expect(payload).toEqual({
             id: eventId,
             status: 'confirmed',
-            summary: 'Dra. Perez',
+            summary: 'Turno Dra. Perez',
             location: 'Av. Santa Fe 1234',
             description: 'Especialidad: Cardiología\nLugar: Av. Santa Fe 1234\nNotas: Llevar orden',
             start: {dateTime: '2026-11-20T17:30:00.000Z', timeZone: 'America/Argentina/Buenos_Aires'},
             end: {dateTime: '2026-11-20T18:00:00.000Z', timeZone: 'America/Argentina/Buenos_Aires'},
             reminders: {
                 useDefault: false,
-                overrides: [
-                    {method: 'popup', minutes: 10290},
-                    {method: 'popup', minutes: 1650},
-                ],
+                overrides: [],
             },
         });
 
-        const minimal = buildGoogleCalendarEvent({...draft, id: 'appt-2', revision: '1'}, eventId);
+        const bySpecialty = buildGoogleCalendarEvent(
+            {...draft, id: 'appt-2', revision: '1', specialty: 'Cardiología'},
+            eventId,
+        );
+        expect(bySpecialty.summary).toBe('Turno Cardiología');
+
+        const prefixed = buildGoogleCalendarEvent(
+            {...draft, id: 'appt-3', revision: '1', professional: 'Turno ecografía'},
+            eventId,
+        );
+        expect(prefixed.summary).toBe('Turno ecografía');
+
+        const minimal = buildGoogleCalendarEvent({...draft, id: 'appt-4', revision: '1'}, eventId);
         expect(minimal.summary).toBe('Turno médico');
         expect(minimal.location).toBe('');
         expect(minimal.description).toBe('');

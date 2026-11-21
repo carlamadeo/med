@@ -1,16 +1,31 @@
 import type {
     Study,
     StudyDraft,
+    PrintedCopies,
     Operation,
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     DriveFile,
     Episode,
     EpisodeDraft
 } from './models';
 
-export type {Study, StudyDraft, Operation, OperationDraft, Portal, PortalDraft, DriveFile, Episode, EpisodeDraft};
+export type {
+    Study,
+    StudyDraft,
+    Operation,
+    OperationDraft,
+    Portal,
+    PortalDraft,
+    Doctor,
+    DoctorDraft,
+    DriveFile,
+    Episode,
+    EpisodeDraft
+};
 
 export interface IntakeCandidate {
     id: string;
@@ -70,6 +85,7 @@ export interface DriveFileMetadata {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     operationId?: string;
     documentIds?: string[];
     intakeSourceId?: string;

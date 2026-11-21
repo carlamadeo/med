@@ -222,7 +222,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                         incorporarlos.</p>
                     <button
                         type="button"
-                        className="button secondary button-sm"
+                        className="button secondary"
                         onClick={() => setFolderPickerOpen(true)}
                     >
                         Configurar carpeta
@@ -397,7 +397,7 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     <span className="intake-empty-icon"><svg className="icon"><use href="#i-file"/></svg></span>
                     <h3>{normalizedQuery ? 'Sin candidatos que coincidan' : 'No hay candidatos nuevos'}</h3>
                     <p>{normalizedQuery ? 'Probá con otro nombre de archivo.' : 'La carpeta aprobada no tiene PDFs nuevos o todos fueron revisados.'}</p>
-                    {normalizedQuery && <button type="button" className="button secondary button-sm"
+                    {normalizedQuery && <button type="button" className="button secondary"
                                                 onClick={() => setQuery('')}>Limpiar búsqueda</button>}
                 </div>
             )}

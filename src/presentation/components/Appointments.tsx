@@ -1,10 +1,11 @@
+import type {VNode} from 'preact';
 import {useState} from 'preact/hooks';
 import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
 import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
-import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
-import {AppointmentStudyList} from './AppointmentStudies';
+import {deleteAppointment as removeAppointment} from '../utils/appointmentEditor';
+import {AppointmentStudies} from './AppointmentStudies';
 import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {MedicalEvents} from './MedicalEvents';
@@ -84,7 +85,7 @@ export function Appointments() {
           <input
             id="appointment-search"
             type="search"
-            placeholder="Buscar por profesional, especialidad o fecha…"
+            placeholder="Buscar turnos o consultas…"
             value={query}
             onInput={event => setQuery((event.target as HTMLInputElement).value)}
           />
@@ -126,10 +127,6 @@ export function Appointments() {
                     .format(new Date(year, month - 1, 1))
                     .replace('.', '')
                 : '';
-            const timeZoneLabel =
-              item.timeZone === 'America/Argentina/Buenos_Aires' || item.timeZone === 'America/Buenos_Aires'
-                ? ''
-                : TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ?? item.timeZone;
             const syncLabel =
               item.syncStatus === 'conflict'
                 ? 'Requiere revisión'
@@ -138,8 +135,8 @@ export function Appointments() {
                   : item.syncStatus === 'failed'
                     ? 'No se puede sincronizar'
                     : '';
-            return (
-              <li className="appointment-card" key={item.id}>
+            const renderCard = (studyList: VNode | null, prepareAction: VNode | null) => (
+              <li className="appointment-card">
                 <div className="appointment-date" aria-label={`${day ?? ''} de ${monthLabel}`}>
                   <span>{monthLabel || '—'}</span>
                   <strong>{day ?? '—'}</strong>
@@ -151,19 +148,19 @@ export function Appointments() {
                       {statusLabel}
                     </span>
                   </div>
-                  <p className="appointment-card-meta">
-                    {item.time}{timeZoneLabel && ` · ${timeZoneLabel}`}
-                  </p>
+                  <p className="appointment-card-meta">{item.time}</p>
                   {item.specialty && <p className="event-specialty">{item.specialty}</p>}
                   {item.location && <p className="appointment-location">{item.location}</p>}
                   {item.reason && <p className="appointment-notes">Motivo: {item.reason}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
-                  <AppointmentStudyList studyIds={item.studyIds} />
+                  {studyList}
                   {(item.cost !== null || item.coverage) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (
-                        <span className="tag">Importe: {item.cost}</span>
+                        <span className="tag">
+                          Importe: ${item.cost.toLocaleString('es-AR', {maximumFractionDigits: 2})}
+                        </span>
                       )}
                       {item.coverage && (
                         <span className="tag">
@@ -187,6 +184,7 @@ export function Appointments() {
                   )}
                 </div>
                 <div className="appointment-actions">
+                  {prepareAction}
                   <button
                     className="button ghost button-sm"
                     type="button"
@@ -213,6 +211,7 @@ export function Appointments() {
                 </div>
               </li>
             );
+            return <AppointmentStudies key={item.id} studyIds={item.studyIds} renderCard={renderCard} />;
           })}
         </ul>
       ) : (
@@ -228,10 +227,18 @@ export function Appointments() {
               : 'Todavía no hay turnos guardados.'}
           </p>
           {normalizedQuery ? (
-            <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>
+            <button className="button secondary" type="button" onClick={() => setQuery('')}>
               Limpiar búsqueda
             </button>
-          ) : null}
+          ) : (
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => setEditingAppointment(null)}
+            >
+              Agendar primer turno
+            </button>
+          )}
         </div>
       )}
 

@@ -32,7 +32,7 @@ export function groupStudiesByDoctor(studies: readonly Study[]) {
             doctors.set(key, {key, name: study.doctor.trim().replace(/\s+/g, ' '), studyCount: 1});
         }
     }
-    return [...doctors.values()].sort((a, b) => a.name.localeCompare(b.name, 'es-AR'));
+    return [...doctors.values()].sort((a, b) => b.studyCount - a.studyCount || a.name.localeCompare(b.name, 'es-AR'));
 }
 
 export type StudySortOrder =
@@ -78,15 +78,18 @@ export function reportUrl(driveFileId: string): string {
     return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
 }
 
-/** Medium es-AR date for a `YYYY-MM-DD` study date; malformed values are returned untouched. */
-export function formatStudyDate(date: string): string {
-    const parts = date.split('-');
-    if (parts.length !== 3) return date;
-    const year = Number(parts[0]);
-    const month = Number(parts[1]);
-    const day = Number(parts[2]);
-    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return date;
-    return new Date(year, month - 1, day).toLocaleDateString('es-AR', {
+/** Medium es-AR date, with date-only strings interpreted in local time. */
+export function formatStudyDate(date: string | Date): string {
+    if (typeof date === 'string') {
+        const parts = date.split('-');
+        if (parts.length !== 3) return date;
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+        if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return date;
+        date = new Date(year, month - 1, day);
+    }
+    return date.toLocaleDateString('es-AR', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -197,15 +200,27 @@ export function portalNames(
     return sortDisplayNames(names);
 }
 
-/** Distinct professionals already used across studies and related records, sorted for display. */
+/** Distinct professionals ordered by study count descending, then alphabetically. */
 export function doctorNames(
     studies: readonly Study[],
     extraNames: readonly (string | undefined)[] = [],
 ): string[] {
     const names = new Map<string, string>();
-    for (const study of studies) addNormalizedName(names, study.doctor);
+    const counts = new Map<string, number>();
+    for (const study of studies) {
+        const name = typeof study.doctor === 'string' ? study.doctor.trim().replace(/\s+/g, ' ') : '';
+        if (!name) continue;
+        const key = normalizeDoctorName(name);
+        if (!names.has(key)) names.set(key, name);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
     for (const extra of extraNames) addNormalizedName(names, extra);
-    return sortDisplayNames(names);
+    return [...names.entries()]
+        .sort(([keyA, nameA], [keyB, nameB]) => {
+            const diff = (counts.get(keyB) ?? 0) - (counts.get(keyA) ?? 0);
+            return diff !== 0 ? diff : nameA.localeCompare(nameB, 'es-AR');
+        })
+        .map(([, name]) => name);
 }
 
 /** Combines predefined study types with custom types already saved in studies, without duplicates. */

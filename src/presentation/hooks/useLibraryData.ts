@@ -1,11 +1,11 @@
 import {useCallback, useRef} from 'preact/hooks';
 import {
-    driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo,
+    driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo, driveDoctorRepo,
     driveMedicalEventRepo, driveEpisodeRepo, driveAppointmentRepo, DriveSessionError,
 } from '@data';
 import {
     isSignedIn, deletingStudyId, isEditorOpen, setLoading, setError, setIsSignedIn,
-    setStudies, operations, portals, medicalEvents, episodes, appointments, directoryWarning,
+    setStudies, operations, portals, doctors, medicalEvents, episodes, appointments, directoryWarning,
     studiesReady, studyLoadSkipped, directoriesReady, directoryFailures,
 } from '../state/store';
 
@@ -48,9 +48,10 @@ export function useLibraryData() {
         directoryWarning.value = false;
         const token = await driveAuth.getAccessToken().catch(() => null);
         if (!token) return;
-        const [operationResult, portalResult, eventResult, episodeResult, appointmentResult] = await Promise.allSettled([
+        const [operationResult, portalResult, doctorResult, eventResult, episodeResult, appointmentResult] = await Promise.allSettled([
             driveOperationRepo.list(),
             drivePortalRepo.list(),
+            driveDoctorRepo.list(),
             driveMedicalEventRepo.list(),
             driveEpisodeRepo.list(),
             driveAppointmentRepo.list(),
@@ -58,11 +59,12 @@ export function useLibraryData() {
         if (await driveAuth.getAccessToken().catch(() => null) !== token || seq !== directorySequence.current || !isSignedIn.value) return;
         if (operationResult.status === 'fulfilled') operations.value = operationResult.value;
         if (portalResult.status === 'fulfilled') portals.value = portalResult.value;
+        if (doctorResult.status === 'fulfilled') doctors.value = doctorResult.value;
         if (eventResult.status === 'fulfilled') medicalEvents.value = eventResult.value;
         if (episodeResult.status === 'fulfilled') episodes.value = episodeResult.value;
         if (appointmentResult.status === 'fulfilled') appointments.value = appointmentResult.value;
         const results: Array<[string, PromiseSettledResult<unknown>]> = [
-            ['Operaciones', operationResult], ['Portales', portalResult],
+            ['Operaciones', operationResult], ['Portales', portalResult], ['Médicos', doctorResult],
             ['Consultas y recetas', eventResult], ['Episodios', episodeResult], ['Turnos', appointmentResult],
         ];
         directoryFailures.value = results.filter(([, result]) => result.status === 'rejected').map(([name]) => name);

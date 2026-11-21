@@ -49,21 +49,19 @@ describe('GoogleCalendarRepository', () => {
         expect(fakeCalendars()).toHaveLength(1);
         const createdCal = fakeCalendars()[0]!;
         expect(createdCal.summary).toBe('Turnos');
+        expect(createdCal.timeZone).toBe('America/Argentina/Buenos_Aires');
 
         const eventId = await googleCalendarEventId(appointment.id);
         expect(fakeCalendarEvents(createdCal.id)).toHaveLength(1);
         expect(fakeCalendarEvents(createdCal.id)[0]).toMatchObject({
             id: eventId,
             status: 'confirmed',
-            summary: 'Dra. Perez',
+            summary: 'Turno Dra. Perez',
             location: 'Av. Santa Fe 1234',
             description: 'Especialidad: Cardiología\nLugar: Av. Santa Fe 1234\nNotas: Llevar estudios previos',
             reminders: {
                 useDefault: false,
-                overrides: [
-                    {method: 'popup', minutes: 10290},
-                    {method: 'popup', minutes: 1650},
-                ],
+                overrides: [],
             },
         });
 
@@ -111,10 +109,7 @@ describe('GoogleCalendarRepository', () => {
             location: '',
             reminders: {
                 useDefault: false,
-                overrides: [
-                    {method: 'popup', minutes: 10320},
-                    {method: 'popup', minutes: 1680},
-                ],
+                overrides: [],
             },
         });
 

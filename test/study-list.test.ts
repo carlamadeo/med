@@ -113,11 +113,15 @@ it('shows empty state when no studies', async () => {
     expect(root.textContent).toContain('No hay estudios para mostrar');
 });
 
-it('shows the study date and labels its PDF, image and viewer actions', async () => {
+it('shows the four print states independently of attachment or viewer availability', async () => {
     const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '', driveModifiedTime: '', revision: '1'};
     setStudies([
-        {...base, id: 'pdf', driveFileId: 'report', title: 'Informe', hasPdf: true, viewer: 'https://example.com/visor'},
-        {...base, id: 'image', driveFileId: 'photo', title: 'Orden', hasPdf: false, attachmentMime: 'image/png'},
+        {...base, id: 'pdf', driveFileId: 'report', title: 'Informe', hasPdf: true, viewer: 'https://example.com/visor',
+            printed: {report: true, image: true}},
+        {...base, id: 'image', driveFileId: 'photo', title: 'Orden', hasPdf: false, attachmentMime: 'image/png',
+            printed: {report: true, image: false}},
+        {...base, id: 'paper', driveFileId: 'paper', title: 'Copia', hasPdf: false, printed: {report: false, image: true}},
+        {...base, id: 'legacy', driveFileId: 'legacy', title: 'Ficha anterior', hasPdf: false},
     ]);
     await act(() => render(h(StudyList, {
         onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value,
@@ -126,12 +130,16 @@ it('shows the study date and labels its PDF, image and viewer actions', async ()
     expect(root.querySelector('time')?.dateTime).toBe('2024-01-01');
     const links = [...root.querySelectorAll('tbody a')];
     expect(links.map((link) => [link.getAttribute('aria-label'), link.getAttribute('href')])).toEqual([
-        ['Abrir PDF de Informe', 'https://drive.google.com/file/d/report/view'],
-        ['Abrir visor de Informe', 'https://example.com/visor'],
-        ['Abrir imagen de Orden', 'https://drive.google.com/file/d/photo/view'],
+        ['Abrir informe de Informe. Informe impreso.', 'https://drive.google.com/file/d/report/view'],
+        ['Abrir visor de Informe. Imagen impresa.', 'https://example.com/visor'],
+        ['Abrir informe de Orden. Informe impreso.', 'https://drive.google.com/file/d/photo/view'],
     ]);
-    expect(links.map(link => link.getAttribute('title'))).toEqual(['Abrir PDF', 'Abrir visor', 'Abrir imagen']);
-    expect(links.map(link => link.querySelector('svg use')?.getAttribute('href'))).toEqual(['#i-file', '#i-eye', '#i-scan']);
+    expect(links.map(link => link.querySelector('svg use')?.getAttribute('href'))).toEqual(['#i-file', '#i-image', '#i-file']);
+    const states = [...root.querySelectorAll('tbody tr:not(.year-divider-row)')].map(row =>
+        [...row.querySelectorAll('.study-source')].map(source => source.getAttribute('data-printed')),
+    );
+    expect(states).toEqual([['true', 'true'], ['true', 'false'], ['false', 'true'], ['false', 'false']]);
+    expect(root.querySelector('[role="img"][aria-label="Imagen impresa. Sin enlace al visor."]')).not.toBeNull();
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
 });
 
@@ -162,25 +170,35 @@ it('keeps unsynced studies protected without a status column', async () => {
     });
     expect(root.textContent).toContain('Pendiente de sincronización');
     expect(root.textContent).toContain('Requiere revisión');
-    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Synced"]')?.disabled).toBe(false);
-    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Editar Pending"]')?.disabled).toBe(true);
-    expect(root.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Conflict"]')?.disabled).toBe(true);
+    for (const [title, pending] of [['Synced', false], ['Pending', true], ['Conflict', true]] as const) {
+        await act(() => root.querySelector<HTMLButtonElement>(`button[aria-label="Ver detalle de ${title}"]`)!.click());
+        const dialog = root.querySelector('dialog[open]')!;
+        const action = (label: string) => [...dialog.querySelectorAll('button')].find(button => button.textContent === label);
+        expect(action('Editar')?.disabled).toBe(pending);
+        expect(action('Eliminar')?.disabled).toBe(pending);
+        await act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!.click());
+    }
 });
 
-it('prints the study record when there is no attachment', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+it('opens details from the row and routes edit and delete through the existing handlers', async () => {
     setStudies([{id: 'one', driveFileId: 'one', title: 'Informe', date: '2024-01-01', types: [],
-        doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'}]);
-    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
-    await act(() => root.querySelector<HTMLButtonElement>('button[aria-label="Imprimir Informe"]')?.click());
-    expect(print).not.toHaveBeenCalled();
-    const dialog = root.querySelector<HTMLDialogElement>('dialog[open]');
-    expect(dialog?.querySelector('.study-print-record')?.textContent).toContain('Informe');
-    expect(document.body.querySelector('.study-print-output .study-print-record')?.textContent).toContain('Sin informe adjunto');
-    await act(() => [...(dialog?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Imprimir')?.click());
-    expect(print).toHaveBeenCalledOnce();
-    await act(() => dialog?.querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]')?.click());
-    expect(document.body.querySelector('.study-print-output')).toBeNull();
+        doctor: 'Dra. Núñez', portal: '', viewer: 'https://example.com/visor', reportName: '', hasPdf: false,
+        driveModifiedTime: '', revision: '1'}]);
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    await act(() => render(h(StudyList, {onEdit, onDelete, studies: visibleStudies.value}), root));
+    await act(() => root.querySelector<HTMLInputElement>('tbody input')!.click());
+    expect(root.querySelector('dialog[open]')).toBeNull();
+    await act(() => root.querySelector('time')!.parentElement!.click());
+    expect(root.querySelector('dialog[open]')?.textContent).toContain('Dra. Núñez');
+    const clickAction = (label: string) => act(() => [...root.querySelectorAll<HTMLButtonElement>('dialog[open] button')]
+        .find(button => button.textContent === label)!.click());
+    await clickAction('Editar');
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({id: 'one'}));
+    expect(root.querySelector('dialog[open]')).toBeNull();
+    await act(() => root.querySelector<HTMLButtonElement>('.study-title')!.click());
+    await clickAction('Eliminar');
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({id: 'one'}));
 });
 
 it('shows a +N badge when a study has more than two types', async () => {

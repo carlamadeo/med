@@ -3,8 +3,8 @@ import {act} from 'preact/test-utils';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import JSZip from 'jszip';
 import {ShareDialog} from '@presentation/components/ShareDialog';
-import {setSharingStudyId, setSharingStudyIds, setStudies} from '@presentation/state/store';
-import {driveAuth, driveStudyRepo} from '@data';
+import {isSourceUnavailable, setSharingStudyId, setSharingStudyIds, setStudies, unavailableSources} from '@presentation/state/store';
+import {DriveError, driveAuth, driveStudyRepo} from '@data';
 import {mockAttachmentMetadata} from './mock-attachment-metadata';
 
 const root = document.createElement('div');
@@ -14,7 +14,62 @@ afterEach(() => {
     root.remove();
     setSharingStudyId(null);
     setStudies([]);
+    unavailableSources.value = new Set();
     vi.restoreAllMocks();
+});
+
+it('opens printing from single-study sharing only when the study has an attachment', async () => {
+    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: '',
+        driveModifiedTime: '', revision: '1', viewer: 'https://example.org'};
+    const attached = {...base, id: 'pdf', driveFileId: 'pdf', title: 'Informe', hasPdf: true};
+    setStudies([attached, {...base, id: 'link', driveFileId: 'link', title: 'Visor', hasPdf: false}]);
+    const onPrint = vi.fn(() => expect(root.querySelector('dialog[open]')).toBeNull());
+    const print = () => [...root.querySelectorAll('button')].find(button => button.textContent === 'Imprimir archivo');
+    await act(() => {
+        render(h(ShareDialog, {onReconnect: () => {}, onPrint, error: null, busy: false, sessionLost: false}), root);
+        setSharingStudyId('link');
+    });
+    expect(print()).toBeUndefined();
+    expect(root.querySelector('#share-confirm')).not.toBeNull();
+    await act(() => setSharingStudyIds(['pdf', 'link']));
+    expect(print()).toBeUndefined();
+    await act(() => setSharingStudyId('pdf'));
+    await act(() => print()!.click());
+    expect(onPrint).toHaveBeenCalledWith(attached);
+});
+
+it('keeps the report printable after a missing associated document or a temporary download failure', async () => {
+    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: 'informe.pdf',
+        driveModifiedTime: '', revision: '1', viewer: '', hasPdf: true};
+    setStudies([
+        {...base, id: 'report', driveFileId: 'report', title: 'Informe', documentIds: ['annex']},
+        {...base, id: 'annex', driveFileId: 'annex', title: 'Anexo'},
+    ]);
+    vi.spyOn(driveAuth, 'getAccessToken').mockResolvedValue('token');
+    const download = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async id => {
+        if (id === 'annex') throw new DriveError(404);
+        return new File(['%PDF-prueba'], 'informe.pdf', {type: 'application/pdf'});
+    });
+    document.body.append(root);
+    await act(() => {
+        render(h(ShareDialog, {onReconnect: () => {}, onPrint: () => {}, error: null, busy: false, sessionLost: false}), root);
+        setSharingStudyId('report');
+    });
+    await act(() => root.querySelector<HTMLInputElement>('input[value="annex"]')!.click());
+    const submit = () => act(async () => {
+        root.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await submit();
+    await vi.waitFor(() => expect(root.querySelector('#share-error')?.textContent).toContain('No se pudo descargar'));
+    expect(isSourceUnavailable('annex')).toBe(true);
+    expect(isSourceUnavailable('report')).toBe(false);
+    expect(root.textContent).toContain('Imprimir archivo');
+
+    download.mockRejectedValueOnce(new DriveError(503));
+    await act(() => root.querySelector<HTMLInputElement>('input[value="annex"]')!.click());
+    await submit();
+    expect(isSourceUnavailable('report')).toBe(false);
+    expect(root.textContent).toContain('Imprimir archivo');
 });
 
 it('shares only the selected link when the study has an associated PDF', async () => {

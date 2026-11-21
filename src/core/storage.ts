@@ -1,4 +1,5 @@
 import {openDB, type DBSchema, type IDBPDatabase} from 'idb';
+import type {PrintedCopies} from '@domain/models';
 
 interface MisEstudiosDB extends DBSchema {
     studies: { key: string; value: StudyRecord; indexes: { 'by-date': string; 'by-type': string } };
@@ -19,6 +20,7 @@ interface StudyRecord {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     hasPdf: boolean;
     attachmentMime?: 'image/jpeg' | 'image/png';
     driveFileId: string;
@@ -104,7 +106,7 @@ export const storage = {
         }
         await tx.done;
     },
-    async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache'): Promise<T[] | null> {
+    async readSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'doctorsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache' | 'deletedDoctorsCache'): Promise<T[] | null> {
         const db = await getDB();
         const tx = db.transaction('meta', 'readonly');
         const matches = (await tx.store.get('cacheOwner'))?.value === owner;
@@ -113,7 +115,7 @@ export const storage = {
         return Array.isArray(value) ? value as T[] : null;
     },
 
-    async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache', value: T[]): Promise<void> {
+    async writeSessionDirectory<T>(owner: string, key: 'operationsCache' | 'portalsCache' | 'doctorsCache' | 'eventsCache' | 'episodesCache' | 'appointmentsCache' | 'intakeCandidatesStatus' | 'deletedStudiesCache' | 'deletedEventsCache' | 'deletedAppointmentsCache' | 'deletedEpisodesCache' | 'deletedOperationsCache' | 'deletedPortalsCache' | 'deletedDoctorsCache', value: T[]): Promise<void> {
         const db = await getDB();
         const tx = db.transaction('meta', 'readwrite');
         if ((await tx.store.get('cacheOwner'))?.value === owner) await tx.store.put({key, value});

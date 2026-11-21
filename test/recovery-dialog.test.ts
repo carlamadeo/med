@@ -9,6 +9,7 @@ import {
     driveEpisodeRepo,
     driveOperationRepo,
     drivePortalRepo,
+    driveDoctorRepo,
     driveMedicalEventRepo,
     driveAppointmentRepo
 } from '@data';
@@ -27,6 +28,7 @@ it('reports a failure to load deleted studies instead of showing an empty result
     vi.spyOn(driveEpisodeRepo, 'listDeleted').mockResolvedValue([]);
     vi.spyOn(driveOperationRepo, 'listDeleted').mockResolvedValue([]);
     vi.spyOn(drivePortalRepo, 'listDeleted').mockResolvedValue([]);
+    vi.spyOn(driveDoctorRepo, 'listDeleted').mockResolvedValue([]);
     vi.spyOn(driveMedicalEventRepo, 'listDeleted').mockResolvedValue([]);
     vi.spyOn(driveAppointmentRepo, 'listDeleted').mockResolvedValue([]);
     document.body.append(root);

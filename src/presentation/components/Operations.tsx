@@ -3,11 +3,12 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate} from '@domain/library';
+import {formatStudyDate, sortStudies} from '@domain/library';
 import type {Operation, OperationDraft, Study} from '@domain/models';
 import {isLocalDemo, operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
+import {OperationStudyLinks} from './OperationStudyLinks';
 
 const outbox = new Outbox();
 
@@ -307,8 +308,8 @@ export function Operations() {
         .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
     if (detail) {
-        const orderedStudies = [...studies.value].sort((a, b) => b.date.localeCompare(a.date));
-        const linkedCount = orderedStudies.filter((study) => study.operationId === detail.id).length;
+        const linked = sortStudies(studies.value.filter(study => study.operationId === detail.id));
+        const linkedCount = linked.length;
         return <section className="operation-detail" id="operation-detail" aria-labelledby="operation-detail-title">
             <button className="button ghost button-sm operation-back" type="button" onClick={() => setDetailId(null)}>
                 <svg className="icon">
@@ -329,31 +330,8 @@ export function Operations() {
             {detail.notes && <p className="operation-notes">{detail.notes}</p>}
             {!formOpen && message && <p className="operation-message" role="alert">{message}</p>}
 
-            <div className="linked-head">
-                <h3>Estudios vinculados</h3>
-                <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola
-                    operación.</p>
-            </div>
-
-            {orderedStudies.length ? (
-                <ul className="linked-list">
-                    {orderedStudies.map((study) => {
-                        const linked = study.operationId === detail.id;
-                        const other = study.operationId && !linked;
-                        return <li className="linked-item" key={study.id} data-linked={linked ? 'true' : 'false'}>
-                            <label>
-                                <input type="checkbox" data-study-id={study.id} checked={linked} disabled={busy}
-                                       onChange={(event) => void setLink(study, event.currentTarget.checked ? detail.id : '')}/>
-                                <span className="linked-title">{study.title}</span>
-                                <time className="linked-date" dateTime={study.date}>{formatStudyDate(study.date)}</time>
-                                {other && <span className="tag">Otra operación</span>}
-                            </label>
-                        </li>;
-                    })}
-                </ul>
-            ) : (
-                <p className="linked-empty">Todavía no hay estudios para vincular.</p>
-            )}
+            <OperationStudyLinks key={detail.id} operationId={detail.id} linked={linked} busy={busy}
+                                 onLinkChange={(study, checked) => void setLink(study, checked ? detail.id : '')}/>
         </section>;
     }
 
@@ -381,7 +359,7 @@ export function Operations() {
                     <use href="#i-search"/>
                 </svg>
                 <span className="sr-only">Buscar operaciones</span>
-                <input id="operation-search" type="search" placeholder="Buscar por nombre, cirujano o institución…"
+                <input id="operation-search" type="search" placeholder="Buscar operaciones…"
                        value={query}
                        onInput={(event) => setQuery((event.target as HTMLInputElement).value)}/>
             </label>
@@ -422,7 +400,7 @@ export function Operations() {
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => setDetailId(operation.id)}>Ver ficha
                                 </button>
-                                <button className="button ghost button-sm" type="button"
+                                <button className="button secondary button-sm" type="button"
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => {
                                             resetLibraryFilters();
@@ -448,10 +426,10 @@ export function Operations() {
                 <span className="operation-empty-icon"><svg className="icon"><use href="#i-clipboard"/></svg></span>
                 <p>{normalizedQuery ? 'No hay operaciones que coincidan con la búsqueda.' : 'Todavía no hay operaciones guardadas.'}</p>
                 {normalizedQuery ? (
-                    <button className="button secondary button-sm" type="button" onClick={() => setQuery('')}>Limpiar
+                    <button className="button secondary" type="button" onClick={() => setQuery('')}>Limpiar
                         búsqueda</button>
                 ) : (
-                    <button className="button secondary button-sm" type="button" onClick={openNew}>Agregar
+                    <button className="button secondary" type="button" onClick={openNew}>Agregar
                         operación</button>
                 )}
             </div>
@@ -483,15 +461,15 @@ export function Operations() {
 
                 <fieldset disabled={busy}>
                     <div className="operation-form-grid">
-                        <label>Nombre (obligatorio) <input id="operation-name" name="name" required maxLength={120}
+                        <label><span className="field-label">Nombre <small>(obligatorio)</small></span> <input id="operation-name" name="name" required maxLength={120}
                                              defaultValue={editing?.name ?? ''}/></label>
-                        <label>Fecha (obligatoria) <input id="operation-date" name="date" type="date" required
+                        <label><span className="field-label">Fecha <small>(obligatoria)</small></span> <input id="operation-date" name="date" type="date" required
                                             defaultValue={editing?.date ?? ''}/></label>
-                        <label>Cirujano <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
-                        <label>Institución <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
-                        <label className="wide">Procedimiento (obligatorio) <input id="operation-type" name="type" required
+                        <label><span className="field-label">Cirujano <small aria-hidden="true">Opcional</small></span> <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
+                        <label><span className="field-label">Institución <small aria-hidden="true">Opcional</small></span> <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
+                        <label className="wide"><span className="field-label">Procedimiento <small>(obligatorio)</small></span> <input id="operation-type" name="type" required
                                                                      defaultValue={editing?.type ?? ''}/></label>
-                        <label className="wide">Notas <textarea name="notes"
+                        <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea name="notes"
                                                                 defaultValue={editing?.notes ?? ''}/></label>
                     </div>
                     {formOpen && message && <p className="form-error" role="alert">{message}</p>}

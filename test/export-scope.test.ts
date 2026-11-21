@@ -74,6 +74,24 @@ const snapshot: ExportSnapshot = {
             revision: '1',
         },
     ],
+    doctors: [
+        {
+            id: 'd1',
+            name: 'Dra. Gómez',
+            specialty: 'Clínica médica',
+            addresses: ['Av. Córdoba 1000'],
+            defaultAddress: 'Av. Córdoba 1000',
+            revision: '1',
+        },
+        {
+            id: 'd2',
+            name: 'Dr. Pérez',
+            specialty: 'Traumatología',
+            addresses: ['Av. Cabildo 2000'],
+            defaultAddress: 'Av. Cabildo 2000',
+            revision: '1',
+        },
+    ],
     medicalEvents: [
         {
             id: 'ev1',
@@ -154,6 +172,7 @@ describe('selectExportSnapshot', () => {
         expect(result.operations[0]?.studyIds).toEqual(['s1']);
 
         expect(result.portals.map(portal => portal.id)).toEqual(['p1']);
+        expect(result.doctors?.map(doctor => doctor.id)).toEqual(['d1']);
 
         expect(result.medicalEvents.map(event => event.id)).toEqual(['ev1']);
         expect(result.medicalEvents[0]?.studyIds).toEqual(['s1']);
@@ -171,6 +190,7 @@ describe('selectExportSnapshot', () => {
         expect(result.studies).toEqual([]);
         expect(result.operations).toEqual([]);
         expect(result.portals).toEqual([]);
+        expect(result.doctors).toEqual([]);
         expect(result.medicalEvents).toEqual([]);
         expect(result.appointments).toEqual([]);
         expect(result.episodes).toEqual([]);

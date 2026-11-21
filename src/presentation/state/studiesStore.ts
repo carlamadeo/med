@@ -9,14 +9,17 @@ import type {
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     MedicalEvent,
     Episode,
     Appointment,
     ViewMode,
     Filters
 } from '@domain/models';
+import {buildDoctorDirectory, cleanDoctorAddresses, cleanDoctorName} from '@domain/doctors';
 import {
-    cleanSpecialty, filterStudiesByQuery, groupStudiesByDoctor, normalizeDoctorName, sortStudies,
+    cleanSpecialty, filterStudiesByQuery, normalizeDoctorName, sortStudies,
     type StudySortOrder,
 } from '@domain/library';
 import {normalize} from '@domain/utils';
@@ -38,6 +41,7 @@ export interface IntakeCandidate {
 export const studies = signal<Study[]>([]);
 export const operations = signal<Operation[]>([]);
 export const portals = signal<Portal[]>([]);
+export const doctors = signal<Doctor[]>([]);
 export const medicalEvents = signal<MedicalEvent[]>([]);
 export const episodes = signal<Episode[]>([]);
 export const appointments = signal<Appointment[]>([]);
@@ -47,6 +51,7 @@ export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
 export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
+export const libraryOnlyPrinted = signal(false);
 export const libraryPortal = signal('');
 export const libraryDoctor = signal('');
 export const libraryOperation = signal<{id: string; name: string} | null>(null);
@@ -77,6 +82,7 @@ export const visibleStudies = computed<Study[]>(() => {
             title: draft.title, date: draft.date, types: draft.types, doctor: draft.doctor,
             specialty: cleanSpecialty(draft.specialty ?? previous?.specialty),
             portal: draft.portal, viewer: draft.viewer, reportName: draft.reportName,
+            printed: draft.printed ?? previous?.printed,
             hasPdf: Boolean(keepAttachment && previous?.hasPdf),
             attachmentMime: keepAttachment ? previous?.attachmentMime : undefined,
             driveFileId: previous?.driveFileId ?? '',
@@ -91,27 +97,58 @@ export const visibleStudies = computed<Study[]>(() => {
     return result;
 });
 
-export const studyDoctors = computed(() => groupStudiesByDoctor(visibleStudies.value));
+export const visibleDoctors = computed<Doctor[]>(() => {
+    const result = [...doctors.value];
+    for (const entry of pendingChanges.value) {
+        if (entry.kind === 'doctor-delete' && entry.doctorId) {
+            const index = result.findIndex((doctor) => doctor.id === entry.doctorId);
+            const existing = result[index];
+            if (existing) result[index] = {...existing, syncStatus: entry.status};
+            continue;
+        }
+        if (entry.kind !== 'doctor-save' || !entry.doctorDraft || entry.id === undefined) continue;
+        const draft = entry.doctorDraft;
+        const index = result.findIndex((doctor) => doctor.id === draft.id);
+        const {addresses, defaultAddress} = cleanDoctorAddresses(draft.addresses, draft.defaultAddress);
+        const local: Doctor = {
+            id: draft.id ?? `pending-${entry.id}`,
+            name: cleanDoctorName(draft.name),
+            specialty: cleanSpecialty(draft.specialty),
+            addresses,
+            defaultAddress,
+            revision: draft.revision ?? '',
+            syncStatus: entry.status,
+        };
+        if (index >= 0) result[index] = local;
+        else result.push(local);
+    }
+    return result;
+});
+
+export const doctorDirectory = computed(() => buildDoctorDirectory(visibleStudies.value, visibleDoctors.value));
 export const libraryHasFilters = computed(() => Boolean(
     libraryQuery.value.trim() || libraryPortal.value || libraryDoctor.value || libraryOperation.value ||
-    categoryTypes.value.length || librarySpecialty.value,
+    categoryTypes.value.length || librarySpecialty.value || libraryOnlyPrinted.value,
 ));
 export const filteredStudies = computed(() => {
     const selectedTypes = new Set(categoryTypes.value.map(normalize));
     const selectedSpecialty = normalize(librarySpecialty.value);
     const selectedDoctor = normalizeDoctorName(libraryDoctor.value);
+    const onlyPrinted = libraryOnlyPrinted.value;
     const items = visibleStudies.value.filter(study =>
         (!selectedTypes.size || study.types.some(type => selectedTypes.has(normalize(type)))) &&
         (!selectedSpecialty || normalize(study.specialty ?? '') === selectedSpecialty) &&
         (!selectedDoctor || normalizeDoctorName(study.doctor) === selectedDoctor) &&
         (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
-        (!libraryOperation.value || study.operationId === libraryOperation.value.id)
+        (!libraryOperation.value || study.operationId === libraryOperation.value.id) &&
+        (!onlyPrinted || study.printed?.report || study.printed?.image)
     );
     return sortStudies(filterStudiesByQuery(items, libraryQuery.value), sortOrder.value);
 });
 
 export function resetLibraryFilters(): void {
     libraryQuery.value = '';
+    libraryOnlyPrinted.value = false;
     libraryPortal.value = '';
     libraryDoctor.value = '';
     libraryOperation.value = null;
@@ -254,6 +291,8 @@ export type {
     OperationDraft,
     Portal,
     PortalDraft,
+    Doctor,
+    DoctorDraft,
     MedicalEvent,
     Episode,
     Appointment,

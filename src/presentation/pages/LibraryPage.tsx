@@ -61,8 +61,15 @@ import {
 } from '../components';
 import {handleDriveError} from '../utils/driveErrorHandler';
 import {StudyImportDialog} from '../components/StudyImportDialog';
+import {StudyPrintDialog} from '../components/StudyPrintDialog';
 
 const outbox = new Outbox();
+
+function restoreLibraryFocus() {
+    requestAnimationFrame(() => {
+        if (document.activeElement === document.body) document.getElementById('library-title')?.focus();
+    });
+}
 
 export function LibraryPage() {
     const pendingId = useRef('');
@@ -77,6 +84,7 @@ export function LibraryPage() {
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [importGeneration, setImportGeneration] = useState(0);
+    const [printingStudy, setPrintingStudy] = useState<Study | null>(null);
     const isSummary = view.value === 'resumen';
 
     const clearEditorError = useCallback(() => setEditorError(null), []);
@@ -244,6 +252,7 @@ export function LibraryPage() {
                     types: [...draft.types],
                     viewer: draft.viewer || '',
                     reportName,
+                    printed: draft.printed ?? existing?.printed,
                     hasPdf,
                     driveModifiedTime: new Date().toISOString(),
                     revision: '1',
@@ -519,7 +528,10 @@ export function LibraryPage() {
             <AppointmentDialog/>
             <StudyImportDialog key={importGeneration} open={importOpen} onClose={() => setImportOpen(false)} studies={studies.value} onSaved={study => setStudies([...studies.value.filter(item => item.id !== study.id), study])}/>
             <EditorDialog
-                onClose={() => setEditorOpen(false)}
+                onClose={() => {
+                    setEditorOpen(false);
+                    restoreLibraryFocus();
+                }}
                 error={editorError}
                 busy={saving}
                 availableTypes={availableTypes}
@@ -532,6 +544,7 @@ export function LibraryPage() {
                 studies={studies.value}
                 onConfirm={deleteStudyById}
                 onCancel={() => setDeletingStudyId(null)}
+                onDeleted={() => document.getElementById('library-title')?.focus()}
                 onReconnect={() => void connectDrive()}
                 error={error.value}
                 busy={deleting}
@@ -539,10 +552,13 @@ export function LibraryPage() {
             />
             <ShareDialog
                 onReconnect={() => void connectDrive()}
+                onPrint={setPrintingStudy}
                 error={error.value}
                 busy={false}
                 sessionLost={sessionLost}
             />
+            {printingStudy && <StudyPrintDialog key={printingStudy.id} study={printingStudy}
+                                                onClose={() => setPrintingStudy(null)}/>}
             <ExportDialog
                 onReconnect={() => void connectDrive()}
                 error={exportError.value}

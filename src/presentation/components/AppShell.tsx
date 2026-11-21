@@ -8,7 +8,7 @@ import {
     portals,
     setExporting,
     setRecoveringStudyId,
-    studyDoctors,
+    doctorDirectory,
     view,
     visibleAppointments,
     visibleOperations,
@@ -107,7 +107,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     count: studiesCount
                 },
                 {label: 'Portales', icon: 'i-globe', view: 'portales', count: portalsCount},
-                {label: 'Médicos', icon: 'i-stethoscope', view: 'medicos', count: studyDoctors.value.length},
+                {label: 'Médicos', icon: 'i-stethoscope', view: 'medicos', count: doctorDirectory.value.length},
                 {label: 'Operaciones', icon: 'i-scissors', view: 'operaciones', count: operationsCount},
             ],
         },
@@ -121,7 +121,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     count: appointmentsCount || undefined,
                     tone: 'warning'
                 },
-                {label: 'Episodios', icon: 'i-layers', view: 'episodios'},
+                {label: 'Episodios', icon: 'i-activity', view: 'episodios'},
             ],
         },
         {
@@ -206,7 +206,11 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                         <svg className="icon">
                             <use href="#i-lock"/>
                         </svg>
-                        <span><strong>Solo vos</strong>Los archivos viven en tu Drive privado.</span>
+                        <span>
+                            {isLocalDemo.value
+                                ? <><strong>Prueba local</strong>Los cambios quedan en esta sesión de prueba.</>
+                                : <><strong>Solo vos</strong>Los archivos viven en tu Drive privado.</>}
+                        </span>
                     </p>
                     <div className="sidebar-account">
                         <span className="avatar" aria-hidden="true"><svg className="icon"><use

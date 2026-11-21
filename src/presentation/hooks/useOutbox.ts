@@ -1,11 +1,11 @@
 import {useCallback, useRef} from 'preact/hooks';
 import type {Outbox, OutboxEntry} from '@data/outbox';
 import {
-    driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo,
+    driveAuth, driveStudyRepo, driveOperationRepo, drivePortalRepo, driveDoctorRepo,
     driveMedicalEventRepo, driveEpisodeRepo, driveAppointmentRepo, googleCalendarRepo, DriveSessionError,
 } from '@data';
 import {
-    pendingChanges, syncMessage, syncing, setStudies, operations, portals,
+    pendingChanges, syncMessage, syncing, setStudies, operations, portals, doctors,
     medicalEvents, episodes, appointments,
 } from '../state/store';
 
@@ -124,6 +124,21 @@ export function useOutbox(
                 restorePortal: async (id, revision) => {
                     await assertToken();
                     await drivePortalRepo.restore(id, revision);
+                    await assertToken();
+                },
+                saveDoctor: async (draft) => {
+                    await assertToken();
+                    await driveDoctorRepo.save(draft);
+                    await assertToken();
+                },
+                deleteDoctor: async (id, revision) => {
+                    await assertToken();
+                    await driveDoctorRepo.delete(id, revision);
+                    await assertToken();
+                },
+                restoreDoctor: async (id, revision) => {
+                    await assertToken();
+                    await driveDoctorRepo.restore(id, revision);
                     await assertToken();
                 },
                 saveEvent: async (draft) => {
@@ -248,6 +263,11 @@ export function useOutbox(
                     if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
                     portals.value = current;
                     currentRevision = current.find((item) => item.id === entry.portalId)?.revision;
+                } else if (entry.doctorId) {
+                    const current = await driveDoctorRepo.list();
+                    if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
+                    doctors.value = current;
+                    currentRevision = current.find((item) => item.id === entry.doctorId)?.revision;
                 } else if (entry.eventId) {
                     const current = await driveMedicalEventRepo.list();
                     if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();

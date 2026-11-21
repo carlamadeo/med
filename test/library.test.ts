@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {doctorNames, filterStudies, portalNames, studyTypeNames} from '@domain/library';
+import {doctorNames, filterStudies, groupStudiesByDoctor, portalNames, studyTypeNames} from '@domain/library';
 import type {Filters, Study} from '@domain/models';
 
 function study(id: string, over: Partial<Study> = {}): Study {
@@ -203,12 +203,34 @@ describe('portalNames', () => {
 });
 
 describe('doctorNames', () => {
-    it('lists unique professionals from studies and extra records sorted for display', () => {
+    it('lists unique professionals ordered by study count descending then alphabetically', () => {
         const names = doctorNames(
-            [study('1', {doctor: 'Dra.  Ana Pérez'}), study('2', {doctor: 'dra. ana perez'})],
+            [
+                study('1', {doctor: 'Dra.  Ana Pérez'}),
+                study('2', {doctor: 'dra. ana perez'}),
+                study('3', {doctor: 'Dr. Carlos Gómez'}),
+            ],
             ['Dr. Bruno Díaz', '  ', undefined],
         );
-        expect(names).toEqual(['Dr. Bruno Díaz', 'Dra. Ana Pérez']);
+        expect(names).toEqual(['Dra. Ana Pérez', 'Dr. Carlos Gómez', 'Dr. Bruno Díaz']);
+    });
+});
+
+describe('groupStudiesByDoctor', () => {
+    it('orders doctors by study count descending and alphabetically on ties', () => {
+        const grouped = groupStudiesByDoctor([
+            study('1', {doctor: 'Dr. Zeta'}),
+            study('2', {doctor: 'Dr. Álvarez'}),
+            study('3', {doctor: 'Dra. Gómez'}),
+            study('4', {doctor: 'Dra. Gómez'}),
+            study('5', {doctor: 'Dra. Gómez'}),
+            study('6', {doctor: 'Dr. Zeta'}),
+        ]);
+        expect(grouped.map((d) => [d.name, d.studyCount])).toEqual([
+            ['Dra. Gómez', 3],
+            ['Dr. Zeta', 2],
+            ['Dr. Álvarez', 1],
+        ]);
     });
 });
 

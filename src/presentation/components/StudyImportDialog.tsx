@@ -367,6 +367,7 @@ export function StudyImportDialog({open, onClose, studies, onSaved}: Props) {
         >
             <div className="dialog-heading study-import-header">
                 <div>
+                    <p className="eyebrow">Biblioteca</p>
                     <h2 id="import-title">Importar estudios</h2>
                     <p>Cada PDF se agrega como un estudio.</p>
                 </div>
