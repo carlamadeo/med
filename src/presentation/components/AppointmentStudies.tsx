@@ -1,3 +1,4 @@
+import type {VNode} from 'preact';
 import {useState} from 'preact/hooks';
 import {filterStudiesByQuery, formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel} from '@domain/library';
 import type {Study} from '@domain/models';
@@ -72,9 +73,14 @@ export function AppointmentStudyPicker({studyIds = [], disabled}: AppointmentStu
     );
 }
 
-export function AppointmentStudyList({studyIds}: {studyIds?: readonly string[]}) {
+interface AppointmentStudiesProps {
+    studyIds?: readonly string[];
+    renderCard: (studyList: VNode | null, prepareAction: VNode | null) => VNode;
+}
+
+export function AppointmentStudies({studyIds, renderCard}: AppointmentStudiesProps) {
     const [preparing, setPreparing] = useState(false);
-    if (!studyIds?.length) return null;
+    if (!studyIds?.length) return renderCard(null, null);
     const byId = new Map(studies.value.map(study => [study.id, study]));
     const pending = pendingChanges.value;
     const isOffline = offline.value;
@@ -157,18 +163,28 @@ export function AppointmentStudyList({studyIds}: {studyIds?: readonly string[]})
     });
     const sources = [...attachments.values(), ...viewers.values()];
 
-    return (
+    const studyList = (
         <div className="appointment-studies">
             <p>Estudios para llevar</p>
             <ul className="appointment-study-list">
                 {rows}
             </ul>
+        </div>
+    );
+    const prepareAction = (
+        <>
             {sources.length > 0 && !isLocalDemo.value && (
-                <button type="button" className="button secondary button-sm" onClick={() => setPreparing(true)}>
+                <button
+                    type="button"
+                    className="button ghost button-sm appointment-prepare"
+                    onClick={() => setPreparing(true)}
+                >
                     Preparar consulta
                 </button>
             )}
             {preparing && <ConsultationPackageDialog sources={sources} onClose={() => setPreparing(false)}/>}
-        </div>
+        </>
     );
+
+    return renderCard(studyList, prepareAction);
 }

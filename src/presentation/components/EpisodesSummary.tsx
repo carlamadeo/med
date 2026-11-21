@@ -8,54 +8,50 @@ interface EpisodesSummaryProps {
     initialPeriod?: Period;
 }
 
+const periods: {value: Period; label: string}[] = [
+    {value: 'year', label: 'Año actual'},
+    {value: '12months', label: '12 meses'},
+    {value: 'all', label: 'Todo el tiempo'},
+];
+const decimal = new Intl.NumberFormat('es-AR', {maximumFractionDigits: 1});
+
 export function EpisodesSummary({episodes, initialPeriod = '12months'}: EpisodesSummaryProps) {
     const [period, setPeriod] = useState<Period>(initialPeriod);
     const [expanded, setExpanded] = useState(false);
 
     const aggregate = useMemo(() => computeEpisodesAggregate(episodes, period), [episodes, period]);
 
-    if (aggregate.totalEpisodes === 0) {
-        return (
-            <div className="episodes-summary empty">
-                <p className="summary-empty">No hay episodios para mostrar estadísticas.</p>
-            </div>
-        );
-    }
+    if (!episodes.length) return null;
 
-    const severityHighCount = aggregate.severityDistribution.high;
+    const header = (
+        <header className="summary-header">
+            <h3 id="episodes-summary-title">Resumen de episodios</h3>
+            <div className="summary-tabs" role="group" aria-label="Período del resumen">
+                {periods.map(({value, label}) => (
+                    <button key={value} type="button" className="button ghost summary-tab"
+                            aria-pressed={period === value} onClick={() => setPeriod(value)}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+        </header>
+    );
+
+    if (!aggregate.totalEpisodes) return (
+        <section className="episodes-summary" aria-labelledby="episodes-summary-title">
+            {header}
+            <p className="summary-empty" role="status">No hay episodios en este período.</p>
+        </section>
+    );
+
+    const severity = aggregate.severityDistribution.high > 0 ? 'high'
+        : aggregate.severityDistribution.medium > 0 ? 'medium' : 'low';
     const mostFrequentIllness = aggregate.mostFrequentIllness || '—';
+    const busiestMonth = Math.max(1, ...aggregate.monthlyFrequency.map(month => month.count));
 
     return (
         <section className="episodes-summary" aria-labelledby="episodes-summary-title">
-            <header className="summary-header">
-                <h3 id="episodes-summary-title">Resumen de episodios</h3>
-                <div className="summary-tabs" role="tablist" aria-label="Período">
-                    <button
-                        role="tab"
-                        aria-selected={period === 'year'}
-                        className={`summary-tab ${period === 'year' ? 'active' : ''}`}
-                        onClick={() => setPeriod('year')}
-                    >
-                        Año actual
-                    </button>
-                    <button
-                        role="tab"
-                        aria-selected={period === '12months'}
-                        className={`summary-tab ${period === '12months' ? 'active' : ''}`}
-                        onClick={() => setPeriod('12months')}
-                    >
-                        12 meses
-                    </button>
-                    <button
-                        role="tab"
-                        aria-selected={period === 'all'}
-                        className={`summary-tab ${period === 'all' ? 'active' : ''}`}
-                        onClick={() => setPeriod('all')}
-                    >
-                        Todo el tiempo
-                    </button>
-                </div>
-            </header>
+            {header}
 
             <div className="summary-kpis">
                 <div className="kpi">
@@ -64,43 +60,42 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                 </div>
                 <div className="kpi">
                     <span className="summary-kpi-value">{aggregate.totalDaysIll}</span>
-                    <span className="summary-kpi-label">Días enfermo</span>
+                    <span className="summary-kpi-label">Días de enfermedad</span>
                 </div>
                 <div className="kpi">
-                    <span className="summary-kpi-value">{aggregate.avgDuration.toFixed(1)}</span>
-                    <span className="summary-kpi-label">Días/episodio</span>
+                    <span className="summary-kpi-value">{decimal.format(aggregate.avgDuration)}</span>
+                    <span className="summary-kpi-label">Días por episodio</span>
                 </div>
                 <div className="kpi">
                     <span className="summary-kpi-value">{mostFrequentIllness}</span>
                     <span className="summary-kpi-label">Más frecuente</span>
                 </div>
-                <div className={`kpi severity-${severityHighCount > 0 ? 'high' : severityHighCount === 0 && aggregate.severityDistribution.medium > 0 ? 'medium' : 'low'}`}>
-                    <span className="summary-kpi-value">{severityHighCount > 0 ? 'Alta' : aggregate.severityDistribution.medium > 0 ? 'Media' : 'Baja'}</span>
-                    <span className="summary-kpi-label">Severidad top</span>
+                <div className="kpi" data-severity={severity}>
+                    <span className="summary-kpi-value">{severity === 'high' ? 'Alta' : severity === 'medium' ? 'Media' : 'Baja'}</span>
+                    <span className="summary-kpi-label">Mayor severidad</span>
                 </div>
             </div>
 
             <div className="summary-grids">
                 <div className="summary-section">
-                    <h4>Frecuencia mensual</h4>
-                    <div className="monthly-heatmap" role="img" aria-label={`Días enfermo por mes, ${period === 'year' ? 'año actual' : period === '12months' ? 'últimos 12 meses' : 'historial completo'}`}>
-                        {aggregate.monthlyFrequency.map(m => (
-                            <div
-                                key={m.month}
-                                className="heatmap-cell"
-                                style={{
-                                    '--intensity': Math.min(m.days / 14, 1),
-                                    backgroundColor: m.days > 0
-                                        ? `hsl(var(--heatmap-hue, 10), var(--heatmap-sat, 70%), calc(95% - var(--intensity) * 70%))`
-                                        : 'var(--color-surface-2)',
-                                }}
-                                title={`${formatMonth(m.month)}: ${m.count} episodio${m.count !== 1 ? 's' : ''}, ${m.days} día${m.days !== 1 ? 's' : ''}`}
-                            >
-                                <span className="cell-label">{shortMonth(m.month)}</span>
-                                {m.days > 0 && <span className="cell-value">{m.days}d</span>}
-                            </div>
-                        ))}
-                    </div>
+                    <h4>Episodios por mes</h4>
+                    {period === 'all' && <p className="no-data">Últimos {aggregate.monthlyFrequency.length} meses</p>}
+                    <ul className="monthly-heatmap" role="list" aria-label="Episodios por mes">
+                        {aggregate.monthlyFrequency.map(month => {
+                            const label = `${formatMonth(month.month)}: ${month.count} ${month.count === 1 ? 'episodio' : 'episodios'}`;
+                            return (
+                                <li key={month.month} className="heatmap-cell" title={label}
+                                    data-active={month.count > 0}
+                                    style={{'--intensity': month.count / busiestMonth}}>
+                                    <span className="sr-only">{label}</span>
+                                    <span className="cell-label" aria-hidden="true">
+                                        {period === 'all' ? formatMonth(month.month) : shortMonth(month.month)}
+                                    </span>
+                                    <span className="cell-value" aria-hidden="true">{month.count}</span>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 </div>
 
                 <div className="summary-section">
@@ -119,12 +114,10 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                             <tbody>
                                 {aggregate.illnessBreakdown.slice(0, 8).map((ill, idx) => (
                                     <tr key={`${ill.illness}-${idx}`}>
-                                        <td>
-                                            <span className={`illness-name severity-${ill.severity}`}>{ill.illness}</span>
-                                        </td>
+                                        <td><span className="illness-name">{ill.illness}</span></td>
                                         <td>{ill.count}</td>
                                         <td>{ill.totalDays}</td>
-                                        <td>{ill.avgDuration.toFixed(1)}</td>
+                                        <td>{decimal.format(ill.avgDuration)}</td>
                                         <td>{ill.lastDate ? formatStudyDate(ill.lastDate) : '—'}</td>
                                     </tr>
                                 ))}
@@ -143,10 +136,11 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                                 <span className="symptom-name">{sym.name}</span>
                                 <span className="symptom-count">×{sym.totalCount}</span>
                                 {sym.avgIntensity > 0 && (
-                                    <span className="symptom-intensity">{sym.avgIntensity.toFixed(1)}</span>
+                                    <span className="symptom-intensity">{decimal.format(sym.avgIntensity)}/5</span>
                                 )}
                             </span>
                         ))}
+                        {!aggregate.topSymptoms.length && <span className="no-data">Sin síntomas registrados</span>}
                     </div>
                 </div>
 
@@ -158,17 +152,19 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                                 {med.name} <span className="med-count">({med.count})</span>
                             </span>
                         ))}
-                        {aggregate.topMedications.length === 0 && <span className="no-data">—</span>}
+                        {!aggregate.topMedications.length && <span className="no-data">Sin medicamentos registrados</span>}
                     </div>
                 </div>
             </div>
 
             <button
-                className="summary-expand"
+                type="button"
+                className="button secondary summary-expand"
                 onClick={() => setExpanded(!expanded)}
                 aria-expanded={expanded}
             >
-                {expanded ? '▲ Ocultar análisis completo' : '▼ Ver análisis completo'}
+                {expanded ? 'Ocultar análisis completo' : 'Ver análisis completo'}
+                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
             </button>
 
             {expanded && (
@@ -209,7 +205,7 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
 
                     <div className="analysis-section">
                         <h4>Tabla completa de enfermedades</h4>
-                        <div className="summary-table full">
+                        <div className="summary-table full" tabIndex={0} role="region" aria-label="Tabla completa de enfermedades">
                             <table>
                                 <thead>
                                     <tr>
@@ -224,10 +220,10 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                                 <tbody>
                                     {aggregate.illnessBreakdown.map((ill, idx) => (
                                         <tr key={`${ill.illness}-${idx}`}>
-                                            <td><span className={`illness-name severity-${ill.severity}`}>{ill.illness}</span></td>
+                                            <td><span className="illness-name">{ill.illness}</span></td>
                                             <td>{ill.count}</td>
                                             <td>{ill.totalDays}</td>
-                                            <td>{ill.avgDuration.toFixed(1)}</td>
+                                            <td>{decimal.format(ill.avgDuration)}</td>
                                             <td>{ill.lastDate ? formatStudyDate(ill.lastDate) : '—'}</td>
                                             <td><span className={`severity-pill ${ill.severity}`}>{ill.severity === 'high' ? 'Alta' : ill.severity === 'medium' ? 'Media' : 'Baja'}</span></td>
                                         </tr>
@@ -254,7 +250,7 @@ export function EpisodesSummary({episodes, initialPeriod = '12months'}: Episodes
                                         <tr key={`${sym.name}-${idx}`}>
                                             <td>{sym.name}</td>
                                             <td>{sym.totalCount}</td>
-                                            <td>{sym.avgIntensity > 0 ? sym.avgIntensity.toFixed(1) : '—'}</td>
+                                            <td>{sym.avgIntensity > 0 ? decimal.format(sym.avgIntensity) : '—'}</td>
                                             <td>{sym.episodesAffected}</td>
                                         </tr>
                                     ))}

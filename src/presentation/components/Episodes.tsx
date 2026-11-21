@@ -510,7 +510,7 @@ export function Episodes() {
                             <div className="episode-summary-main">
                                 <div className="episode-summary-title">
                                     <h3>{summary.illness}</h3>
-                                    <span className={`status-badge ${summary.isClosed ? 'closed' : 'active'}`}>
+                                    <span className="status-pill" data-tone={summary.isClosed ? 'neutral' : 'primary'}>
                                         {summary.isClosed ? 'Finalizado' : 'En curso'}
                                         {summary.duration !== null ? ` · ${summary.duration} ${summary.duration === 1 ? 'día' : 'días'}` : ''}
                                     </span>
@@ -531,14 +531,14 @@ export function Episodes() {
                                     )}
                                     {summary.peakTemperature !== null && (
                                         <span className="meta-item temp" style={{color: summary.peakTemperature >= 39 ? 'var(--color-error)' : summary.peakTemperature >= 38 ? 'var(--color-warning)' : 'var(--color-success)'}}>
-                                            🌡️ {summary.peakTemperature}°C
+                                            {summary.peakTemperature.toLocaleString('es-AR')} °C
                                         </span>
                                     )}
                                     {summary.medicationCount > 0 && (
-                                        <span className="meta-item">💊 {summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>
+                                        <span className="meta-item">{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>
                                     )}
                                     <span className="meta-item severity" style={{color: severityColor}}>
-                                        {summary.severity === 'high' ? '🔴 Alta' : summary.severity === 'medium' ? '🟡 Media' : '🟢 Baja'}
+                                        Severidad {summary.severity === 'high' ? 'alta' : summary.severity === 'medium' ? 'media' : 'baja'}
                                     </span>
                                 </div>
                             </div>
@@ -554,13 +554,14 @@ export function Episodes() {
                                 </div>
                             )}
                             {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
-                            <button 
-                                className="expand-toggle" 
+                            <button
+                                className="icon-button expand-toggle"
+                                type="button"
                                 onClick={toggleExpand}
                                 aria-expanded={isExpanded}
                                 aria-label={isExpanded ? 'Ocultar detalle' : 'Ver detalle completo'}
                             >
-                                {isExpanded ? '▲' : '▼'}
+                                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
                             </button>
                         </div>
 

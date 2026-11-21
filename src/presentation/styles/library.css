@@ -107,6 +107,10 @@
     transform: rotate(180deg);
 }
 
+.library-table {
+    container: library-table / inline-size;
+}
+
 .library-table .study-cell {
     min-width: 8rem;
 }
@@ -169,6 +173,37 @@
     opacity: 1;
 }
 
+@media screen and (width > 720px) {
+    .library-table thead th:first-child {
+        width: 40%;
+    }
+
+    .library-table .study-text {
+        flex: 1;
+    }
+
+    .library-table :is(.study-title, .library-study-value) {
+        contain: inline-size;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .library-table .study-types {
+        flex-wrap: wrap;
+    }
+
+    .library-table .study-types .type-badge {
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .library-table .row-actions {
+        flex-wrap: nowrap;
+    }
+}
+
 .library-mobile-label {
     display: none;
 }
@@ -214,6 +249,26 @@
         font-size: var(--text-base);
     }
 
+    .library-table .study-title {
+        font-size: var(--text-sm);
+    }
+
+    .library-table .row-actions {
+        gap: var(--space-1);
+    }
+
+    .library-table .row-actions .icon-button .icon {
+        width: 1.125rem;
+        height: 1.125rem;
+    }
+}
+
+@container library-table (width < 52rem) {
+    .library-table :is(table, tbody, tr, td) {
+        display: block;
+        width: 100%;
+    }
+
     .library-table.summary-table-scroll thead,
     .library-table.summary-table-scroll tbody td.library-study-metadata[data-empty='true'] {
         position: absolute;
@@ -224,44 +279,31 @@
         clip-path: inset(50%);
     }
 
-    .library-table .study-cell {
-        min-width: 0;
+    .library-table.summary-table-scroll tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+        padding-block: 0.75rem;
+        border-bottom: 1px solid var(--color-border);
     }
 
-    .library-table .study-title {
-        font-size: var(--text-sm);
+    .library-table.summary-table-scroll tbody td {
+        padding: 0;
+        border: 0;
+    }
+
+    .library-table .study-cell {
+        min-width: 0;
     }
 
     .library-table .date-cell {
         color: var(--color-text-secondary);
     }
 
-    .library-table.summary-table-scroll tbody tr,
-    .library-table.summary-table-scroll tbody td:first-child,
-    .library-table.summary-table-scroll tbody td:last-child {
-        padding-inline: 0;
-    }
-
     .library-table.summary-table-scroll tbody td.library-study-metadata {
-        display: block;
         max-width: none;
-        grid-column: 1 / -1;
         overflow-wrap: anywhere;
         white-space: normal;
-    }
-
-    .library-table.summary-table-scroll tbody td:last-child {
-        grid-column: 1 / -1;
-        grid-row: auto;
-    }
-
-    .library-table .row-actions {
-        gap: var(--space-1);
-    }
-
-    .library-table .row-actions .icon-button .icon {
-        width: 1.125rem;
-        height: 1.125rem;
     }
 
     .library-table.summary-table-scroll tbody tr.year-divider-row {

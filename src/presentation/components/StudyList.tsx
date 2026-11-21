@@ -211,7 +211,7 @@ export function StudyList({
                                             onChange={(event) => toggleSelect(study.id, event.currentTarget.checked)}
                                         />
                                         <span className="study-text">
-                                            <span className="study-title">{study.title}</span>
+                                            <span className="study-title" title={study.title}>{study.title}</span>
                                             {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
                                             <span className="study-types">
                                                 {study.types.length ? (
@@ -240,12 +240,16 @@ export function StudyList({
                                     <time className="date-cell" dateTime={study.date}>{formatStudyDate(study.date)}</time>
                                 </td>
                                 <td role="cell" className="person-cell library-study-metadata" data-empty={!study.doctor}>
-                                    <span className="library-mobile-label" aria-hidden="true">Profesional </span>
-                                    {study.doctor || '—'}
+                                    <span className="library-study-value" title={study.doctor || undefined}>
+                                        <span className="library-mobile-label" aria-hidden="true">Profesional </span>
+                                        {study.doctor || '—'}
+                                    </span>
                                 </td>
                                 <td role="cell" className="portal-cell library-study-metadata" data-empty={!study.portal}>
-                                    <span className="library-mobile-label" aria-hidden="true">Institución </span>
-                                    {study.portal || '—'}
+                                    <span className="library-study-value" title={study.portal || undefined}>
+                                        <span className="library-mobile-label" aria-hidden="true">Institución </span>
+                                        {study.portal || '—'}
+                                    </span>
                                 </td>
                                 <td role="cell">
                                     <div className="row-actions">

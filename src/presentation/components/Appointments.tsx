@@ -1,10 +1,11 @@
+import type {VNode} from 'preact';
 import {useState} from 'preact/hooks';
 import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
 import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
 import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
-import {AppointmentStudyList} from './AppointmentStudies';
+import {AppointmentStudies} from './AppointmentStudies';
 import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {MedicalEvents} from './MedicalEvents';
@@ -138,8 +139,8 @@ export function Appointments() {
                   : item.syncStatus === 'failed'
                     ? 'No se puede sincronizar'
                     : '';
-            return (
-              <li className="appointment-card" key={item.id}>
+            const renderCard = (studyList: VNode | null, prepareAction: VNode | null) => (
+              <li className="appointment-card">
                 <div className="appointment-date" aria-label={`${day ?? ''} de ${monthLabel}`}>
                   <span>{monthLabel || '—'}</span>
                   <strong>{day ?? '—'}</strong>
@@ -159,7 +160,7 @@ export function Appointments() {
                   {item.reason && <p className="appointment-notes">Motivo: {item.reason}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
-                  <AppointmentStudyList studyIds={item.studyIds} />
+                  {studyList}
                   {(item.cost !== null || item.coverage) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (
@@ -187,6 +188,7 @@ export function Appointments() {
                   )}
                 </div>
                 <div className="appointment-actions">
+                  {prepareAction}
                   <button
                     className="button ghost button-sm"
                     type="button"
@@ -213,6 +215,7 @@ export function Appointments() {
                 </div>
               </li>
             );
+            return <AppointmentStudies key={item.id} studyIds={item.studyIds} renderCard={renderCard} />;
           })}
         </ul>
       ) : (

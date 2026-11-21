@@ -1,6 +1,6 @@
 import {h, render} from 'preact';
 import {act} from 'preact/test-utils';
-import {afterEach, expect, it} from 'vitest';
+import {afterEach, expect, it, vi} from 'vitest';
 import {Episodes} from '@presentation/components/Episodes';
 import {episodes} from '@presentation/state/store';
 
@@ -9,6 +9,25 @@ afterEach(() => {
     render(null, root);
     root.remove();
     episodes.value = [];
+    vi.useRealTimers();
+});
+
+it('allows switching back from a period with no episodes', async () => {
+    vi.setSystemTime(new Date(2026, 10, 21, 12));
+    episodes.value = [{
+        id: 'old', illness: 'Otitis', revision: '1', medications: [],
+        observations: [{date: '2025-12-10', symptoms: [], text: ''}],
+    }];
+    document.body.append(root);
+    await act(() => render(h(Episodes, {}), root));
+    const periodButton = (name: string) => [...root.querySelectorAll<HTMLButtonElement>('.episodes-summary button')]
+        .find(button => button.textContent?.trim() === name);
+
+    await act(() => periodButton('Año actual')!.click());
+    expect(root.querySelector('.episodes-summary')?.textContent).toContain('No hay episodios');
+    expect(periodButton('12 meses')).toBeDefined();
+    await act(() => periodButton('12 meses')!.click());
+    expect(root.querySelector('.episodes-summary')?.textContent).toContain('Otitis');
 });
 
 it('shows episodes in summary view with key metrics', async () => {
