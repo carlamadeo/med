@@ -740,7 +740,7 @@ test('el modo local conserva la biblioteca al cancelar el editor', async ({page}
     await expect(page.getByText('Ecografía abdominal completa')).toBeVisible();
 });
 
-test('mantiene las acciones del editor fuera del área desplazable', async ({page}) => {
+test('permite desplazar el editor solo en vertical y mantiene visibles sus acciones', async ({page}) => {
     await page.setViewportSize({width: Math.min(page.viewportSize()!.width, 800), height: 600});
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
@@ -752,6 +752,11 @@ test('mantiene las acciones del editor fuera del área desplazable', async ({pag
     const content = editor.locator('.editor-content');
     const actions = editor.locator('.dialog-actions');
     await expect(editor).toBeVisible();
+    const widths = await content.evaluate((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+    }));
+    expect(widths.scrollWidth).toBe(widths.clientWidth);
     const geometry = await content.evaluate((element) => {
         element.scrollTop = element.scrollHeight;
         return {scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight};

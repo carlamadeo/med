@@ -4103,6 +4103,10 @@ label.linked-row {
     overscroll-behavior: contain;
 }
 
+.dialog.editor .dialog-heading .icon-button {
+    margin: 0;
+}
+
 .dialog.editor .dialog-heading h2 {
     font-size: 1.25rem;
     font-weight: 650;
