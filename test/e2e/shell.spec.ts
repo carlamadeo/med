@@ -712,6 +712,7 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     const dialog = page.locator('#appointment-dialog');
     await dialog.getByLabel('Fecha').fill('2024-03-01');
     await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
+    await dialog.getByLabel('Zona horaria').selectOption('America/Argentina/Buenos_Aires');
     await dialog.getByLabel('Profesional').fill('Dra. Pérez');
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
     await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
@@ -724,6 +725,7 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(dialog).toBeHidden();
 
     const card = page.locator('.appointment-card').filter({hasText: 'Dra. Pérez'});
+    await expect(card.getByText('10:30', {exact: true})).toBeVisible();
     await card.getByRole('button', {name: 'Registrar consulta'}).click();
     await expect(dialog).toHaveAccessibleName('Registrar consulta');
     await expect(dialog.getByLabel('Estado')).toHaveValue('completed');

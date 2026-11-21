@@ -3675,8 +3675,9 @@
 
 .appointment-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(0, 23rem));
+    align-items: start;
+    gap: 0.625rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -3685,9 +3686,9 @@
 .appointment-card {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.75rem;
+    gap: 0.25rem 0.625rem;
     align-items: start;
-    padding: 1rem;
+    padding: 0.625rem 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
@@ -3697,8 +3698,8 @@
 .appointment-date {
     display: grid;
     place-items: center;
-    width: 3rem;
-    height: 3.25rem;
+    width: 2.5rem;
+    height: 2.75rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-surface-hover);
@@ -3763,9 +3764,8 @@
     flex-wrap: wrap;
     gap: 0.25rem;
     justify-content: flex-end;
+    justify-self: end;
     grid-column: 1 / -1;
-    padding-top: 0.45rem;
-    border-top: 1px solid var(--color-border);
 }
 
 .appointment-delete {
@@ -3804,12 +3804,6 @@
     color: var(--color-text-secondary);
 }
 
-@media (max-width: 1180px) {
-    .appointment-list {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
 @media (max-width: 720px) {
     .appointments-head {
         align-items: flex-start;
@@ -3819,10 +3813,6 @@
     .appointments-head-actions {
         width: 100%;
         justify-content: space-between;
-    }
-
-    .appointment-card {
-        grid-template-columns: minmax(0, 1fr);
     }
 }
 
