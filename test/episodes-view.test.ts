@@ -11,7 +11,7 @@ afterEach(() => {
     episodes.value = [];
 });
 
-it('shows observations in date order and groups occurrences by illness', async () => {
+it('shows episodes in summary view with key metrics', async () => {
     episodes.value = [
         {
             id: '1',
@@ -37,9 +37,26 @@ it('shows observations in date order and groups occurrences by illness', async (
         render(h(Episodes, {}), root);
     });
     expect(root.textContent).toContain('2 episodios');
-    expect(root.textContent).toContain('3 días');
+    expect(root.textContent).toContain('Gripe');
     expect(root.textContent).toContain('fiebre');
-    expect(root.textContent!.indexOf('Fiebre')).toBeLessThan(root.textContent!.indexOf('Mejor'));
+});
+
+it('shows episode summary with duration and symptoms', async () => {
+    episodes.value = [{
+        id: '1',
+        illness: 'Otitis',
+        revision: '1',
+        closed: true,
+        endDate: '2024-03-12',
+        medications: [],
+        observations: [{date: '2024-03-09', text: 'Dolor', symptoms: []}],
+    }];
+    document.body.append(root);
+    await act(() => render(h(Episodes, {}), root));
+    expect(root.textContent).toContain('Otitis');
+    expect(root.textContent).toContain('Finalizado');
+    expect(root.textContent).toContain('4 días');
+    expect(root.querySelector('time[datetime="2024-03-12"]')).not.toBeNull();
 });
 
 it('offers previously used medications as suggestions', async () => {
@@ -59,18 +76,25 @@ it('offers previously used medications as suggestions', async () => {
     expect([...list!.options].map(option => option.value)).toContain('Paracetamol');
 });
 
-it('includes the recorded end date in the illness duration', async () => {
+it('expands episode detail when clicking expand button', async () => {
     episodes.value = [{
         id: '1',
-        illness: 'Otitis',
+        illness: 'Gripe',
         revision: '1',
-        closed: true,
-        endDate: '2024-03-12',
         medications: [],
-        observations: [{date: '2024-03-09', text: 'Dolor', symptoms: []}],
+        observations: [{date: '2024-01-01', text: 'Fiebre alta', symptoms: [{name: 'fiebre', intensity: 4}]}],
     }];
     document.body.append(root);
-    await act(() => render(h(Episodes, {}), root));
-    expect(root.querySelector('.episode-title')?.textContent).toContain('Finalizado · 4 días');
-    expect(root.querySelector('time[datetime="2024-03-12"]')).not.toBeNull();
+    await act(() => {
+        render(h(Episodes, {}), root);
+    });
+    // In collapsed view, symptom name is shown
+    expect(root.textContent).toContain('fiebre');
+    
+    const expandButton = root.querySelector<HTMLButtonElement>('button[aria-label="Ver detalle completo"]')!;
+    await act(() => expandButton.click());
+    // In expanded view, observation text is shown
+    expect(root.textContent).toContain('Fiebre alta');
+    expect(root.textContent).toContain('Editar');
+    expect(root.textContent).toContain('Eliminar');
 });

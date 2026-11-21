@@ -2,13 +2,15 @@ import {enqueueOffline} from '../utils/enqueueOffline';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
-import {episodeDuration, episodeEndDateError} from '@domain/episodes';
+import {episodeEndDateError} from '@domain/episodes';
+import {episodeSummary} from '@domain/episode-summary';
 import {normalize, todayLocal} from '@domain/utils';
 import {formatStudyDate} from '@domain/library';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
 import {episodes, isLocalDemo, visibleEpisodes} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
+import {EpisodesSummary} from './EpisodesSummary';
 
 const outbox = new Outbox();
 
@@ -94,6 +96,7 @@ export function Episodes() {
     const [closed, setClosed] = useState(false);
     const [query, setQuery] = useState('');
     const [pendingDelete, setPendingDelete] = useState<Episode | null>(null);
+    const [expandedEpisodes, setExpandedEpisodes] = useState<Set<string>>(new Set());
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
@@ -455,6 +458,8 @@ export function Episodes() {
             </div>
         </div>
 
+        <EpisodesSummary episodes={episodes.value} />
+
         <div className="episodes-toolbar">
             <label className="episodes-search">
                 <svg className="icon">
@@ -477,71 +482,146 @@ export function Episodes() {
             </div>
         )}
 
-        {visible.length ? (
+{visible.length ? (
             <ul id="episodes-list" className="episode-list">
                 {visible.map((episode) => {
-                    const observations = [...episode.observations].sort((a, b) => a.date.localeCompare(b.date));
-                    const duration = episodeDuration(episode);
-                    const activeMeds = episode.medications.filter((medication) => medication.name);
+                    const summary = episodeSummary(episode);
+                    const isExpanded = expandedEpisodes.has(episode.id);
                     const syncLabel = episode.syncStatus === 'conflict' ? 'Requiere revisión'
                         : episode.syncStatus === 'failed' ? 'No se puede sincronizar'
                             : episode.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
                     const syncTone = episode.syncStatus === 'conflict' || episode.syncStatus === 'failed' ? 'danger' : 'warning';
+                    
+                    const toggleExpand = (e: Event) => {
+                        e.stopPropagation();
+                        setExpandedEpisodes(prev => {
+                            const next = new Set(prev);
+                            if (next.has(episode.id)) next.delete(episode.id);
+                            else next.add(episode.id);
+                            return next;
+                        });
+                    };
+
+                    const severityColor = summary.severity === 'high' ? 'var(--color-error)' 
+                        : summary.severity === 'medium' ? 'var(--color-warning)' : 'var(--color-success)';
+                    
                     return <li className="episode-card" key={episode.id}>
-                        <div className="episode-top">
-                            <div className="episode-title">
-                                <h3>{episode.illness || 'Episodio de salud'}</h3>
-                                <p>{episode.closed || episode.endDate ? 'Finalizado' : 'En curso'}{duration !== null ? ` · ${duration} ${duration === 1 ? 'día' : 'días'}` : ''}</p>
-                                {episode.endDate && <p>Finalización <time dateTime={episode.endDate}>{formatStudyDate(episode.endDate)}</time></p>}
+                        <div className="episode-summary" onClick={toggleExpand}>
+                            <div className="episode-summary-main">
+                                <div className="episode-summary-title">
+                                    <h3>{summary.illness}</h3>
+                                    <span className={`status-badge ${summary.isClosed ? 'closed' : 'active'}`}>
+                                        {summary.isClosed ? 'Finalizado' : 'En curso'}
+                                        {summary.duration !== null ? ` · ${summary.duration} ${summary.duration === 1 ? 'día' : 'días'}` : ''}
+                                    </span>
+                                </div>
+                                <div className="episode-summary-meta">
+                                    {summary.startDate && summary.endDate && (
+                                        <span className="meta-item">
+                                            <time dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
+                                            {' – '}
+                                            <time dateTime={summary.endDate}>{formatStudyDate(summary.endDate)}</time>
+                                        </span>
+                                    )}
+                                    {summary.startDate && !summary.endDate && (
+                                        <span className="meta-item">
+                                            <time dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
+                                            {' – en curso'}
+                                        </span>
+                                    )}
+                                    {summary.peakTemperature !== null && (
+                                        <span className="meta-item temp" style={{color: summary.peakTemperature >= 39 ? 'var(--color-error)' : summary.peakTemperature >= 38 ? 'var(--color-warning)' : 'var(--color-success)'}}>
+                                            🌡️ {summary.peakTemperature}°C
+                                        </span>
+                                    )}
+                                    {summary.medicationCount > 0 && (
+                                        <span className="meta-item">💊 {summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>
+                                    )}
+                                    <span className="meta-item severity" style={{color: severityColor}}>
+                                        {summary.severity === 'high' ? '🔴 Alta' : summary.severity === 'medium' ? '🟡 Media' : '🟢 Baja'}
+                                    </span>
+                                </div>
                             </div>
+                            {summary.topSymptoms.length > 0 && (
+                                <div className="episode-summary-symptoms">
+                                    {summary.topSymptoms.map((symptom, idx) => (
+                                        <span key={`${symptom.name}-${idx}`} className="symptom-chip">
+                                            {symptom.name}
+                                            {symptom.count > 1 && <span className="symptom-count">×{symptom.count}</span>}
+                                            {symptom.maxIntensity > 0 && <span className="symptom-intensity">{symptom.maxIntensity}/5</span>}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                             {syncLabel && <span className="status-pill" data-tone={syncTone}>{syncLabel}</span>}
+                            <button 
+                                className="expand-toggle" 
+                                onClick={toggleExpand}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Ocultar detalle' : 'Ver detalle completo'}
+                            >
+                                {isExpanded ? '▲' : '▼'}
+                            </button>
                         </div>
 
-                        <div className="episode-stats">
-                            <span>{activeMeds.length} {activeMeds.length === 1 ? 'medicamento' : 'medicamentos'}</span>
-                        </div>
+                        {isExpanded && (
+                            <div className="episode-detail">
+                                <div className="episode-stats">
+                                    <span>{summary.observationCount} {summary.observationCount === 1 ? 'observación' : 'observaciones'}</span>
+                                    {summary.medicationCount > 0 && <span>{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>}
+                                </div>
 
-                        {observations.length > 0 && (
-                            <div className="episode-observations">
-                                {observations.map((observation, index) => (
-                                    <div className="episode-observation" key={`${observation.date}-${index}`}>
-                                        <time dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
-                                        <p>{observation.text || 'Sin notas'}</p>
-                                        <div className="episode-symptoms">
-                                            {observation.temperature !== undefined && <span
-                                                className="episode-symptom">Temp. {observation.temperature} °C</span>}
-                                            {observation.symptoms.map((symptom, symptomIndex) => <span
-                                                className="episode-symptom" key={symptomIndex}>
-                                                {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` · ${symptom.description}` : ''}
-                                            </span>)}
-                                        </div>
+                                {summary.duration !== null && (
+                                    <div className="episode-duration">
+                                        Duración: {summary.duration} {summary.duration === 1 ? 'día' : 'días'}
+                                        {summary.startDate && summary.endDate && (
+                                            <> ({formatStudyDate(summary.startDate)} – {formatStudyDate(summary.endDate)})</>
+                                        )}
                                     </div>
-                                ))}
+                                )}
+
+                                {episode.observations.length > 0 && (
+                                    <div className="episode-observations">
+                                        {[...episode.observations].sort((a, b) => a.date.localeCompare(b.date)).map((observation, index) => (
+                                            <div className="episode-observation" key={`${observation.date}-${index}`}>
+                                                <time dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
+                                                <p>{observation.text || 'Sin notas'}</p>
+                                                <div className="episode-symptoms">
+                                                    {observation.temperature !== undefined && <span
+                                                        className="episode-symptom">Temp. {observation.temperature} °C</span>}
+                                                    {observation.symptoms.map((symptom, symptomIndex) => <span
+                                                        className="episode-symptom" key={symptomIndex}>
+                                                        {symptom.name}{symptom.intensity !== undefined ? ` ${symptom.intensity}/5` : ''}{symptom.description ? ` · ${symptom.description}` : ''}
+                                                    </span>)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {summary.medicationCount > 0 && (
+                                    <div className="episode-meds">
+                                        {episode.medications.filter(m => m.name).map((medication, index) => <span className="episode-med"
+                                                                                                          key={`${medication.name}-${index}`}>
+                                            <svg className="icon"><use href="#i-message"/></svg>
+                                            {medication.name}{medication.frequency ? ` · ${medication.frequency}` : ''}
+                                        </span>)}
+                                    </div>
+                                )}
+
+                                <div className="episode-foot">
+                                    <div className="episode-actions">
+                                        <button className="button ghost button-sm" type="button"
+                                                disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar
+                                        </button>
+                                        <button className="button ghost button-sm episode-delete" type="button"
+                                                disabled={Boolean(episode.syncStatus)}
+                                                onClick={() => void deleteEpisode(episode)}>Eliminar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
-
-                        {activeMeds.length > 0 && (
-                            <div className="episode-meds">
-                                {activeMeds.map((medication, index) => <span className="episode-med"
-                                                                             key={`${medication.name}-${index}`}>
-                                    <svg className="icon"><use href="#i-message"/></svg>
-                                    {medication.name}{medication.frequency ? ` · ${medication.frequency}` : ''}
-                                </span>)}
-                            </div>
-                        )}
-
-                        <div className="episode-foot">
-                            <span className="count-badge">{episode.observations.length} observaciones</span>
-                            <div className="episode-actions">
-                                <button className="button ghost button-sm" type="button"
-                                        disabled={Boolean(episode.syncStatus)} onClick={() => startEdit(episode)}>Editar
-                                </button>
-                                <button className="button ghost button-sm episode-delete" type="button"
-                                        disabled={Boolean(episode.syncStatus)}
-                                        onClick={() => void deleteEpisode(episode)}>Eliminar
-                                </button>
-                            </div>
-                        </div>
                     </li>;
                 })}
             </ul>
