@@ -482,7 +482,7 @@ export function LibraryPage() {
                                     view.value = next;
                                 }}
                                 onRetryLoad={() => void loadStudies(true)}
-                                onRetryDirectories={() => void loadDirectories()}
+                                _onRetryDirectories={() => void loadDirectories()}
                             />
                         ) : (
                             <StudyListContainer

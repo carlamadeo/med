@@ -1,22 +1,18 @@
-import {portalNames} from '@domain/library';
 import {
-    latestStudy,
-    monthlyStudyActivity,
-    relativeDayLabel,
     upcomingAppointment
 } from '@domain/summary';
-import type {ViewMode} from '@domain/models';
+import {computeEpisodesAggregate, formatMonth} from '@domain/episodes-aggregate';
+import type {ViewMode, Episode, Appointment, Operation, MedicalEvent} from '@domain/models';
 import {
     error,
-    directoryFailures,
-    isLocalDemo,
     loading,
     offline,
     pendingChanges,
-    portals,
     setEditingAppointment,
-    studies,
     visibleAppointments,
+    visibleEpisodes,
+    visibleOperations,
+    visibleMedicalEvents,
     visibleStudies,
 } from '../state/store';
 import {SummaryChart} from './SummaryChart';
@@ -25,7 +21,7 @@ import {AppointmentStudyList} from './AppointmentStudies';
 interface ResumenProps {
     onNavigate: (view: ViewMode) => void;
     onRetryLoad: () => void;
-    onRetryDirectories: () => void;
+    _onRetryDirectories: () => void;
 }
 
 const syncLabels = {
@@ -41,30 +37,129 @@ function monthDay(date: string): { month: string; day: string } {
     return {month: label.replace('.', ''), day: String(day)};
 }
 
+function computeHealthActivity(episodes: readonly Episode[], appointments: readonly Appointment[], operations: readonly Operation[], months = 6) {
+    const now = new Date();
+    const result: Array<{key: string; label: string; count: number}> = [];
+    for (let i = months - 1; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const label = new Intl.DateTimeFormat('es-AR', {month: 'short'}).format(date);
+        let count = 0;
+        for (const ep of episodes) {
+            for (const obs of ep.observations) {
+                if (obs.date.startsWith(monthKey)) {
+                    count++;
+                    break;
+                }
+            }
+        }
+        for (const ap of appointments) {
+            if (ap.date.startsWith(monthKey)) count++;
+        }
+        for (const op of operations) {
+            if (op.date?.startsWith(monthKey)) count++;
+        }
+        result.push({key: monthKey, label, count});
+    }
+    return result;
+}
+
+function getActiveEpisodes(episodes: readonly Episode[]) {
+    return episodes.filter(ep => !ep.closed && !ep.endDate);
+}
+
+function getCurrentMedications(episodes: readonly Episode[]) {
+    const meds = new Map<string, {name: string; frequency?: string; count: number}>();
+    for (const ep of episodes) {
+        if (ep.closed || ep.endDate) continue;
+        for (const med of ep.medications) {
+            const name = med.name.trim();
+            if (!name) continue;
+            const existing = meds.get(name.toLowerCase()) ?? {name, frequency: med.frequency, count: 0};
+            existing.count++;
+            meds.set(name.toLowerCase(), existing);
+        }
+    }
+    return [...meds.values()].sort((a, b) => b.count - a.count);
+}
+
+function getTopSymptomsActive(episodes: readonly Episode[], limit = 3) {
+    const freq = new Map<string, {count: number; maxIntensity: number}>();
+    for (const ep of episodes) {
+        if (ep.closed || ep.endDate) continue;
+        for (const obs of ep.observations) {
+            for (const sym of obs.symptoms) {
+                const name = sym.name.trim().toLowerCase();
+                if (!name) continue;
+                const existing = freq.get(name) ?? {count: 0, maxIntensity: 0};
+                existing.count++;
+                if (sym.intensity !== undefined) existing.maxIntensity = Math.max(existing.maxIntensity, sym.intensity);
+                freq.set(name, existing);
+            }
+        }
+    }
+    return [...freq.entries()]
+        .map(([name, data]) => ({name, count: data.count, maxIntensity: data.maxIntensity}))
+        .sort((a, b) => b.count - a.count || b.maxIntensity - a.maxIntensity)
+        .slice(0, limit);
+}
+
+function getRecentOperation(operations: readonly Operation[]) {
+    const withDate = operations.filter(op => op.date).sort((a, b) => b.date!.localeCompare(a.date!));
+    return withDate[0] ?? null;
+}
+
+function getAppointmentsThisMonth(appointments: readonly Appointment[]) {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return appointments.filter(ap => ap.date.startsWith(monthKey)).length;
+}
+
+function getSpecialtiesThisYear(appointments: readonly Appointment[], events: readonly MedicalEvent[]) {
+    const now = new Date();
+    const yearStart = `${now.getFullYear()}-01`;
+    const specs = new Set<string>();
+    for (const ap of appointments) {
+        if (ap.date >= yearStart && ap.specialty) specs.add(ap.specialty);
+    }
+    for (const ev of events) {
+        if (ev.date >= yearStart && ev.specialty) specs.add(ev.specialty);
+    }
+    return [...specs].slice(0, 5);
+}
+
 export function Resumen({
                             onNavigate,
                             onRetryLoad,
-                            onRetryDirectories,
+                            _onRetryDirectories,
                         }: ResumenProps) {
-    const all = visibleStudies.value;
-    const latest = latestStudy(all);
-    const activity = monthlyStudyActivity(all, 6);
-    const thisMonth = activity[activity.length - 1]?.count ?? 0;
-    const total = all.length;
+    const episodes = visibleEpisodes.value;
+    const appointments = visibleAppointments.value;
+    const operations = visibleOperations.value;
+    const medicalEvents = visibleMedicalEvents.value;
+    const studies = visibleStudies.value;
+
+    const activeEpisodes = getActiveEpisodes(episodes);
+    const aggregate = computeEpisodesAggregate(episodes, 'year');
+    const currentMeds = getCurrentMedications(episodes);
+    const topActiveSymptoms = getTopSymptomsActive(episodes);
+    const recentOp = getRecentOperation(operations);
+    const appointmentsThisMonth = getAppointmentsThisMonth(appointments);
+    const specialties = getSpecialtiesThisYear(appointments, medicalEvents);
+    const healthActivity = computeHealthActivity(episodes, appointments, operations, 6);
+    const appointment = upcomingAppointment(appointments);
+    const appointmentDate = appointment ? monthDay(appointment.date) : null;
+    const totalEpisodesThisYear = aggregate.totalEpisodes;
+    const totalDaysIllThisYear = aggregate.totalDaysIll;
     const pending = pendingChanges.value;
     const conflicts = pending.filter((entry) => entry.status === 'conflict').length;
-    const failed = pending.filter((entry) => entry.status === 'failed').length;
-    const appointment = upcomingAppointment(visibleAppointments.value);
-    const appointmentDate = appointment ? monthDay(appointment.date) : null;
-    const portalCount = portals.value.length || portalNames(all).length;
-    const average = activity.length ? activity.reduce((sum, item) => sum + item.count, 0) / activity.length : 0;
-    const best = activity.reduce((top, item) => (item.count > top.count ? item : top), activity[0] ?? {
-        key: '',
-        label: '',
-        count: 0
-    });
 
-    if (loading.value && total === 0) {
+    const activityThisMonth = healthActivity[healthActivity.length - 1]?.count ?? 0;
+    const totalActivity = healthActivity.reduce((sum, item) => sum + item.count, 0);
+    const averageActivity = healthActivity.length ? totalActivity / healthActivity.length : 0;
+    const bestMonth = healthActivity.reduce((top, item) => (item.count > top.count ? item : top), healthActivity[0] ?? {key: '', label: '', count: 0});
+
+    if (loading.value && studies.length === 0 && episodes.length === 0 && appointments.length === 0) {
         return (
             <div className="resumen" id="resumen" aria-busy="true" aria-label="Cargando el resumen">
                 <div className="kpi-grid">
@@ -81,19 +176,17 @@ export function Resumen({
         );
     }
 
-    if (error.value && total === 0) {
+    if (error.value && studies.length === 0 && episodes.length === 0 && appointments.length === 0) {
         return (
             <div className="resumen" id="resumen">
                 <section className="card resumen-state" role="alert">
-          <span className="resumen-state-icon" aria-hidden="true">
-            <svg className="icon"><use href="#i-alert"/></svg>
-          </span>
+                    <span className="resumen-state-icon" aria-hidden="true">
+                        <svg className="icon"><use href="#i-alert"/></svg>
+                    </span>
                     <h2>No se pudo abrir el archivo</h2>
                     <p>{error.value}</p>
                     <button className="button primary" type="button" onClick={onRetryLoad}>
-                        <svg className="icon">
-                            <use href="#i-refresh"/>
-                        </svg>
+                        <svg className="icon"><use href="#i-refresh"/></svg>
                         Reintentar
                     </button>
                 </section>
@@ -111,53 +204,50 @@ export function Resumen({
                             : 'Mostrando la copia de este dispositivo.'}
                 </p>
             )}
+
             <div className="kpi-grid">
                 <article className="card kpi-card">
                     <div className="kpi-top">
-                        <span className="kpi-label">Estudios totales</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-file"/></svg></span>
+                        <span className="kpi-label">Episodios activos</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-activity"/></svg></span>
                     </div>
-                    <p className="kpi-value">{total.toLocaleString('es-AR')}</p>
+                    <p className="kpi-value">{activeEpisodes.length}</p>
                     <div className="kpi-foot">
-                        <span className="delta"><svg className="icon"><use href="#i-trend"/></svg> +{thisMonth} este mes</span>
-                        <span className="kpi-note">archivo privado</span>
+                        <span className="kpi-note">{activeEpisodes.length === 1 ? 'episodio en curso' : 'episodios en curso'}</span>
                     </div>
                 </article>
 
                 <article className="card kpi-card">
                     <div className="kpi-top">
-                        <span className="kpi-label">Último estudio</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-clock"/></svg></span>
+                        <span className="kpi-label">Días enfermo (año)</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-calendar"/></svg></span>
                     </div>
-                    <p className="kpi-value kpi-value-text">{latest ? relativeDayLabel(latest.date) : '—'}</p>
+                    <p className="kpi-value">{totalDaysIllThisYear}</p>
                     <div className="kpi-foot">
-                        <span className="kpi-note">{latest ? latest.title : 'Sin registros'}</span>
+                        <span className="delta"><svg className="icon"><use href="#i-trend"/></svg> {totalEpisodesThisYear} episodios</span>
+                        <span className="kpi-note">este año</span>
                     </div>
                 </article>
 
                 <article className="card kpi-card">
                     <div className="kpi-top">
-                        <span className="kpi-label">Portales</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-globe"/></svg></span>
+                        <span className="kpi-label">Medicamentos actuales</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-message"/></svg></span>
                     </div>
-                    <p className="kpi-value">{portalCount}</p>
+                    <p className="kpi-value">{currentMeds.length}</p>
                     <div className="kpi-foot">
-                        <span className="kpi-note">instituciones guardadas</span>
+                        <span className="kpi-note">{currentMeds.slice(0, 2).map(m => m.name).join(', ') || 'ninguno'}</span>
                     </div>
                 </article>
 
                 <article className="card kpi-card">
                     <div className="kpi-top">
-                        <span className="kpi-label">Pendientes de sincronizar</span>
-                        <span className="kpi-icon"><svg className="icon"><use href="#i-refresh"/></svg></span>
+                        <span className="kpi-label">Operaciones</span>
+                        <span className="kpi-icon"><svg className="icon"><use href="#i-scissors"/></svg></span>
                     </div>
-                    <p className="kpi-value">{pending.length}</p>
+                    <p className="kpi-value">{operations.length}</p>
                     <div className="kpi-foot">
-            <span className="delta" data-tone={pending.length ? 'warning' : 'neutral'}>
-              <svg className="icon"><use href={conflicts ? '#i-alert' : '#i-clock'}/></svg>
-                {conflicts ? `${conflicts} ${conflicts === 1 ? 'conflicto' : 'conflictos'}` : failed ? `${failed} con error` : pending.length ? 'pendiente' : 'todo al día'}
-            </span>
-                        <span className="kpi-note">{offline.value ? 'sin conexión' : 'Google Drive'}</span>
+                        <span className="kpi-note">{recentOp ? `${recentOp.name} (${formatMonth(recentOp.date!.slice(0, 7))})` : 'sin registros'}</span>
                     </div>
                 </article>
             </div>
@@ -166,33 +256,32 @@ export function Resumen({
                 <section className="card chart-card" aria-labelledby="activity-title">
                     <div className="chart-head">
                         <div>
-                            <h2 className="card-title" id="activity-title">Actividad del archivo</h2>
-                            <p className="card-desc">Estudios por mes de realización</p>
+                            <h2 className="card-title" id="activity-title">Actividad de salud</h2>
+                            <p className="card-desc">Episodios + turnos + operaciones por mes</p>
                             <div className="chart-headline">
-                                <span className="chart-total">{total.toLocaleString('es-AR')}</span>
-                                <span className="chart-delta"><svg className="icon"><use
-                                    href="#i-trend"/></svg> +{thisMonth} este mes</span>
+                                <span className="chart-total">{totalActivity}</span>
+                                <span className="chart-delta"><svg className="icon"><use href="#i-trend"/></svg> +{activityThisMonth} este mes</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="chart-wrap">
-                        <SummaryChart data={activity}/>
-                        {total === 0 && <p className="chart-empty">Todavía no hay estudios en este período.</p>}
+                        <SummaryChart data={healthActivity}/>
+                        {totalActivity === 0 && <p className="chart-empty">Todavía no hay actividad de salud en este período.</p>}
                     </div>
 
                     <dl className="chart-foot">
                         <div>
                             <dt>Este mes</dt>
-                            <dd>+{thisMonth}</dd>
+                            <dd>{activityThisMonth}</dd>
                         </div>
                         <div>
                             <dt>Promedio</dt>
-                            <dd>{average.toLocaleString('es-AR', {maximumFractionDigits: 1})} por mes</dd>
+                            <dd>{averageActivity.toLocaleString('es-AR', {maximumFractionDigits: 1})} por mes</dd>
                         </div>
                         <div>
-                            <dt>Mes con más estudios</dt>
-                            <dd>{best.count ? `${best.label} · ${best.count}` : '—'}</dd>
+                            <dt>Mes con más actividad</dt>
+                            <dd>{bestMonth.count ? `${bestMonth.label} · ${bestMonth.count}` : '—'}</dd>
                         </div>
                     </dl>
                 </section>
@@ -216,7 +305,11 @@ export function Resumen({
                                     </div>
                                     <div className="appointment-body">
                                         <p className="appointment-title">{appointment.professional || 'Turno médico'}</p>
-                                        <p className="appointment-meta">{appointment.time} · {appointment.location || appointment.notes || appointment.timeZone}</p>
+                                        <p className="appointment-meta">
+                                            {appointment.time}
+                                            {appointment.specialty && ` · ${appointment.specialty}`}
+                                            {appointment.coverage && ` · Cobertura: ${appointment.coverage === 'all' ? 'Total' : appointment.coverage === 'partial' ? 'Parcial' : 'Ninguna'}`}
+                                        </p>
                                     </div>
                                 </div>
                                 <AppointmentStudyList studyIds={appointment.studyIds}/>
@@ -245,80 +338,54 @@ export function Resumen({
                         )}
                     </section>
 
-                    <section className="card side-card" aria-labelledby="sync-title">
+                    <section className="card side-card" aria-labelledby="insights-title">
                         <div className="side-head">
-                            <h2 className="card-title" id="sync-title">Google Drive</h2>
-                            <span className="sync-state">
-                <span className="status-dot" data-tone={isLocalDemo.value || offline.value ? 'warning' : 'success'} aria-hidden="true"/>
-                                {isLocalDemo.value ? 'Modo local' : offline.value ? 'Sin conexión' : 'Conectado'}
-              </span>
+                            <h2 className="card-title" id="insights-title">Resumen rápido</h2>
                         </div>
-                        <div className="sync-icon-row">
-                            <span className="sync-icon"><svg className="icon"><use href="#i-drive"/></svg></span>
-                            <p className="sync-copy">{isLocalDemo.value ? <>Sesión de prueba<br/><span>Sin conexión a Google Drive</span></> : <>Carpeta «Mis estudios»<br/><span>Cuenta privada y verificada</span></>}
-                            </p>
+                        <div className="insights-list">
+                            {activeEpisodes.length > 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+                                    <span>{activeEpisodes.length} episodio{activeEpisodes.length !== 1 ? 's' : ''} en curso: {activeEpisodes.map(e => e.illness || 'Salud').join(', ')}</span>
+                                </div>
+                            )}
+                            {topActiveSymptoms.length > 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-thermometer"/></svg>
+                                    <span>Síntomas activos: {topActiveSymptoms.map(s => `${s.name}${s.maxIntensity ? ` (${s.maxIntensity}/5)` : ''}`).join(', ')}</span>
+                                </div>
+                            )}
+                            {currentMeds.length > 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-message"/></svg>
+                                    <span>Medicación: {currentMeds.slice(0, 3).map(m => `${m.name}${m.frequency ? ` ${m.frequency}` : ''}`).join('; ')}</span>
+                                </div>
+                            )}
+                            {appointmentsThisMonth > 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+                                    <span>{appointmentsThisMonth} turno{appointmentsThisMonth !== 1 ? 's' : ''} este mes</span>
+                                </div>
+                            )}
+                            {specialties.length > 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-user"/></svg>
+                                    <span>Especialidades este año: {specialties.join(', ')}</span>
+                                </div>
+                            )}
+                            {recentOp && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-scissors"/></svg>
+                                    <span>Última operación: {recentOp.name} ({formatMonth(recentOp.date!.slice(0, 7))})</span>
+                                </div>
+                            )}
+                            {activeEpisodes.length === 0 && currentMeds.length === 0 && appointmentsThisMonth === 0 && (
+                                <div className="insight-item">
+                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-check"/></svg>
+                                    <span>Sin episodios activos ni turnos próximos. ¡Todo tranquilo!</span>
+                                </div>
+                            )}
                         </div>
-                        <dl className="sync-list">
-                            <div>
-                                <dt>{isLocalDemo.value ? 'Estudios en sesión' : 'Estudios en Drive'}</dt>
-                                <dd>{studies.value.length}</dd>
-                            </div>
-                            <div>
-                                <dt>Cambios pendientes</dt>
-                                <dd>{pending.length}</dd>
-                            </div>
-                            <div>
-                                <dt>Conflictos</dt>
-                                <dd>{conflicts}</dd>
-                            </div>
-                        </dl>
-                        {directoryFailures.value.length > 0 && (
-                            <div className="sync-alert" role="status" data-tone="warning">
-                                <p>No se pudieron cargar: {directoryFailures.value.join(', ')}</p>
-                                <button className="button secondary button-sm" type="button" onClick={onRetryDirectories}>Reintentar carga</button>
-                            </div>
-                        )}
-                        {isLocalDemo.value ? (
-                            <p className="sync-alert" data-tone="warning">
-                                <svg className="icon">
-                                    <use href="#i-clock"/>
-                                </svg>
-                                Modo de prueba local: los cambios se guardan solo en esta sesión.
-                            </p>
-                        ) : offline.value ? (
-                            <p className="sync-alert" data-tone="warning">
-                                <svg className="icon">
-                                    <use href="#i-wifi-off"/>
-                                </svg>
-                                Estás viendo la última copia disponible en este dispositivo.
-                            </p>
-                        ) : pending.length ? (
-                            <p className="sync-alert" data-tone="warning">
-                                <svg className="icon">
-                                    <use href="#i-clock"/>
-                                </svg>
-                                {pending.length} {pending.length === 1 ? 'cambio espera' : 'cambios esperan'} sincronización.
-                            </p>
-                        ) : directoryFailures.value.length === 0 ? (
-                            <p className="sync-alert" data-tone="success">
-                                <svg className="icon">
-                                    <use href="#i-check"/>
-                                </svg>
-                                Todo sincronizado con Drive.
-                            </p>
-                        ) : null}
-                        {pending.length > 0 && (
-                            <button
-                                className="button secondary button-sm sync-action"
-                                type="button"
-                                onClick={() => document.getElementById('pending-changes')?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'start'
-                                })}
-                            >
-                                Revisar pendientes
-                            </button>
-                        )}
                     </section>
                 </div>
             </div>
