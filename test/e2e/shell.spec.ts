@@ -113,6 +113,13 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await navigateTo(page, 'portales');
     await expect(page.locator('#portals-title')).toHaveText('Portales e instituciones');
 
+    await navigateTo(page, 'medicos');
+    const doctors = page.getByRole('region', {name: 'Estudios por profesional'});
+    await doctors.getByRole('searchbox', {name: 'Buscar profesionales'}).fill('perez');
+    await expect(doctors.getByRole('heading', {level: 3})).toHaveText(['Dra. Pérez']);
+    await doctors.getByRole('button', {name: 'Ver estudios de Dra. Pérez'}).click();
+    await expect(page.locator('.library-table .study-title')).toHaveText(['Mamografía bilateral']);
+
     await navigateTo(page, 'operaciones');
     await expect(page.locator('#operations-title')).toHaveText('Operaciones');
 

@@ -105,6 +105,7 @@ export function CommandPalette({open, onClose, onOpenStudy, onAddStudy, onNaviga
         {id: 'action-resumen', label: 'Ir al resumen', icon: 'i-grid', run: go('resumen')},
         {id: 'action-library', label: 'Ir a la biblioteca', icon: 'i-folder', run: go('cronologia')},
         {id: 'action-portals', label: 'Ir a portales', icon: 'i-globe', run: go('portales')},
+        {id: 'action-doctors', label: 'Ir a médicos', icon: 'i-stethoscope', run: go('medicos')},
         {id: 'action-operations', label: 'Ir a operaciones', icon: 'i-scissors', run: go('operaciones')},
         {id: 'action-turnos', label: 'Ir a turnos, consultas y recetas', icon: 'i-calendar', run: go('turnos')},
         {id: 'action-episodes', label: 'Ir a episodios', icon: 'i-layers', run: go('episodios')},

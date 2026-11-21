@@ -16,6 +16,7 @@ const titles: Record<ViewMode, string> = {
     cronologia: 'Biblioteca',
     categoria: 'Biblioteca',
     portales: 'Portales',
+    medicos: 'Médicos',
     operaciones: 'Operaciones',
     turnos: 'Turnos, consultas y recetas',
     episodios: 'Episodios',

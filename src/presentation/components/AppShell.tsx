@@ -8,6 +8,7 @@ import {
     portals,
     setExporting,
     setRecoveringStudyId,
+    studyDoctors,
     view,
     visibleAppointments,
     visibleOperations,
@@ -39,6 +40,7 @@ const labels: Record<ViewMode, string> = {
     cronologia: 'Biblioteca',
     categoria: 'Biblioteca',
     portales: 'Portales',
+    medicos: 'Médicos',
     operaciones: 'Operaciones',
     episodios: 'Episodios',
     turnos: 'Turnos y consultas',
@@ -104,6 +106,7 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     count: studiesCount
                 },
                 {label: 'Portales', icon: 'i-globe', view: 'portales', count: portalsCount},
+                {label: 'Médicos', icon: 'i-stethoscope', view: 'medicos', count: studyDoctors.value.length},
                 {label: 'Operaciones', icon: 'i-scissors', view: 'operaciones', count: operationsCount},
             ],
         },
