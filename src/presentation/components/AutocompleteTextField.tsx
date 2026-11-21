@@ -154,7 +154,7 @@ export function AutocompleteTextField({
                 aria-describedby={ariaDescribedBy}
             />
             {open && !disabled && filtered.length > 0 && (
-                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox" aria-label={label}>
+                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox" aria-label={`Sugerencias de ${label}`}>
                     {filtered.map((option, index) => (
                         <li key={option.value} role="option" aria-selected={index === activeIndex}>
                             <button

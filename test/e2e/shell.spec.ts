@@ -716,7 +716,7 @@ test('agrega una especialidad y selecciona vínculos sin ampliar la lista del mo
     await navigateTo(page, 'turnos');
     await page.locator('.events-head').getByRole('button', {name: 'Registrar sin turno'}).click();
     const dialog = page.getByRole('dialog', {name: 'Agregar consulta o receta'});
-    const specialty = dialog.getByLabel('Especialidad');
+    const specialty = dialog.getByRole('textbox', {name: 'Especialidad'});
     await specialty.fill('Cardiología');
     await specialty.press('Tab');
     await expect(dialog.getByLabel('Buscar estudios relacionados')).toBeHidden();
@@ -889,7 +889,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     const dialog = page.locator('#appointment-dialog');
     await dialog.getByLabel('Fecha').fill('2024-03-01');
     await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
-    await dialog.getByLabel('Zona horaria').selectOption('America/Argentina/Buenos_Aires');
     await dialog.getByLabel('Profesional').fill('Dra. Pérez');
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
     await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
