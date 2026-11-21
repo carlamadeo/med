@@ -609,7 +609,7 @@ test('muestra registros largos completos en las secciones secundarias', async ({
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     for (const [view, selector] of [['portales', '.portal-card-title h3'], ['operaciones', '.operation-title h3'],
-        ['turnos', '.event-title'], ['episodios', '.episode-title h3']]) {
+        ['turnos', '.event-title'], ['episodios', '.episode-card h3']]) {
         await navigateTo(page, view!);
         const title = page.locator(selector!);
         await expect(title).toHaveText(name);
@@ -792,7 +792,8 @@ test('permite finalizar un episodio con una fecha distinta de la última observa
     const card = page.locator('.episode-card').filter({hasText: 'Otitis de prueba'});
     await expect(card).toContainText('Finalizado · 4 días');
     await expect(card.locator('time[datetime="2024-03-12"]')).toBeVisible();
-    await card.getByRole('button', {name: 'Editar'}).click();
+    await card.getByRole('button', {name: 'Ver detalle completo', exact: true}).click();
+    await card.getByRole('button', {name: 'Editar', exact: true}).click();
     await expect(dialog.getByLabel('Fecha de finalización')).toHaveValue('2024-03-12');
 });
 
