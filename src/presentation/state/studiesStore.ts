@@ -1,7 +1,7 @@
 /**
  * Store para estudios y directorios (operaciones, portales, eventos, etc.)
  */
-import {signal, computed} from '@preact/signals';
+import {signal, computed, effect} from '@preact/signals';
 import type {
     Study,
     StudyDraft,
@@ -51,10 +51,16 @@ export const sortOrder = signal<StudySortOrder>('date-desc');
 export const categoryTypes = signal<string[]>([]);
 export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
-export const libraryOnlyPrinted = signal(false);
 export const libraryPortal = signal('');
 export const libraryDoctor = signal('');
 export const libraryOperation = signal<{id: string; name: string} | null>(null);
+
+effect(() => {
+    const currentView = view.value;
+    if (currentView === 'cronologia' || currentView === 'categoria') return;
+    libraryPortal.value = '';
+    libraryDoctor.value = '';
+});
 
 // Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
 export const unavailableSources = signal<Set<string>>(new Set());
@@ -128,27 +134,24 @@ export const visibleDoctors = computed<Doctor[]>(() => {
 export const doctorDirectory = computed(() => buildDoctorDirectory(visibleStudies.value, visibleDoctors.value));
 export const libraryHasFilters = computed(() => Boolean(
     libraryQuery.value.trim() || libraryPortal.value || libraryDoctor.value || libraryOperation.value ||
-    categoryTypes.value.length || librarySpecialty.value || libraryOnlyPrinted.value,
+    categoryTypes.value.length || librarySpecialty.value,
 ));
 export const filteredStudies = computed(() => {
     const selectedTypes = new Set(categoryTypes.value.map(normalize));
     const selectedSpecialty = normalize(librarySpecialty.value);
     const selectedDoctor = normalizeDoctorName(libraryDoctor.value);
-    const onlyPrinted = libraryOnlyPrinted.value;
     const items = visibleStudies.value.filter(study =>
         (!selectedTypes.size || study.types.some(type => selectedTypes.has(normalize(type)))) &&
         (!selectedSpecialty || normalize(study.specialty ?? '') === selectedSpecialty) &&
         (!selectedDoctor || normalizeDoctorName(study.doctor) === selectedDoctor) &&
         (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
-        (!libraryOperation.value || study.operationId === libraryOperation.value.id) &&
-        (!onlyPrinted || study.printed?.report || study.printed?.image)
+        (!libraryOperation.value || study.operationId === libraryOperation.value.id)
     );
     return sortStudies(filterStudiesByQuery(items, libraryQuery.value), sortOrder.value);
 });
 
 export function resetLibraryFilters(): void {
     libraryQuery.value = '';
-    libraryOnlyPrinted.value = false;
     libraryPortal.value = '';
     libraryDoctor.value = '';
     libraryOperation.value = null;

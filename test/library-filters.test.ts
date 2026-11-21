@@ -91,9 +91,8 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     expect(root.textContent).toContain('Tu archivo empieza acá');
 });
 
-it('combines the printed filter with search, including printed copies without digital sources', async () => {
+it('shows studies with and without printed copies in the same library search', async () => {
     view.value = 'cronologia';
-    document.body.append(root);
     const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
         hasPdf: false, driveModifiedTime: '', revision: '1', driveFileId: ''};
     setStudies([
@@ -107,20 +106,19 @@ it('combines the printed filter with search, including printed copies without di
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
 
-    const filter = root.querySelector<HTMLInputElement>('input[name="onlyPrinted"]');
-    expect(filter).not.toBeNull();
-    await act(() => filter!.click());
-    expect(filteredStudies.value.map(study => study.id)).toEqual(['1', '3']);
+    expect(root.textContent).not.toContain('Solo impresos');
+    expect(filteredStudies.value).toHaveLength(3);
     const search = root.querySelector<HTMLInputElement>('input[type="search"]')!;
     await act(() => {
-        search.value = 'tórax';
+        search.value = 'radiografía';
         search.dispatchEvent(new Event('input', {bubbles: true}));
     });
-    expect(filteredStudies.value).toHaveLength(0);
-    const clear = [...root.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Limpiar filtros');
-    await act(() => clear!.click());
-    expect(filter?.checked).toBe(false);
-    expect(filteredStudies.value).toHaveLength(3);
+    expect([...root.querySelectorAll('.study-title')].map(title => title.textContent))
+        .toEqual(['Radiografía de rodilla', 'Radiografía de tórax']);
+    await act(() => {
+        search.value = '';
+        search.dispatchEvent(new Event('input', {bubbles: true}));
+    });
 });
 
 it('allows changing sort order by clicking table headers in the study list', async () => {

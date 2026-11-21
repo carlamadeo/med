@@ -1,3 +1,19 @@
+@font-face {
+    font-family: Roboto;
+    src: url('../fonts/roboto-variable-latin.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: Poppins;
+    src: url('../fonts/poppins-semibold-latin.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+}
+
 :root {
     color-scheme: light;
     --color-bg: #f6f4ef;
@@ -60,7 +76,8 @@
     --text-3xl: 1.875rem;
     --text-4xl: 2.25rem;
 
-    --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+    --font-sans: 'Roboto', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+    --font-heading: 'Poppins', var(--font-sans);
     --font-mono: ui-monospace, 'SFMono-Regular', menlo, monaco, consolas, monospace;
 
     --font-weight-normal: 400;

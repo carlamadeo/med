@@ -77,9 +77,7 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
         },
     });
 
-    const editBtn = [...document.querySelectorAll<HTMLButtonElement>('#appointments-list button')].find(
-        (button) => button.textContent === 'Editar turno',
-    )!;
+    const editBtn = $<HTMLButtonElement>('#appointments-list button[aria-label="Editar turno de Dra. Perez"]');
     act(() => editBtn.click());
     const editForm = document.querySelector<HTMLFormElement>('#appointment-form')!;
     (editForm.elements.namedItem('time') as HTMLInputElement).value = '15:00';

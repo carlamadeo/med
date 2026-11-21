@@ -1,5 +1,5 @@
 :root {
-    font: 400 16px/1.5 ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+    font: 400 16px/1.5 var(--font-sans);
     color: var(--color-text-primary);
     background: var(--color-bg);
     --ink: var(--color-text-primary);
@@ -54,6 +54,12 @@ a {
 
 h1, h2, h3, p {
     margin: 0;
+}
+
+h1, h2 {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-semibold);
+    font-synthesis-weight: none;
 }
 
 .wrap {
@@ -121,7 +127,6 @@ h1 {
     font-size: clamp(1.9rem, 3.4vw, 2.35rem);
     line-height: 1.1;
     letter-spacing: -.04em;
-    font-weight: 650;
 }
 
 .lead {

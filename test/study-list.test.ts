@@ -201,6 +201,30 @@ it('opens details from the row and routes edit and delete through the existing h
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({id: 'one'}));
 });
 
+it('groups linked studies under their own heading in the detail dialog', async () => {
+    const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: true, driveModifiedTime: '', revision: '1'};
+    setStudies([
+        {...base, id: 'main', driveFileId: 'main', title: 'Control anual', documentIds: ['related']},
+        {...base, id: 'related', driveFileId: 'report', title: 'Hemograma'},
+    ]);
+    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    const openDetails = (title: string) => act(() => root.querySelector<HTMLButtonElement>(
+        `button[aria-label="Ver detalle de ${title}"]`,
+    )!.click());
+    const relatedSection = () => [...root.querySelectorAll('dialog[open] section')]
+        .find(section => section.querySelector('h3')?.textContent === 'Estudios relacionados');
+
+    await openDetails('Control anual');
+    const link = relatedSection()?.querySelector('a');
+    expect(link?.textContent).toBe('Hemograma');
+    expect(link?.href).toBe('https://drive.google.com/file/d/report/view');
+    await act(() => root.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Cerrar"]')!.click());
+
+    await openDetails('Hemograma');
+    expect(relatedSection()).toBeUndefined();
+});
+
 it('shows a +N badge when a study has more than two types', async () => {
     setStudies([{
         id: 'multi',

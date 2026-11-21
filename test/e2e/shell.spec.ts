@@ -116,7 +116,8 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await navigateTo(page, 'medicos');
     const doctors = page.getByRole('region', {name: 'Estudios por profesional'});
     await doctors.getByRole('searchbox', {name: 'Buscar profesionales'}).fill('perez');
-    await expect(doctors.getByRole('heading', {level: 3})).toHaveText(['Dra. Pérez']);
+    await expect(doctors.getByRole('heading', {level: 3})).toHaveText(['Endocrinología']);
+    await expect(doctors.getByRole('heading', {level: 4})).toHaveText(['Dra. Pérez']);
     await doctors.getByRole('button', {name: 'Ver estudios de Dra. Pérez'}).click();
     await expect(page.locator('.library-table .study-title')).toHaveText(['Mamografía bilateral']);
 
@@ -130,6 +131,105 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await expect(page.locator('#appointments-title')).toHaveText('Turnos, consultas y recetas');
     await expect(page.locator('#events-title')).toHaveText('Consultas y recetas sin turno');
     await expect(page.locator('#nav-eventos')).toHaveCount(0);
+});
+
+test('abre los estudios desde las tarjetas y mantiene sus otras acciones accesibles', async ({page}) => {
+    const entries = {
+        'portal-v1': {name: 'Hospital Italiano', displayName: 'Hospital Italiano', url: 'https://example.com'},
+        'medico-v1': {name: 'Dra. Pérez', specialty: 'Endocrinología'},
+        'operacion-v1': {name: 'Operación de prueba', date: '2024-01-02'},
+    };
+    await page.route('https://www.googleapis.com/drive/v3/files?**', async (route) => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        const entry = Object.entries(entries).find(([marker]) => query.includes(marker));
+        if (!entry) return route.fallback();
+        const [marker, data] = entry;
+        return route.fulfill({json: {files: [{
+            id: marker, version: '1', trashed: false,
+            mimeType: 'application/json', appProperties: {misEstudios: marker},
+            description: JSON.stringify(data),
+        }]}});
+    });
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+
+    const scenarios = [
+        {view: 'portales', selector: '#portals-list .portal-card', name: 'Hospital Italiano', edit: 'Editar portal', remove: 'Eliminar portal'},
+        {view: 'medicos', selector: '#doctors-list .portal-card', name: 'Dra. Pérez', edit: 'Editar médico', remove: 'Eliminar ficha de médico'},
+        {view: 'operaciones', selector: '#operations-list .operation-card', name: 'Operación de prueba', edit: 'Editar operación', remove: 'Eliminar operación'},
+    ];
+    for (const scenario of scenarios) {
+        await navigateTo(page, scenario.view);
+        const card = page.locator(scenario.selector).filter({has: page.getByRole('heading', {name: scenario.name})});
+
+        await card.getByRole('button', {name: 'Editar'}).click();
+        const edit = page.getByRole('dialog', {name: scenario.edit});
+        await expect(edit).toBeVisible();
+        await edit.getByRole('button', {name: 'Cancelar'}).click();
+        await card.getByRole('button', {name: 'Eliminar'}).click();
+        const remove = page.getByRole('dialog', {name: scenario.remove});
+        await expect(remove).toBeVisible();
+        await remove.getByRole('button', {name: 'Cancelar'}).click();
+
+        await card.click({position: {x: 8, y: 8}});
+        await expect(page.locator('.active-filter-pill')).toContainText(scenario.name);
+        if (scenario.view !== 'operaciones') {
+            await expect(page.locator('.library-table .study-title')).toHaveText(['Mamografía bilateral']);
+        }
+    }
+
+    await navigateTo(page, 'operaciones');
+    await expect(page.locator('.operation-date').getByText('2024', {exact: true})).toBeVisible();
+    await page.getByRole('button', {name: 'Ver ficha'}).click();
+    await expect(page.locator('#operation-detail-title')).toHaveText('Operación de prueba');
+});
+
+test('da espacio a la dirección al agregar y editar un médico', async ({page, isMobile}) => {
+    if (isMobile) await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await page.locator('#enter-demo').click();
+    await navigateTo(page, 'medicos');
+
+    const directory = page.getByRole('region', {name: 'Estudios por profesional'});
+    const name = 'Dra. Valeria Suárez';
+    const street = 'Avenida del Parque 1234, piso 2, consultorio B';
+    await directory.getByRole('button', {name: 'Agregar médico'}).first().click();
+    const add = page.getByRole('dialog', {name: 'Agregar médico'});
+    await add.getByRole('textbox', {name: 'Nombre'}).fill(name);
+    await add.getByRole('button', {name: 'Agregar dirección'}).click();
+    await add.getByRole('textbox', {name: 'Dirección 1'}).fill(street);
+    await add.getByRole('button', {name: 'Guardar médico'}).click();
+
+    await directory.getByRole('button', {name: `Editar ${name}`}).click();
+    const edit = page.getByRole('dialog', {name: 'Editar médico'});
+    const address = edit.getByRole('textbox', {name: 'Dirección 1'});
+    await expect(address).toHaveValue(street);
+    const nameWidth = (await edit.getByRole('textbox', {name: 'Nombre'}).boundingBox())!.width;
+    expect((await address.boundingBox())!.width).toBeGreaterThan(nameWidth * 0.85);
+});
+
+test('muestra las sugerencias de especialidad debajo del campo en el formulario de médicos', async ({page, isMobile}) => {
+    await page.setViewportSize({width: isMobile ? 320 : 960, height: 460});
+    await page.goto('/?sin-sesion');
+    await page.locator('#enter-demo').click();
+    await navigateTo(page, 'medicos');
+
+    const directory = page.getByRole('region', {name: 'Estudios por profesional'});
+    await directory.getByRole('button', {name: 'Agregar médico'}).first().click();
+    const form = page.getByRole('dialog', {name: 'Agregar médico'});
+    const specialty = form.getByRole('textbox', {name: 'Especialidad'});
+    await specialty.click();
+
+    const suggestions = form.getByRole('listbox', {name: 'Sugerencias de Especialidad'});
+    const directions = form.getByRole('group', {name: 'Direcciones'});
+    const inputBox = (await specialty.boundingBox())!;
+    const listBox = (await suggestions.boundingBox())!;
+    expect(listBox.y - (inputBox.y + inputBox.height)).toBeLessThan(12);
+    expect(listBox.y + listBox.height).toBeLessThanOrEqual((await directions.boundingBox())!.y);
+    await expect(suggestions.getByRole('button', {name: 'Cardiología', exact: true})).toBeInViewport({ratio: 1});
+    await suggestions.getByRole('button', {name: 'Urología', exact: true}).click();
+    await expect(specialty).toHaveValue('Urología');
+    await expect(suggestions).toBeHidden();
 });
 
 test('abre el menú móvil y navega a Resumen', async ({page}) => {
@@ -266,7 +366,7 @@ test('muestra y permite usar los controles de ordenamiento en Biblioteca compact
     const dateSort = header.getByRole('button', {name: 'Fecha'});
     expect((await dateSort.boundingBox())?.y).toBe((await sort.boundingBox())?.y);
     if (browserName === 'chromium') {
-        await page.getByLabel('Solo impresos').focus();
+        await page.getByRole('searchbox', {name: 'Buscar estudios'}).focus();
         await page.keyboard.press('Tab');
         await expect(sort).toBeFocused();
     }
@@ -364,6 +464,7 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
     ]) {
         const link = table.getByRole('link', {name: new RegExp(`^${label}`)});
         await expect(link).toBeVisible();
+        await expect(link).toHaveCSS('opacity', '1');
         await expect(link).toHaveText('');
         await expect(link.locator('svg')).toBeVisible();
         await expect(link.locator('use')).toHaveAttribute('href', icon!);
@@ -585,6 +686,7 @@ test('muestra todos los iconos del estudio en un ancho de 320 píxeles', async (
 });
 
 test('marca y desmarca una copia física desde el detalle y elimina el estudio', async ({page}) => {
+    await page.emulateMedia({colorScheme: 'light'});
     await page.goto('/?sin-sesion');
     await page.locator('#enter-demo').click();
     await navigateTo(page, 'cronologia');
@@ -598,21 +700,24 @@ test('marca y desmarca una copia física desde el detalle y elimina el estudio',
         await detail.getByRole('button', {name: 'Editar'}).click();
     };
     const image = editor.getByRole('checkbox', {name: 'Tengo la imagen impresa'});
+    const unavailableImage = row.getByRole('img', {name: 'Imagen sin impresión registrada. Sin enlace al visor.'});
+    await expect(unavailableImage).toHaveCSS('opacity', /^0\./);
     await edit();
     await image.check();
     await editor.getByRole('button', {name: 'Guardar cambios'}).click();
     await expect(editor).toBeHidden();
-    await expect(row.getByRole('img', {name: 'Imagen impresa. Sin enlace al visor.'})).toBeVisible();
+    const printedImage = row.getByRole('img', {name: 'Imagen impresa. Sin enlace al visor.'});
+    await expect(printedImage).toBeVisible();
+    await expect(printedImage.locator('use')).toHaveCount(1);
+    await expect(printedImage.locator('use')).toHaveAttribute('href', '#i-image');
+    await expect(printedImage).toHaveCSS('color', 'rgb(46, 107, 80)');
+    await expect(printedImage).toHaveCSS('opacity', /^0\./);
 
-    await library.getByRole('checkbox', {name: 'Solo impresos'}).check();
-    await expect(library.getByRole('button', {name: /Ver detalle de Hemograma/})).toHaveCount(0);
     await edit();
     await expect(image).toBeChecked();
     await image.uncheck();
     await editor.getByRole('button', {name: 'Guardar cambios'}).click();
-    await expect(library.getByText('No hay resultados')).toBeVisible();
-    await expect(library.getByRole('heading', {name: 'Estudios guardados'})).toBeFocused();
-    await library.getByRole('button', {name: 'Limpiar filtros'}).click();
+    await expect(unavailableImage).toBeVisible();
 
     await row.getByRole('button', {name: `Ver detalle de ${title}`}).click();
     await detail.getByRole('button', {name: 'Eliminar'}).click();
@@ -902,6 +1007,9 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
 
     const card = page.locator('.appointment-card').filter({hasText: 'Dra. Pérez'});
     await expect(card.getByText('10:30', {exact: true})).toBeVisible();
+    await card.click({position: {x: 8, y: 8}});
+    await expect(dialog).toHaveAccessibleName('Editar turno');
+    await dialog.getByRole('button', {name: 'Cancelar'}).click();
     await card.getByRole('button', {name: 'Registrar consulta'}).click();
     await expect(dialog).toHaveAccessibleName('Registrar consulta');
     await expect(dialog.getByLabel('Estado')).toHaveValue('completed');
@@ -920,12 +1028,15 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(card).toContainText('Consultorio 12');
     await expect(card).toContainText('Importe: $1.250');
     await expect(card).toContainText('Cobertura: Parcial');
-    await expect(card).toContainText('Ecografía abdominal completa');
+    await expect(card).not.toContainText('Ecografía abdominal completa');
     await expect(card).toContainText('Control en una semana');
     await expect(card).toContainText('receta.pdf');
 
-    await card.getByRole('button', {name: 'Editar turno'}).click();
+    const edit = card.getByRole('button', {name: 'Editar turno de Dra. Pérez'});
+    await edit.focus();
+    await edit.press('Enter');
     await expect(dialog.getByLabel('Motivo de la consulta')).toHaveValue('Control de audición');
+    await expect(dialog.getByRole('checkbox', {name: /Ecografía abdominal completa/})).toBeChecked();
     await expect(dialog.getByLabel('Notas de la consulta')).toHaveCount(0);
     await expect(dialog.locator('input[type=file]')).toHaveCount(0);
     await dialog.getByRole('button', {name: 'Guardar turno'}).click();

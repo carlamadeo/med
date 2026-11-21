@@ -1,11 +1,10 @@
-import type {VNode} from 'preact';
 import {useState} from 'preact/hooks';
 import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
 import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
 import {deleteAppointment as removeAppointment} from '../utils/appointmentEditor';
-import {AppointmentStudies} from './AppointmentStudies';
+import {PrepareAppointment} from './AppointmentStudies';
 import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {MedicalEvents} from './MedicalEvents';
@@ -135,26 +134,41 @@ export function Appointments() {
                   : item.syncStatus === 'failed'
                     ? 'No se puede sincronizar'
                     : '';
-            const renderCard = (studyList: VNode | null, prepareAction: VNode | null) => (
-              <li className="appointment-card">
+            const professional = item.professional || 'Turno médico';
+            return (
+              <li key={item.id} className="appointment-card">
                 <div className="appointment-date" aria-label={`${day ?? ''} de ${monthLabel}`}>
                   <span>{monthLabel || '—'}</span>
                   <strong>{day ?? '—'}</strong>
                 </div>
                 <div className="appointment-card-body">
                   <div className="appointment-card-top">
-                    <h3>{item.professional || 'Turno médico'}</h3>
+                    <h3>
+                      <button
+                        className="appointment-card-edit"
+                        type="button"
+                        aria-label={item.professional ? `Editar turno de ${item.professional}` : 'Editar turno'}
+                        disabled={Boolean(item.syncStatus)}
+                        onClick={() => setEditingAppointment(item)}
+                      >
+                        {professional}
+                        {!item.syncStatus && (
+                          <svg className="icon" aria-hidden="true"><use href="#i-edit" /></svg>
+                        )}
+                      </button>
+                    </h3>
                     <span className="status-pill" data-tone={tone}>
                       {statusLabel}
                     </span>
                   </div>
-                  <p className="appointment-card-meta">{item.time}</p>
-                  {item.specialty && <p className="event-specialty">{item.specialty}</p>}
+                  <p className="appointment-card-meta">
+                    <span>{item.time}</span>
+                    {item.specialty && <span className="event-specialty">{item.specialty}</span>}
+                  </p>
                   {item.location && <p className="appointment-location">{item.location}</p>}
                   {item.reason && <p className="appointment-notes">Motivo: {item.reason}</p>}
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
-                  {studyList}
                   {(item.cost !== null || item.coverage) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (
@@ -184,15 +198,7 @@ export function Appointments() {
                   )}
                 </div>
                 <div className="appointment-actions">
-                  {prepareAction}
-                  <button
-                    className="button ghost button-sm"
-                    type="button"
-                    disabled={Boolean(item.syncStatus)}
-                    onClick={() => setEditingAppointment(item)}
-                  >
-                    Editar turno
-                  </button>
+                  <PrepareAppointment studyIds={item.studyIds} />
                   {status !== 'upcoming' && (
                     <button className="button secondary button-sm" type="button"
                             disabled={Boolean(item.syncStatus)}
@@ -211,7 +217,6 @@ export function Appointments() {
                 </div>
               </li>
             );
-            return <AppointmentStudies key={item.id} studyIds={item.studyIds} renderCard={renderCard} />;
           })}
         </ul>
       ) : (

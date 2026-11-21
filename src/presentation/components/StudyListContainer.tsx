@@ -1,5 +1,5 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryOnlyPrinted, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
+import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
@@ -84,23 +84,16 @@ export function StudyListContainer({
                             </div>
                             <LibraryTabs availableTypes={availableTypes}/>
                         </div>
-                        <div className="library-search-controls">
-                            <div className="search library-search">
-                                <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                                <input
-                                    ref={searchInput}
-                                    type="search"
-                                    aria-label="Buscar estudios"
-                                    placeholder="Nombre, profesional o institución"
-                                    value={libraryQuery.value}
-                                    onInput={(event) => libraryQuery.value = event.currentTarget.value}
-                                />
-                            </div>
-                            <label className="library-printed-filter">
-                                <input type="checkbox" name="onlyPrinted" checked={libraryOnlyPrinted.value}
-                                       onChange={event => libraryOnlyPrinted.value = event.currentTarget.checked}/>
-                                Solo impresos
-                            </label>
+                        <div className="search library-search">
+                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                            <input
+                                ref={searchInput}
+                                type="search"
+                                aria-label="Buscar estudios"
+                                placeholder="Nombre, profesional o institución"
+                                value={libraryQuery.value}
+                                onInput={(event) => libraryQuery.value = event.currentTarget.value}
+                            />
                         </div>
                     </div>
                     {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value} <button type="button" className="button quiet button-sm" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}

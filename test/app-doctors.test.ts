@@ -34,7 +34,7 @@ afterEach(async () => {
     await driveAuth.signOut();
 });
 
-it('orders doctors by study count descending rather than alphabetically', async () => {
+it('groups doctors by specialty and orders doctors within each group by study count', async () => {
     await mountPage();
     await vi.waitFor(() => expect(studiesReady.value).toBe(true));
 
@@ -50,18 +50,30 @@ it('orders doctors by study count descending rather than alphabetically', async 
     };
     await act(() => {
         setStudies([
-            {...base, id: '1', driveFileId: '1', title: 'Estudio 1', doctor: 'Dr. Álvarez'},
-            {...base, id: '2', driveFileId: '2', title: 'Estudio 2', doctor: 'Dra. Zeta'},
+            {...base, id: '1', driveFileId: '1', title: 'Estudio 1', doctor: 'Dr. Álvarez', specialty: 'cardiologia'},
+            {...base, id: '2', driveFileId: '2', title: 'Estudio 2', doctor: 'Dra. Zeta', specialty: 'Cardiología'},
             {...base, id: '3', driveFileId: '3', title: 'Estudio 3', doctor: 'Dra. Zeta'},
-            {...base, id: '4', driveFileId: '4', title: 'Estudio 4', doctor: 'Dra. Zeta'},
-            {...base, id: '5', driveFileId: '5', title: 'Estudio 5', doctor: 'Dr. Medio'},
+            {...base, id: '4', driveFileId: '4', title: 'Estudio 4', doctor: 'Dr. Medio', specialty: 'Neurología'},
+            {...base, id: '5', driveFileId: '5', title: 'Estudio 5', doctor: 'Dra. Luna'},
             {...base, id: '6', driveFileId: '6', title: 'Estudio 6', doctor: 'Dr. Medio'},
+            {...base, id: '7', driveFileId: '7', title: 'Estudio 7', doctor: 'Dr. Medio'},
         ]);
     });
 
     await act(() => $<HTMLButtonElement>('#nav-medicos').click());
-    const headings = [...document.querySelectorAll('#doctors-list h3')].map((el) => el.textContent);
-    expect(headings).toEqual(['Dra. Zeta', 'Dr. Medio', 'Dr. Álvarez']);
+    const specialties = () => [...document.querySelectorAll('#doctors-list h3')].map((el) => el.textContent);
+    expect(specialties()).toEqual(['Cardiología', 'Neurología', 'Sin especialidad']);
+    const namesInGroup = (label: string) =>
+        [...document.querySelectorAll(`#doctors-list ul[aria-label="${label}"] .portal-card h4`)].map(
+            (el) => el.textContent,
+        );
+    expect(namesInGroup('Cardiología')).toEqual(['Dra. Zeta', 'Dr. Álvarez']);
+    expect(namesInGroup('Neurología')).toEqual(['Dr. Medio']);
+    expect(namesInGroup('Sin especialidad')).toEqual(['Dra. Luna']);
+
+    await act(() => typeInto('#doctor-search', 'cardiologia'));
+    expect(specialties()).toEqual(['Cardiología']);
+    expect(document.querySelectorAll('#doctors-list .portal-card')).toHaveLength(2);
 });
 
 it('creates, edits, and deletes a doctor with specialty and default address while keeping studies', async () => {
@@ -112,10 +124,10 @@ it('creates, edits, and deletes a doctor with specialty and default address whil
         defaultAddress: 'Av. Cabildo 456',
     });
 
-    const card = [...document.querySelectorAll('#doctors-list > li')].find((li) =>
+    const card = [...document.querySelectorAll('#doctors-list .portal-card')].find((li) =>
         li.textContent?.includes('Dra. Ana Pérez'),
     )!;
-    expect(card.textContent).toContain('Cardiología');
+    expect(card.closest('ul')?.getAttribute('aria-label')).toBe('Cardiología');
     const addrItems = [...card.querySelectorAll('.doctor-address-item')];
     expect(addrItems).toHaveLength(2);
     expect(addrItems[0]?.textContent).toContain('Av. Cabildo 456');
@@ -149,7 +161,7 @@ it('creates, edits, and deletes a doctor with specialty and default address whil
     await vi.waitFor(async () => expect((await driveDoctorRepo.list()).some((d) => d.name === 'Dra. Ana Pérez')).toBe(false));
     // Dra. Ana Pérez still appears in directory via her seed study, without saved profile addresses
     await vi.waitFor(() => {
-        const remainingCard = [...document.querySelectorAll('#doctors-list > li')].find((li) =>
+        const remainingCard = [...document.querySelectorAll('#doctors-list .portal-card')].find((li) =>
             li.textContent?.includes('Dra. Ana Pérez'),
         );
         expect(remainingCard?.querySelectorAll('.doctor-address-item')).toHaveLength(0);

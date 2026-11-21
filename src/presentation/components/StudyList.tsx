@@ -35,10 +35,7 @@ function StudySource({icon, printed = false, name, href, unavailable}: StudySour
     const action = icon === 'file' ? 'Abrir informe' : 'Abrir visor';
     const label = href ? `${action} de ${name}. ${printStatus}.` : `${printStatus}. ${unavailable}.`;
     const props = {className: 'icon-button study-source', 'data-printed': printed, 'aria-label': label, title: label};
-    const glyph = <>
-        <svg className="icon" aria-hidden="true"><use href={`#i-${icon}`}/></svg>
-        {printed && <svg className="icon study-source-check" aria-hidden="true"><use href="#i-check"/></svg>}
-    </>;
+    const glyph = <svg className="icon" aria-hidden="true"><use href={`#i-${icon}`}/></svg>;
     return href
         ? <a {...props} href={href} target="_blank" rel="noopener noreferrer">{glyph}</a>
         : <span {...props} role="img">{glyph}</span>;

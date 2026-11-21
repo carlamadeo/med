@@ -9,6 +9,7 @@ import {
 } from '@domain/doctors';
 import {COMMON_SPECIALTIES, cleanSpecialty, normalizeDoctorName, specialtyNames} from '@domain/library';
 import type {Doctor, DoctorDraft} from '@domain/models';
+import {normalize} from '@domain/utils';
 import {
     doctorDirectory,
     doctors,
@@ -253,7 +254,22 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
 
     const entries = doctorDirectory.value;
     const normalizedQuery = normalizeDoctorName(query);
-    const matchingDoctors = entries.filter((entry) => doctorMatchesQuery(entry, normalizedQuery));
+    const doctorsBySpecialty = new Map<string, {label: string; entries: DoctorDirectoryEntry[]}>();
+    for (const entry of entries) {
+        if (!doctorMatchesQuery(entry, normalizedQuery)) continue;
+        const key = normalize(entry.specialty ?? '');
+        const group = doctorsBySpecialty.get(key);
+        if (group) {
+            group.entries.push(entry);
+        } else {
+            doctorsBySpecialty.set(key, {label: entry.specialty ?? 'Sin especialidad', entries: [entry]});
+        }
+    }
+    const specialtyGroups = [...doctorsBySpecialty].sort(([a], [b]) => {
+        if (!a) return b ? 1 : 0;
+        if (!b) return -1;
+        return a.localeCompare(b, 'es-AR');
+    });
     const availableSpecialties = specialtyNames(
         [
             ...visibleStudies.value,
@@ -265,15 +281,92 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
     );
     const loadError = error.value;
 
+    function renderDoctor(entry: DoctorDirectoryEntry) {
+        const {key, name: docName, addresses, studyCount, doctor} = entry;
+        const syncLabel =
+            doctor?.syncStatus === 'conflict'
+                ? 'Requiere revisión'
+                : doctor?.syncStatus === 'failed'
+                    ? 'No se puede sincronizar'
+                    : doctor?.syncStatus === 'pending'
+                        ? 'Pendiente de sincronización'
+                        : '';
+        const syncTone =
+            doctor?.syncStatus === 'conflict' || doctor?.syncStatus === 'failed'
+                ? 'danger'
+                : 'warning';
+        return (
+            <li className="portal-card" key={doctor?.id ?? key}>
+                <div className="portal-card-head">
+                    <span className="portal-logo" aria-hidden="true">
+                        <svg className="icon">
+                            <use href="#i-stethoscope"/>
+                        </svg>
+                    </span>
+                    <div className="portal-card-title">
+                        <h4>{docName}</h4>
+                        <p>
+                            {studyCount} {studyCount === 1 ? 'estudio' : 'estudios'}
+                        </p>
+                    </div>
+                </div>
+                {addresses.length > 0 && (
+                    <ul className="doctor-address-list" aria-label={`Direcciones de ${docName}`}>
+                        {addresses.map((address, index) => (
+                            <li key={address} className="doctor-address-item">
+                                <span>{address}</span>
+                                {index === 0 && (
+                                    <span className="tag tag-primary">Predeterminada</span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                {syncLabel && (
+                    <span className="status-pill" data-tone={syncTone}>
+                        {syncLabel}
+                    </span>
+                )}
+                <div className="portal-card-actions">
+                    <button
+                        className="button secondary button-sm card-studies-action"
+                        type="button"
+                        aria-label={`Ver estudios de ${docName}`}
+                        onClick={() => onViewStudies(docName)}
+                    >
+                        Ver estudios
+                    </button>
+                    <button
+                        className="button ghost button-sm"
+                        type="button"
+                        aria-label={`Editar ${docName}`}
+                        disabled={busy || Boolean(doctor?.syncStatus)}
+                        onClick={() => openEdit(entry)}
+                    >
+                        Editar
+                    </button>
+                    {doctor && (
+                        <button
+                            className="button ghost button-sm portal-delete"
+                            type="button"
+                            aria-label={`Eliminar ficha de ${docName}`}
+                            disabled={busy || Boolean(doctor.syncStatus)}
+                            onClick={() => setPendingDelete(entry)}
+                        >
+                            Eliminar
+                        </button>
+                    )}
+                </div>
+            </li>
+        );
+    }
+
     return (
         <section className="portals" aria-labelledby="doctors-title">
             <div className="portals-head">
                 <div>
                     <p className="eyebrow">Directorio</p>
                     <h2 id="doctors-title">Estudios por profesional</h2>
-                    <p className="portals-desc">
-                        Profesionales ordenados por cantidad de estudios, con su especialidad y direcciones.
-                    </p>
                 </div>
                 <div className="portals-head-actions">
                     <span
@@ -344,92 +437,17 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
                             />
                         </label>
                     </div>
-                    {matchingDoctors.length ? (
-                        <ul id="doctors-list" className="portal-grid">
-                            {matchingDoctors.map((entry) => {
-                                const {key, name: docName, specialty: docSpecialty, addresses, studyCount, doctor} =
-                                    entry;
-                                const syncLabel =
-                                    doctor?.syncStatus === 'conflict'
-                                        ? 'Requiere revisión'
-                                        : doctor?.syncStatus === 'failed'
-                                            ? 'No se puede sincronizar'
-                                            : doctor?.syncStatus === 'pending'
-                                                ? 'Pendiente de sincronización'
-                                                : '';
-                                const syncTone =
-                                    doctor?.syncStatus === 'conflict' || doctor?.syncStatus === 'failed'
-                                        ? 'danger'
-                                        : 'warning';
-                                return (
-                                    <li className="portal-card" key={doctor?.id ?? key}>
-                                        <div className="portal-card-head">
-                                            <span className="portal-logo" aria-hidden="true">
-                                                <svg className="icon">
-                                                    <use href="#i-stethoscope"/>
-                                                </svg>
-                                            </span>
-                                            <div className="portal-card-title">
-                                                <h3>{docName}</h3>
-                                                {docSpecialty && <p className="doctor-card-specialty">{docSpecialty}</p>}
-                                                <p>
-                                                    {studyCount} {studyCount === 1 ? 'estudio' : 'estudios'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {addresses.length > 0 && (
-                                            <ul className="doctor-address-list" aria-label={`Direcciones de ${docName}`}>
-                                                {addresses.map((address, index) => (
-                                                    <li key={address} className="doctor-address-item">
-                                                        <span>{address}</span>
-                                                        {index === 0 && (
-                                                            <span className="tag tag-primary">Predeterminada</span>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                        {syncLabel && (
-                                            <span className="status-pill" data-tone={syncTone}>
-                                                {syncLabel}
-                                            </span>
-                                        )}
-                                        <div className="portal-card-actions">
-                                            {studyCount > 0 && (
-                                                <button
-                                                    className="button secondary button-sm"
-                                                    type="button"
-                                                    aria-label={`Ver estudios de ${docName}`}
-                                                    onClick={() => onViewStudies(docName)}
-                                                >
-                                                    Ver estudios
-                                                </button>
-                                            )}
-                                            <button
-                                                className="button ghost button-sm"
-                                                type="button"
-                                                aria-label={`Editar ${docName}`}
-                                                disabled={busy || Boolean(doctor?.syncStatus)}
-                                                onClick={() => openEdit(entry)}
-                                            >
-                                                Editar
-                                            </button>
-                                            {doctor && (
-                                                <button
-                                                    className="button ghost button-sm portal-delete"
-                                                    type="button"
-                                                    aria-label={`Eliminar ficha de ${docName}`}
-                                                    disabled={busy || Boolean(doctor.syncStatus)}
-                                                    onClick={() => setPendingDelete(entry)}
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            )}
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                    {specialtyGroups.length ? (
+                        <div id="doctors-list" className="doctor-groups">
+                            {specialtyGroups.map(([key, group]) => (
+                                <div className="doctor-group" key={key}>
+                                    <h3>{group.label}</h3>
+                                    <ul className="portal-grid" aria-label={group.label}>
+                                        {group.entries.map(renderDoctor)}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
                         <div className="portal-empty">
                             <p role="status">No hay profesionales que coincidan con la búsqueda.</p>

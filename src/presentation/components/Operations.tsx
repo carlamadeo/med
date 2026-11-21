@@ -371,8 +371,8 @@ export function Operations() {
             <ul id="operations-list" className="operation-grid">
                 {visible.map((operation) => {
                     const count = studies.value.filter((study) => study.operationId === operation.id).length;
-                    const parts = (operation.date ?? '').split('-');
-                    const month = parts[1] ? new Intl.DateTimeFormat('es-AR', {month: 'short'}).format(new Date(Number(parts[0]), Number(parts[1]) - 1, 1)).replace('.', '') : '';
+                    const [year, monthNumber, day] = (operation.date ?? '').split('-');
+                    const month = monthNumber ? new Intl.DateTimeFormat('es-AR', {month: 'short'}).format(new Date(Number(year), Number(monthNumber) - 1, 1)).replace('.', '') : '';
                     const syncLabel = operation.syncStatus === 'conflict' ? 'Requiere revisión'
                         : operation.syncStatus === 'failed' ? 'No se puede sincronizar'
                             : operation.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
@@ -381,7 +381,8 @@ export function Operations() {
                         <div className="operation-card-top">
                             <div className="operation-date" aria-label={operation.date || 'Sin fecha'}>
                                 <span>{month || '—'}</span>
-                                <strong>{parts[2] ?? '—'}</strong>
+                                <strong>{day ?? '—'}</strong>
+                                {year && <small>{year}</small>}
                             </div>
                             <div className="operation-title">
                                 <h3>{operation.name}</h3>
@@ -400,7 +401,8 @@ export function Operations() {
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => setDetailId(operation.id)}>Ver ficha
                                 </button>
-                                <button className="button secondary button-sm" type="button"
+                                <button className="button secondary button-sm card-studies-action" type="button"
+                                        aria-label={`Ver estudios de ${operation.name}`}
                                         disabled={Boolean(operation.syncStatus)}
                                         onClick={() => {
                                             resetLibraryFilters();
