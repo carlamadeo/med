@@ -83,7 +83,7 @@ presentation/
 ├── hooks/          # Hooks personalizados (useEditor, useLibraryData, useAuth, useOutbox)
 ├── state/          # Signals globales (store.ts, studiesStore.ts, authStore.ts, outboxStore.ts, uiStore.ts)
 ├── styles/         # CSS (design-tokens.css, components.css, app.css, dashboard.css)
-└── utils/          # Utilidades de UI (focusTrap, enqueueOffline, driveErrorHandler, appointmentEditor, appointmentReminders)
+└── utils/          # Utilidades de UI (focusTrap, enqueueOffline, driveErrorHandler, appointmentEditor)
 ```
 
 **Patrón de estado**:

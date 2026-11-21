@@ -21,7 +21,6 @@ import {
 } from '../state/store';
 import {SummaryChart} from './SummaryChart';
 import {AppointmentStudyList} from './AppointmentStudies';
-import {AppointmentCalendar} from './AppointmentCalendar';
 
 interface ResumenProps {
     onNavigate: (view: ViewMode) => void;
@@ -221,7 +220,6 @@ export function Resumen({
                                     </div>
                                 </div>
                                 <AppointmentStudyList studyIds={appointment.studyIds}/>
-                                <AppointmentCalendar appointment={appointment}/>
                                 <div className="side-foot appointment-actions">
                                     <button className="button secondary button-sm" type="button"
                                             disabled={Boolean(appointment.syncStatus)}

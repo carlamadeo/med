@@ -162,37 +162,6 @@ test('busca estudios desde Resumen sin mostrar el listado de recientes', async (
     await expect(page.locator('.library-table .study-title')).toHaveText(['Resonancia de rodilla']);
 });
 
-test('descarga un turno para el calendario con un aviso elegido', async ({page}) => {
-    await page.route('https://www.googleapis.com/drive/v3/files?**', async route => {
-        if (!new URL(route.request().url()).searchParams.get('q')?.includes('turno-v1')) return route.fallback();
-        return route.fulfill({json: {files: [{
-            id: 'appointment-qa', version: '1', trashed: false, mimeType: 'application/json',
-            appProperties: {misEstudios: 'turno-v1'}, description: JSON.stringify({
-                date: '2099-11-20', time: '10:30', timeZone: 'America/Argentina/Buenos_Aires',
-                status: 'scheduled', professional: 'Profesional reservado', notes: 'Nota privada',
-                cost: null, coverage: null, reminderMinutes: 60, studyIds: [],
-            }),
-        }]}});
-    });
-    await page.goto('/');
-    const upcoming = page.getByRole('region', {name: 'Próximo turno'});
-    await upcoming.getByText('Agregar al calendario').click();
-    const alarm = upcoming.getByLabel('Aviso del calendario');
-    await expect(alarm).toHaveValue('');
-    await alarm.selectOption('60');
-    const event = page.waitForEvent('download');
-    await upcoming.getByRole('button', {name: 'Descargar turno (.ics)'}).click();
-    const download = await event;
-    expect(download.suggestedFilename()).toBe('turno.ics');
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    const ics = Buffer.concat(chunks).toString();
-    expect(ics).toContain('DTSTART:20991120T133000Z');
-    expect(ics).toContain('TRIGGER:-PT60M');
-    expect(ics).not.toMatch(/Nota privada|Profesional reservado|appointment-qa/);
-});
-
 test('permite desplazarse solo de arriba abajo al agendar un turno en móvil', async ({page}) => {
     await page.setViewportSize({width: 320, height: 700});
     await page.goto('/');

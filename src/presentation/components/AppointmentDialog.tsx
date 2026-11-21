@@ -9,7 +9,6 @@ import {
 import {deleteAppointment, getTimeZoneOptions, saveAppointment} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
-import {AppointmentReminderNote} from './AppointmentReminderNote';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 function parseCost(value: FormDataEntryValue | null): number | null {
@@ -17,11 +16,6 @@ function parseCost(value: FormDataEntryValue | null): number | null {
     if (!raw) return null;
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseReminder(value: FormDataEntryValue | null): 15 | 60 | 1440 | null {
-    if (value === '15' || value === '60' || value === '1440') return Number(value) as 15 | 60 | 1440;
-    return null;
 }
 
 export function AppointmentDialog() {
@@ -34,7 +28,6 @@ export function AppointmentDialog() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
     const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     useFocusTrap(dialogRef, open);
@@ -50,7 +43,6 @@ export function AppointmentDialog() {
         setMessage('');
         setError(null);
         setBusy(false);
-        setPermission('Notification' in window ? Notification.permission : 'unsupported');
     }, [editor]);
 
     useEffect(() => {
@@ -86,7 +78,6 @@ export function AppointmentDialog() {
             status: (data.get('status') as Appointment['status']) ?? 'scheduled',
             cost: parseCost(data.get('cost')),
             coverage: ((data.get('coverage') ?? appointment?.coverage) as Appointment['coverage'] | '') || null,
-            reminderMinutes: consultation ? appointment?.reminderMinutes : parseReminder(data.get('reminder')),
             studyIds: consultation ? appointment?.studyIds : data.getAll('studyId').map(String),
         };
         setBusy(true);
@@ -146,15 +137,6 @@ export function AppointmentDialog() {
                 setConfirmingDelete(false);
             }
         }
-    };
-
-    const enableNotifications = async () => {
-        if (!('Notification' in window)) {
-            setPermission('unsupported');
-            return;
-        }
-        const result = await Notification.requestPermission();
-        setPermission(result);
     };
 
     const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
@@ -237,7 +219,7 @@ export function AppointmentDialog() {
                                    defaultValue={appointment?.location ?? ''} disabled={busy}/>
                         </label>
                     </>}
-                    <label className="field">
+                    <label className={consultation ? 'field' : 'field wide'}>
                         <span>Estado</span>
                         <select id="appointment-status" name="status"
                                 defaultValue={registering ? 'completed' : appointment?.status ?? 'scheduled'}
@@ -248,17 +230,6 @@ export function AppointmentDialog() {
                             <option value="absent">No asistí</option>
                         </select>
                     </label>
-                    {!consultation && <label className="field">
-                        <span>Recordatorio</span>
-                        <select id="appointment-reminder" name="reminder"
-                                defaultValue={appointment?.reminderMinutes ? String(appointment.reminderMinutes) : ''}
-                                disabled={busy}>
-                            <option value="">Sin recordatorio</option>
-                            <option value="1440">24 horas antes</option>
-                            <option value="60">1 hora antes</option>
-                            <option value="15">15 minutos antes</option>
-                        </select>
-                    </label>}
                     <label className="field">
                         <span>Importe</span>
                         <input id="appointment-cost" name="cost" type="number" min="0" step="0.01" placeholder="0,00"
@@ -309,15 +280,6 @@ export function AppointmentDialog() {
                                 : 'Para sincronizar con tu calendario «Turnos» en Google Calendar, salí y volvé a conectar tu cuenta autorizando Calendario.'}
                         </p>
                     )}
-                    <AppointmentReminderNote permission={permission}/>
-
-                    {permission !== 'unsupported' && permission !== 'granted' && (
-                        <button className="button secondary" type="button" onClick={enableNotifications} disabled={busy}>
-                            Activar recordatorios del navegador
-                        </button>
-                    )}
-                    {permission === 'unsupported' &&
-                        <p className="small-note">Este navegador no admite recordatorios del sistema.</p>}
                 </>}
 
                 {message && <p className="form-message" role="status">{message}</p>}

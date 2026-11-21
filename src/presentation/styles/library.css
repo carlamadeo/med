@@ -678,25 +678,6 @@
     cursor: default;
 }
 
-.appointment-calendar {
-    margin-block: var(--space-2);
-}
-
-.appointment-calendar summary {
-    width: fit-content;
-    padding-block: var(--space-2);
-    color: var(--color-brand);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-}
-
-.appointment-calendar form {
-    display: grid;
-    justify-items: start;
-    gap: var(--space-2);
-    padding-block-end: var(--space-2);
-}
-
 .editor-related {
     display: grid;
     gap: var(--space-4);

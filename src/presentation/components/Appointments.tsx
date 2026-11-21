@@ -4,7 +4,6 @@ import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
 import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
 import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
-import {AppointmentCalendar} from './AppointmentCalendar';
 import {AppointmentStudyList} from './AppointmentStudies';
 import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
@@ -159,8 +158,7 @@ export function Appointments() {
                   {item.notes && <p className="appointment-notes">{item.notes}</p>}
                   {item.prescription && <AppointmentPrescriptionDownload appointment={item} />}
                   <AppointmentStudyList studyIds={item.studyIds} />
-                  {status === 'upcoming' && <AppointmentCalendar appointment={item} />}
-                  {(item.cost !== null || item.coverage || item.reminderMinutes) && (
+                  {(item.cost !== null || item.coverage) && (
                     <div className="appointment-tags">
                       {item.cost !== null && (
                         <span className="tag">Importe: {item.cost}</span>
@@ -173,17 +171,6 @@ export function Appointments() {
                             : item.coverage === 'partial'
                               ? 'Parcial'
                               : 'Sin cobertura'}
-                        </span>
-                      )}
-                      {item.reminderMinutes && (
-                        <span className="tag">
-                          Recordatorio:{' '}
-                          {item.reminderMinutes === 1440
-                            ? '24 horas'
-                            : item.reminderMinutes === 60
-                              ? '1 hora'
-                              : '15 minutos'}{' '}
-                          antes
                         </span>
                       )}
                     </div>

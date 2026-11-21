@@ -45,11 +45,9 @@ exportación espera a que se pueda leer el historial completo.
 
 Desde **Próximo turno** en Resumen o desde **Turnos**, usá **Preparar consulta** para revisar los adjuntos de los
 estudios vinculados y descargarlos juntos en un ZIP. Los enlaces a visores se incluyen cuando los marcás.
-**Agregar al calendario** descarga un archivo `.ics` con la fecha y la hora del turno, un título neutro y un
-aviso opcional. Si reprogramás el turno, reemplazá el evento anterior en tu calendario. Si autorizás el acceso al
-calendario al conectar Google, los turnos programados también se sincronizan automáticamente en un calendario secundario
-llamado **Turnos** en Google Calendar (con el nombre del profesional, especialidad, lugar/dirección, notas y dos avisos:
-1 semana antes a las 11:00 y el día anterior a las 11:00).
+Si autorizás el acceso al calendario al conectar Google, los turnos programados se sincronizan automáticamente en un
+calendario secundario llamado **Turnos** en Google Calendar (con el nombre del profesional, especialidad,
+lugar/dirección, notas y dos avisos: 1 semana antes a las 11:00 y el día anterior a las 11:00).
 
 Si una importación desde **Bandeja de entrada** queda sin confirmar, la reserva del archivo se conserva en este
 navegador para la cuenta que inició el guardado. Volvé a conectarte para que la aplicación revise el estado del

@@ -60,7 +60,6 @@ import {
     CommandPalette,
 } from '../components';
 import {handleDriveError} from '../utils/driveErrorHandler';
-import {checkAppointmentReminders} from '../utils/appointmentReminders';
 import {StudyImportDialog} from '../components/StudyImportDialog';
 
 const outbox = new Outbox();
@@ -80,21 +79,6 @@ export function LibraryPage() {
     const [importGeneration, setImportGeneration] = useState(0);
 
     const clearEditorError = useCallback(() => setEditorError(null), []);
-
-    useEffect(() => {
-        const check = () => {
-            void checkAppointmentReminders().catch(() => {
-            });
-        };
-        const timer = window.setInterval(check, 60000);
-        window.addEventListener('focus', check);
-        document.addEventListener('visibilitychange', check);
-        return () => {
-            window.clearInterval(timer);
-            window.removeEventListener('focus', check);
-            document.removeEventListener('visibilitychange', check);
-        };
-    }, []);
 
     // Load study types on mount
     useEffect(() => {
