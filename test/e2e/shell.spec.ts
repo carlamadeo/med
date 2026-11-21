@@ -108,7 +108,7 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
     await expect(page.locator('.kpi-card')).toHaveCount(4);
-    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Actividad de salud'})).toBeVisible();
 
     await navigateTo(page, 'portales');
     await expect(page.locator('#portals-title')).toHaveText('Portales e instituciones');
@@ -157,7 +157,7 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
 test('busca estudios desde Resumen sin mostrar el listado de recientes', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
-    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Actividad de salud'})).toBeVisible();
     await expect(page.getByRole('heading', {name: 'Estudios recientes'})).toHaveCount(0);
     const search = page.getByRole('searchbox', {name: 'Buscar un estudio'});
     await expect(search).toBeInViewport();
@@ -459,7 +459,7 @@ test('muestra todos los iconos del estudio en un ancho de 320 píxeles', async (
 test('muestra el inicio de Biblioteca al navegar desde Resumen desplazado', async ({page}) => {
     await page.setViewportSize({width: 390, height: 600});
     await page.goto('/');
-    await expect(page.getByRole('heading', {name: 'Actividad del archivo'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: 'Actividad de salud'})).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 350));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(250);
     await navigateTo(page, 'cronologia');
