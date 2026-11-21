@@ -184,6 +184,52 @@ test('abre los estudios desde las tarjetas y mantiene sus otras acciones accesib
     await expect(page.locator('#operation-detail-title')).toHaveText('Operación de prueba');
 });
 
+test('mantiene compactas y alineadas las tarjetas de operaciones y turnos en escritorio', async ({page, isMobile}) => {
+    test.skip(isMobile, 'Comprueba la grilla de escritorio');
+    const operation = {name: 'Cirugía de prueba', date: '2024-01-02'};
+    const appointment = {
+        professional: 'Dra. Pérez', date: '2024-03-01', time: '10:30',
+        timeZone: 'America/Argentina/Buenos_Aires', status: 'scheduled', cost: null, coverage: null,
+    };
+    const entries = {
+        'operacion-v1': [operation, {...operation, name: 'Operación con notas', notes: 'Control y seguimiento. '.repeat(12)}],
+        'turno-v1': [appointment, {...appointment, professional: 'Dr. Gómez', specialty: 'Neurología',
+            location: 'Consultorio 8B', reason: 'Control anual', cost: 10230}],
+    };
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        const entry = Object.entries(entries).find(([marker]) => query.includes(marker));
+        if (!entry) return route.fallback();
+        const [marker, records] = entry;
+        return route.fulfill({json: {files: records.map((record, index) => ({
+            id: `${marker}-${index}`, version: '1', mimeType: 'application/json',
+            appProperties: {misEstudios: marker}, description: JSON.stringify(record),
+        }))}});
+    });
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+
+    for (const [view, cardSelector] of [['operaciones', '.operation-card'], ['turnos', '.appointment-card']] as const) {
+        await page.setViewportSize({width: 1440, height: 900});
+        await navigateTo(page, view);
+        const cards = page.locator(cardSelector);
+        await expect(cards).toHaveCount(2);
+        await page.evaluate(async () => { await document.fonts.ready; });
+        const first = (await cards.first().boundingBox())!;
+        const second = (await cards.last().boundingBox())!;
+        expect(second.x).toBeGreaterThan(first.x);
+        expect(second.y).toBeCloseTo(first.y);
+        expect(second.height).toBeCloseTo(first.height);
+        const deleteButtons = cards.getByRole('button', {name: 'Eliminar', exact: true});
+        expect((await deleteButtons.first().boundingBox())!.y).toBeCloseTo((await deleteButtons.last().boundingBox())!.y);
+        await page.setViewportSize({width: 1100, height: 900});
+        for (const card of await cards.all()) {
+            expect((await card.boundingBox())!.width).toBeCloseTo(384);
+        }
+    }
+});
+
 test('da espacio a la dirección al agregar y editar un médico', async ({page, isMobile}) => {
     if (isMobile) await page.setViewportSize({width: 320, height: 700});
     await page.goto('/?sin-sesion');
@@ -465,6 +511,7 @@ test('busca en la Biblioteca móvil y muestra la fecha y las acciones de acceso'
         const link = table.getByRole('link', {name: new RegExp(`^${label}`)});
         await expect(link).toBeVisible();
         await expect(link).toHaveCSS('opacity', '1');
+        await expect(link).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
         await expect(link).toHaveText('');
         await expect(link.locator('svg')).toBeVisible();
         await expect(link.locator('use')).toHaveAttribute('href', icon!);

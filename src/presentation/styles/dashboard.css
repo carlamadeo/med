@@ -2079,7 +2079,7 @@
 
 .operation-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
     margin: 0;
     padding: 0;
@@ -2452,12 +2452,6 @@ label.linked-row {
     color: var(--color-text-tertiary);
     font-size: 0.8125rem;
     text-align: center;
-}
-
-@media (max-width: 1180px) {
-    .operation-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }
 
 @media (max-width: 720px) {
@@ -3760,8 +3754,7 @@ label.linked-row {
 
 .appointment-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
     margin: 0;
     padding: 0;
@@ -3942,9 +3935,28 @@ label.linked-row {
     color: var(--color-text-secondary);
 }
 
-@media (max-width: 1180px) {
+@media (width > 720px) {
+    .operation-grid,
     .appointment-list {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: repeat(auto-fill, min(100%, 24rem));
+        grid-auto-rows: 1fr;
+    }
+
+    .operation-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        overflow-wrap: anywhere;
+    }
+
+    .operation-card-foot {
+        margin-block-start: auto;
+        padding-top: 0.25rem;
+    }
+
+    .appointment-card {
+        grid-template-rows: 1fr auto;
     }
 }
 

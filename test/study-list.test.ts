@@ -143,6 +143,27 @@ it('shows the four print states independently of attachment or viewer availabili
     expect(root.querySelector<HTMLButtonElement>('button[aria-label="Compartir Orden"]')?.disabled).toBe(false);
 });
 
+it.each([
+    ['PDF sin copia impresa', {hasPdf: true}, ['InformeSin registro']],
+    ['PDF con copia impresa', {hasPdf: true, printed: {report: true, image: false}}, ['InformeImpreso']],
+    ['Solo visor', {viewer: 'https://example.com/visor'}, ['ImagenSin registro']],
+    ['Solo imagen en papel', {printed: {report: false, image: true}}, ['ImagenImpresa']],
+    ['Sin archivos ni copias', {}, []],
+] as const)('shows relevant copies in the detail dialog for %s', async (title, fields, expected) => {
+    setStudies([{
+        id: 'one', driveFileId: 'one', title, date: '2024-01-01', types: [],
+        doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false,
+        driveModifiedTime: '', revision: '1', ...fields,
+    }]);
+    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    await act(() => root.querySelector<HTMLButtonElement>('.study-title')!.click());
+
+    const dialog = root.querySelector('dialog[open]')!;
+    const copies = dialog.querySelector('[aria-labelledby="study-detail-copies"]');
+    expect([...copies?.querySelectorAll('li') ?? []].map(row => row.textContent)).toEqual(expected);
+    expect(Boolean(copies)).toBe(expected.length > 0);
+});
+
 it('keeps unsynced studies protected without a status column', async () => {
     const base = {
         date: '2024-01-01',
