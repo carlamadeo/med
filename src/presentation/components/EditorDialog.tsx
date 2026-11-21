@@ -235,6 +235,8 @@ export function EditorDialog({
         progress,
         removeReport,
         setRemoveReport,
+        printed,
+        setPrinted,
         selectedReport,
         previewUrl,
         checkingReport,
@@ -496,6 +498,20 @@ export function EditorDialog({
                             </div>
                         )}
                     </div>
+
+                    <fieldset className="form-section study-printed-fields">
+                        <legend className="form-section-title">Copias impresas</legend>
+                        <label>
+                            <input type="checkbox" name="printedReport" checked={printed.report}
+                                   onChange={event => setPrinted('report', event.currentTarget.checked)}/>
+                            Tengo el informe impreso
+                        </label>
+                        <label>
+                            <input type="checkbox" name="printedImage" checked={printed.image}
+                                   onChange={event => setPrinted('image', event.currentTarget.checked)}/>
+                            Tengo la imagen impresa
+                        </label>
+                    </fieldset>
 
                     <div className="form-section">
                         <h3 className="form-section-title">Datos del estudio</h3>

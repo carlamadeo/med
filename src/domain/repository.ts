@@ -1,6 +1,7 @@
 import type {
     Study,
     StudyDraft,
+    PrintedCopies,
     Operation,
     OperationDraft,
     Portal,
@@ -70,6 +71,7 @@ export interface DriveFileMetadata {
     portal: string;
     viewer: string;
     reportName: string;
+    printed?: PrintedCopies;
     operationId?: string;
     documentIds?: string[];
     intakeSourceId?: string;

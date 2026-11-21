@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
     studies: Study[];
     onConfirm: (studyId: string) => void;
     onCancel: () => void;
+    onDeleted: () => void;
     onReconnect: () => void;
     error: string | null;
     busy: boolean;
@@ -18,12 +19,14 @@ export function ConfirmDialog({
                                   studies,
                                   onConfirm,
                                   onCancel,
+                                  onDeleted,
                                   onReconnect,
                                   error,
                                   busy,
                                   sessionLost
                               }: ConfirmDialogProps) {
     const dialog = useRef<HTMLDialogElement>(null);
+    const openStudyId = useRef<string | null>(null);
     const id = deletingStudyId.value;
     const study = studies.find((s) => s.id === id);
 
@@ -34,9 +37,15 @@ export function ConfirmDialog({
         const element = dialog.current;
         if (!element) return;
         if (id && !element.open) {
+            openStudyId.current = id;
             element.showModal();
             element.querySelector<HTMLButtonElement>('.quiet')?.focus();
-        } else if (!id && element.open) element.close();
+        } else if (!id && element.open) {
+            element.close();
+            const previousId = openStudyId.current;
+            openStudyId.current = null;
+            if (previousId && !studies.some(item => item.id === previousId)) onDeleted();
+        }
     }, [id]);
     return (
         <dialog id="confirm" ref={dialog} className="dialog" aria-labelledby="confirm-title" data-busy={String(busy)}

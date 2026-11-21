@@ -79,6 +79,24 @@ describe('image attachments', () => {
         expect(updated).toMatchObject({attachmentMime: 'image/png', reportName: 'informe.png'});
         expect(fakeDriveFile(saved.id)?.mimeType).toBe('image/png');
     });
+
+    it('persists independent print marks with the study, including when cleared', async () => {
+        const original = await driveStudyRepo.get(SEED_PDF_ID);
+        const edit = {...original, file: undefined};
+        const saved = await driveStudyRepo.save({...edit, printed: {report: false, image: true}});
+        expect(saved.printed).toEqual({report: false, image: true});
+        expect((await driveStudyRepo.get(original.id)).printed).toEqual(saved.printed);
+        const reloaded = (await driveStudyRepo.list({force: true})).find(study => study.id === original.id);
+        expect(reloaded?.printed).toEqual(saved.printed);
+
+        const preserved = await driveStudyRepo.save({...edit, revision: saved.revision});
+        expect(preserved.printed).toEqual(saved.printed);
+        const cleared = await driveStudyRepo.save({
+            ...edit, revision: preserved.revision, printed: {report: false, image: false},
+        });
+        expect(cleared.printed).toEqual({report: false, image: false});
+        expect(fakeDriveFile(original.id)?.mimeType).toBe('application/pdf');
+    });
 });
 
 describe('DriveOperationRepository', () => {

@@ -1110,7 +1110,8 @@ input::file-selector-button {
         margin: 0.25rem 0;
     }
 
-    #operation-detail li[data-linked="false"], #operation-detail input {
+    .operation-studies .linked-head button,
+    .operation-studies .linked-picker {
         display: none;
     }
 }

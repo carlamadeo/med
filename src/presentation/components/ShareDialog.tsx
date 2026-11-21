@@ -9,14 +9,16 @@ import {
     setSharingStudyId,
     setSharingStudyIds,
     setShareSelection,
-    markSourceUnavailable
+    markSourceUnavailable,
+    isSourceUnavailable,
 } from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
-import {driveAuth, DriveConflictError, DriveSessionError} from '@data';
+import {driveAuth, DriveConflictError, DriveError, DriveSessionError} from '@data';
 import {readVerifiedStudyAttachment, StudyAttachmentFormatError} from '@data/verified-study-attachment';
 
 interface ShareDialogProps {
     onReconnect: () => void;
+    onPrint?: (study: Study) => void;
     error: string | null;
     busy: boolean;
     sessionLost: boolean;
@@ -73,7 +75,7 @@ function formatViewerLinksText(links: readonly ViewerLink[]): string {
     return links.map((link) => `${link.title}: ${link.url}`).join('\n');
 }
 
-export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialogProps) {
+export function ShareDialog({onReconnect, onPrint, error, busy, sessionLost}: ShareDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const activeIds = sharingStudyIds.value.length > 0
         ? sharingStudyIds.value
@@ -250,14 +252,17 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
         if ((currentSelection.includeAttachment && attachmentAvailable) || selectedDocuments.length) {
             const currentGeneration = ++generation.current;
             setPreparing(true);
+            let currentFileId: string | undefined;
             try {
                 const token = await driveAuth.getAccessToken();
                 if (currentGeneration !== generation.current) return;
                 if (currentSelection.includeAttachment && attachmentAvailable) {
+                    currentFileId = study.driveFileId;
                     files.push(await downloadStudyAttachment(study, currentSelection.filename, token));
                 }
                 for (const document of selectedDocuments) {
                     if (currentGeneration !== generation.current) return;
+                    currentFileId = document.driveFileId;
                     const base = sanitizeFilename(document.reportName || document.title) || 'documento';
                     files.push(await downloadStudyAttachment(document, `${document.id}-${base}`, token));
                 }
@@ -269,7 +274,9 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 } else if (err instanceof StudyAttachmentFormatError || err instanceof DriveSessionError) {
                     setFilenameError(err.message);
                 } else {
-                    markSourceUnavailable(study.id);
+                    if (currentFileId && err instanceof DriveError && err.status === 404) {
+                        markSourceUnavailable(currentFileId);
+                    }
                     setFilenameError('No se pudo descargar el archivo. Revisá la conexión y la sesión.');
                 }
                 return;
@@ -354,7 +361,9 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                 } else if (err instanceof StudyAttachmentFormatError || err instanceof DriveSessionError) {
                     setFilenameError(err.message);
                 } else {
-                    if (currentTarget) markSourceUnavailable(currentTarget.id);
+                    if (currentTarget?.driveFileId && err instanceof DriveError && err.status === 404) {
+                        markSourceUnavailable(currentTarget.driveFileId);
+                    }
                     setFilenameError('No se pudo descargar el archivo. Revisá la conexión y la sesión.');
                 }
                 return;
@@ -670,6 +679,13 @@ export function ShareDialog({onReconnect, error, busy, sessionLost}: ShareDialog
                     <button type="button" className="button quiet" disabled={busy}
                             onClick={handleCancel}>Cancelar
                     </button>
+                    {onPrint && study && attachmentAvailable && study.driveFileId && !isSourceUnavailable(study.driveFileId) && !prepared && (
+                        <button type="button" className="button secondary" disabled={busy || sessionLost || preparing || zipping}
+                                onClick={() => {
+                                    handleClose();
+                                    onPrint(study);
+                                }}><svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>Imprimir archivo</button>
+                    )}
                     {directViewerText && (
                         <div className="share-links">
                             <a className="button secondary button-sm"

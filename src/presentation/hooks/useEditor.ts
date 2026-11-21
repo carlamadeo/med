@@ -71,8 +71,12 @@ export function useEditor({
         specialty: study?.specialty ?? '',
         portal: study?.portal ?? '', viewer: study?.viewer ?? '', types: study?.types ?? [],
         removeReport: false, operationId: study?.operationId ?? '', documentIds: study?.documentIds ?? [],
+        printed: study?.printed ?? {report: false, image: false},
     });
-    const {title, date, doctor, specialty, portal, viewer, types, removeReport, operationId, documentIds} = draft.value;
+    const {title, date, doctor, specialty, portal, viewer, types, removeReport, operationId, documentIds, printed} = draft.value;
+    const setPrinted = (kind: keyof typeof printed, checked: boolean) => {
+        draft.value = {...draft.value, printed: {...draft.value.printed, [kind]: checked}};
+    };
     const setTitle = (value: string) => {
         draft.value = {...draft.value, title: value};
     };
@@ -194,6 +198,7 @@ export function useEditor({
                 setOperationError('');
                 setOperationId(current?.operationId ?? '');
                 setDocumentIds(current?.documentIds ?? []);
+                draft.value = {...draft.value, printed: current?.printed ?? {report: false, image: false}};
                 setTitle(current?.title ?? '');
                 setDate(current?.date ?? '');
                 setDoctor(current?.doctor ?? '');
@@ -563,6 +568,7 @@ export function useEditor({
             viewer: fields.viewer.trim(),
             types: fields.types,
             reportName: selectedReport?.name ?? '',
+            printed: fields.printed,
             file: selectedReport ?? undefined,
             removeReport: fields.removeReport,
             id: isLocalDemo.value ? currentStudy?.id : undefined,
@@ -595,6 +601,8 @@ export function useEditor({
         reading,
         progress,
         removeReport,
+        printed,
+        setPrinted,
         setRemoveReport,
         selectedReport,
         previewUrl,

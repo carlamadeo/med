@@ -65,7 +65,7 @@
     border-radius: var(--radius-sm);
 }
 
-.portal-card-title h3, .operation-title h3, .event-title, .episode-title h3, .linked-title, .intake-name,
+.portal-card-title h3, .operation-title h3, .event-title, .linked-title, .intake-name,
 .command-item-label, .command-item small, .folder-picker-name, .person-cell, .portal-cell {
     overflow: visible;
     max-width: none;
@@ -142,6 +142,10 @@
 .button.ghost:hover {
     background: var(--color-surface-hover);
     color: var(--color-text-primary);
+}
+
+.button.ghost.appointment-prepare {
+    color: var(--color-brand);
 }
 
 .button.ghost:is(.portal-delete, .operation-delete, .event-delete, .episode-delete, .appointment-delete) {

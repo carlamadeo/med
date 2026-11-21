@@ -3,11 +3,12 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {formatStudyDate} from '@domain/library';
+import {formatStudyDate, sortStudies} from '@domain/library';
 import type {Operation, OperationDraft, Study} from '@domain/models';
 import {isLocalDemo, operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
 import {useFocusTrap} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
+import {OperationStudyLinks} from './OperationStudyLinks';
 
 const outbox = new Outbox();
 
@@ -307,8 +308,8 @@ export function Operations() {
         .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
     if (detail) {
-        const orderedStudies = [...studies.value].sort((a, b) => b.date.localeCompare(a.date));
-        const linkedCount = orderedStudies.filter((study) => study.operationId === detail.id).length;
+        const linked = sortStudies(studies.value.filter(study => study.operationId === detail.id));
+        const linkedCount = linked.length;
         return <section className="operation-detail" id="operation-detail" aria-labelledby="operation-detail-title">
             <button className="button ghost button-sm operation-back" type="button" onClick={() => setDetailId(null)}>
                 <svg className="icon">
@@ -329,31 +330,8 @@ export function Operations() {
             {detail.notes && <p className="operation-notes">{detail.notes}</p>}
             {!formOpen && message && <p className="operation-message" role="alert">{message}</p>}
 
-            <div className="linked-head">
-                <h3>Estudios vinculados</h3>
-                <p>Seleccioná los estudios que pertenecen a esta operación. Un estudio puede pertenecer a una sola
-                    operación.</p>
-            </div>
-
-            {orderedStudies.length ? (
-                <ul className="linked-list">
-                    {orderedStudies.map((study) => {
-                        const linked = study.operationId === detail.id;
-                        const other = study.operationId && !linked;
-                        return <li className="linked-item" key={study.id} data-linked={linked ? 'true' : 'false'}>
-                            <label>
-                                <input type="checkbox" data-study-id={study.id} checked={linked} disabled={busy}
-                                       onChange={(event) => void setLink(study, event.currentTarget.checked ? detail.id : '')}/>
-                                <span className="linked-title">{study.title}</span>
-                                <time className="linked-date" dateTime={study.date}>{formatStudyDate(study.date)}</time>
-                                {other && <span className="tag">Otra operación</span>}
-                            </label>
-                        </li>;
-                    })}
-                </ul>
-            ) : (
-                <p className="linked-empty">Todavía no hay estudios para vincular.</p>
-            )}
+            <OperationStudyLinks key={detail.id} operationId={detail.id} linked={linked} busy={busy}
+                                 onLinkChange={(study, checked) => void setLink(study, checked ? detail.id : '')}/>
         </section>;
     }
 
