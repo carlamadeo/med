@@ -26,7 +26,6 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
         <p>Estado: {statuses[value.status]}</p>
         <p>Importe: {value.cost === null ? 'Desconocido' : value.cost} ·
             Cobertura: {value.coverage ? coverages[value.coverage] : 'Desconocida'}</p>
-        <p>Recordatorio: {value.reminderMinutes ? `${value.reminderMinutes} minutos antes` : 'Sin recordatorio'}</p>
         <p>Estudios para llevar: {titles?.length ? titles.join(', ') : 'Ninguno'}</p>
     </>;
 }

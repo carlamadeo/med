@@ -15,7 +15,10 @@ import type {
     ViewMode,
     Filters
 } from '@domain/models';
-import {cleanSpecialty, filterStudiesByQuery, sortStudies, type StudySortOrder} from '@domain/library';
+import {
+    cleanSpecialty, filterStudiesByQuery, groupStudiesByDoctor, normalizeDoctorName, sortStudies,
+    type StudySortOrder,
+} from '@domain/library';
 import {normalize} from '@domain/utils';
 import {pendingChanges} from './outboxStore';
 
@@ -45,6 +48,7 @@ export const categoryTypes = signal<string[]>([]);
 export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
 export const libraryPortal = signal('');
+export const libraryDoctor = signal('');
 export const libraryOperation = signal<{id: string; name: string} | null>(null);
 
 // Track unavailable source identifiers (driveFileIds, viewer URLs, documentIds)
@@ -87,15 +91,19 @@ export const visibleStudies = computed<Study[]>(() => {
     return result;
 });
 
+export const studyDoctors = computed(() => groupStudiesByDoctor(visibleStudies.value));
 export const libraryHasFilters = computed(() => Boolean(
-    libraryQuery.value.trim() || libraryPortal.value || libraryOperation.value || categoryTypes.value.length || librarySpecialty.value,
+    libraryQuery.value.trim() || libraryPortal.value || libraryDoctor.value || libraryOperation.value ||
+    categoryTypes.value.length || librarySpecialty.value,
 ));
 export const filteredStudies = computed(() => {
     const selectedTypes = new Set(categoryTypes.value.map(normalize));
     const selectedSpecialty = normalize(librarySpecialty.value);
+    const selectedDoctor = normalizeDoctorName(libraryDoctor.value);
     const items = visibleStudies.value.filter(study =>
         (!selectedTypes.size || study.types.some(type => selectedTypes.has(normalize(type)))) &&
         (!selectedSpecialty || normalize(study.specialty ?? '') === selectedSpecialty) &&
+        (!selectedDoctor || normalizeDoctorName(study.doctor) === selectedDoctor) &&
         (!libraryPortal.value || normalize(study.portal) === normalize(libraryPortal.value)) &&
         (!libraryOperation.value || study.operationId === libraryOperation.value.id)
     );
@@ -105,6 +113,7 @@ export const filteredStudies = computed(() => {
 export function resetLibraryFilters(): void {
     libraryQuery.value = '';
     libraryPortal.value = '';
+    libraryDoctor.value = '';
     libraryOperation.value = null;
     categoryTypes.value = [];
     librarySpecialty.value = '';

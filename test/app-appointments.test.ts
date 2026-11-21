@@ -18,6 +18,10 @@ it('creates a turn and preserves a zero cost', async () => {
     act(() => $('#nav-turnos').click());
     act(() => $('.appointments-head button').click());
     const form = document.querySelector<HTMLFormElement>('#appointment-form')!;
+    expect(document.querySelector('#appointment-reminder')).toBeNull();
+    expect(document.querySelector('#appointment-dialog')?.textContent).not.toContain(
+        'Activar recordatorios del navegador',
+    );
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-20';
     (form.elements.namedItem('time') as HTMLInputElement).value = '10:30';
     (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';
@@ -27,6 +31,7 @@ it('creates a turn and preserves a zero cost', async () => {
     });
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
     expect(document.querySelector('.appointments')?.textContent).toContain('Importe: 0');
+    expect(document.querySelector('.appointments')?.textContent).not.toContain('Agregar al calendario');
     expect(fakeCalendars()).toHaveLength(1);
     const cal = fakeCalendars()[0]!;
     expect(cal.summary).toBe('Turnos');
@@ -54,6 +59,7 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
     expect($('.appointments').textContent).toContain('Av. Santa Fe 1234');
     expect($('.appointments').textContent).toContain('Dra. Perez');
+    expect($('.appointments').textContent).not.toContain('Agregar al calendario');
     expect((await driveAppointmentRepo.list())[0]?.reason).toBe('Control anual');
 
     const cal = fakeCalendars()[0]!;

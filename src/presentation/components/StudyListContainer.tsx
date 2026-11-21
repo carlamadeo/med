@@ -1,9 +1,10 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
+import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
 import {Portals} from './Portals';
+import {Doctors} from './Doctors';
 import {IntakeCandidates} from './IntakeCandidates';
 import {Episodes} from './Episodes';
 import {Appointments} from './Appointments';
@@ -62,10 +63,16 @@ export function StudyListContainer({
                 libraryPortal.value = portal;
                 view.value = 'cronologia';
             }}/>}
+            {view.value === 'medicos' && <Doctors onRetryLoad={onRetryLoad} onViewStudies={doctor => {
+                resetLibraryFilters();
+                libraryDoctor.value = doctor;
+                view.value = 'cronologia';
+                requestAnimationFrame(() => document.getElementById('page-title')?.focus());
+            }}/>}
             {view.value === 'intake' && (
                 <IntakeCandidates onOpenEditor={onOpenCandidate}/>
             )}
-            {view.value !== 'operaciones' && view.value !== 'portales' && view.value !== 'episodios' && view.value !== 'turnos' && view.value !== 'intake' && (
+            {(view.value === 'cronologia' || view.value === 'categoria') && (
                 <>
                     <div className="section-head library-search-head">
                         <div className="library-head-main">
@@ -90,6 +97,14 @@ export function StudyListContainer({
                         </div>
                     </div>
                     {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value} <button type="button" className="button quiet button-sm" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}
+                    {libraryDoctor.value && (
+                        <p className="active-filter-pill">
+                            Profesional: {libraryDoctor.value}{' '}
+                            <button type="button" className="button quiet button-sm" onClick={() => libraryDoctor.value = ''}>
+                                Quitar filtro
+                            </button>
+                        </p>
+                    )}
                     {libraryOperation.value && <p className="active-filter-pill">Operación: {libraryOperation.value.name} <button type="button" className="button quiet button-sm" onClick={() => libraryOperation.value = null}>Quitar filtro</button></p>}
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (
                         <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>

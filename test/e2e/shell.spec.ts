@@ -113,6 +113,13 @@ test('abre en Resumen y navega por las secciones', async ({page}) => {
     await navigateTo(page, 'portales');
     await expect(page.locator('#portals-title')).toHaveText('Portales e instituciones');
 
+    await navigateTo(page, 'medicos');
+    const doctors = page.getByRole('region', {name: 'Estudios por profesional'});
+    await doctors.getByRole('searchbox', {name: 'Buscar profesionales'}).fill('perez');
+    await expect(doctors.getByRole('heading', {level: 3})).toHaveText(['Dra. Pérez']);
+    await doctors.getByRole('button', {name: 'Ver estudios de Dra. Pérez'}).click();
+    await expect(page.locator('.library-table .study-title')).toHaveText(['Mamografía bilateral']);
+
     await navigateTo(page, 'operaciones');
     await expect(page.locator('#operations-title')).toHaveText('Operaciones');
 
@@ -162,37 +169,6 @@ test('busca estudios desde Resumen sin mostrar el listado de recientes', async (
     await expect(page.locator('.library-table .study-title')).toHaveText(['Resonancia de rodilla']);
 });
 
-test('descarga un turno para el calendario con un aviso elegido', async ({page}) => {
-    await page.route('https://www.googleapis.com/drive/v3/files?**', async route => {
-        if (!new URL(route.request().url()).searchParams.get('q')?.includes('turno-v1')) return route.fallback();
-        return route.fulfill({json: {files: [{
-            id: 'appointment-qa', version: '1', trashed: false, mimeType: 'application/json',
-            appProperties: {misEstudios: 'turno-v1'}, description: JSON.stringify({
-                date: '2099-11-20', time: '10:30', timeZone: 'America/Argentina/Buenos_Aires',
-                status: 'scheduled', professional: 'Profesional reservado', notes: 'Nota privada',
-                cost: null, coverage: null, reminderMinutes: 60, studyIds: [],
-            }),
-        }]}});
-    });
-    await page.goto('/');
-    const upcoming = page.getByRole('region', {name: 'Próximo turno'});
-    await upcoming.getByText('Agregar al calendario').click();
-    const alarm = upcoming.getByLabel('Aviso del calendario');
-    await expect(alarm).toHaveValue('');
-    await alarm.selectOption('60');
-    const event = page.waitForEvent('download');
-    await upcoming.getByRole('button', {name: 'Descargar turno (.ics)'}).click();
-    const download = await event;
-    expect(download.suggestedFilename()).toBe('turno.ics');
-    const stream = await download.createReadStream();
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    const ics = Buffer.concat(chunks).toString();
-    expect(ics).toContain('DTSTART:20991120T133000Z');
-    expect(ics).toContain('TRIGGER:-PT60M');
-    expect(ics).not.toMatch(/Nota privada|Profesional reservado|appointment-qa/);
-});
-
 test('permite desplazarse solo de arriba abajo al agendar un turno en móvil', async ({page}) => {
     await page.setViewportSize({width: 320, height: 700});
     await page.goto('/');
@@ -224,6 +200,33 @@ test('busca turnos en móvil con texto de 16 píxeles y conserva la escala al sa
     await search.fill('turno de prueba');
     await search.blur();
     await expect(search).not.toBeFocused();
+    expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
+});
+
+test('guarda un turno en móvil y muestra la ficha sin recortes', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await navigateTo(page, 'turnos');
+    await page.getByRole('button', {name: 'Nuevo turno'}).click();
+
+    const dialog = page.getByRole('dialog', {name: 'Agendar turno'});
+    const professional = dialog.getByLabel('Profesional');
+    const reason = dialog.getByLabel('Motivo de la consulta');
+    const name = 'ProfesionalDePrueba'.repeat(5);
+    const longReason = 'MotivoDePrueba'.repeat(10);
+    await dialog.getByLabel('Fecha').fill('2024-03-01');
+    await dialog.getByLabel('Hora', {exact: true}).fill('10:30');
+    await professional.fill(name);
+    await expect(professional).toHaveCSS('font-size', '16px');
+    await reason.fill(longReason);
+    await expect(reason).toHaveCSS('font-size', '16px');
+    await dialog.getByRole('button', {name: 'Guardar turno'}).click();
+    await expect(dialog).toBeHidden();
+
+    const card = page.locator('.appointment-card').filter({hasText: name});
+    await expect(card).toContainText(longReason);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
     expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(1);
 });
 
@@ -713,7 +716,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await dialog.getByLabel('Especialidad').fill('Otorrinolaringología');
     await dialog.getByLabel('Lugar o dirección').fill('Consultorio 12');
     await dialog.getByLabel('Cobertura').selectOption('partial');
-    await dialog.getByRole('combobox', {name: 'Recordatorio', exact: true}).selectOption('60');
     await dialog.getByRole('checkbox', {name: /Ecografía abdominal completa/}).check();
     await expect(dialog.getByLabel('Notas de la consulta')).toHaveCount(0);
     await expect(dialog.locator('input[type=file]')).toHaveCount(0);
@@ -740,7 +742,6 @@ test('registra la consulta y descarga la receta desde el turno', async ({page}) 
     await expect(card).toContainText('Consultorio 12');
     await expect(card).toContainText('Importe: 1250');
     await expect(card).toContainText('Cobertura: Parcial');
-    await expect(card).toContainText('Recordatorio: 1 hora antes');
     await expect(card).toContainText('Ecografía abdominal completa');
     await expect(card).toContainText('Control en una semana');
     await expect(card).toContainText('receta.pdf');

@@ -115,6 +115,7 @@ export type ViewMode =
     | 'cronologia'
     | 'categoria'
     | 'portales'
+    | 'medicos'
     | 'operaciones'
     | 'episodios'
     | 'turnos'

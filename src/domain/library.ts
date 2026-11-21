@@ -16,6 +16,25 @@ export function cleanSpecialty(value: unknown): string | undefined {
     return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') || undefined : undefined;
 }
 
+export function normalizeDoctorName(name: string): string {
+    return normalize(name).replace(/\s+/g, ' ');
+}
+
+export function groupStudiesByDoctor(studies: readonly Study[]) {
+    const doctors = new Map<string, {key: string; name: string; studyCount: number}>();
+    for (const study of studies) {
+        const key = normalizeDoctorName(study.doctor);
+        if (!key) continue;
+        const doctor = doctors.get(key);
+        if (doctor) {
+            doctor.studyCount += 1;
+        } else {
+            doctors.set(key, {key, name: study.doctor.trim().replace(/\s+/g, ' '), studyCount: 1});
+        }
+    }
+    return [...doctors.values()].sort((a, b) => a.name.localeCompare(b.name, 'es-AR'));
+}
+
 export type StudySortOrder =
     | 'date-desc'
     | 'date-asc'
