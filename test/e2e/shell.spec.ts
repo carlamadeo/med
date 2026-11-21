@@ -187,9 +187,119 @@ test('permite desplazarse solo de arriba abajo al agendar un turno en móvil', a
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 
     const save = dialog.getByRole('button', {name: 'Guardar turno'});
-    await save.scrollIntoViewIfNeeded();
     await expect(save).toBeInViewport({ratio: 1});
+    const footer = dialog.locator('.dialog-actions');
+    const dialogBottom = await dialog.evaluate(element => element.getBoundingClientRect().bottom);
+    expect(dialogBottom - await footer.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThan(3);
+    await dialog.getByRole('searchbox', {name: 'Buscar estudios para el turno'}).scrollIntoViewIfNeeded();
     expect(await dialog.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await expect(save).toBeInViewport({ratio: 1});
+});
+
+test('muestra todas las categorías de recuperación y fechas con el mismo formato', async ({page}) => {
+    const deletedAt = new Date(Date.now() - 86400000);
+    await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
+        const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+        if (!query.includes('trashed = true') || !query.includes('estudio-v1')) return route.fallback();
+        return route.fulfill({json: {files: [{
+            ...files[0], trashed: true, appProperties: {misEstudios: 'estudio-v1', deletedAt: deletedAt.toISOString()},
+        }]}});
+    });
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Recuperar informe'}).click();
+    const tabs = page.getByRole('tablist', {name: 'Tipos de elementos'});
+    const record = page.getByRole('tabpanel').filter({hasText: 'Mamografía bilateral'});
+    const dates = await page.evaluate(value => {
+        const options: Intl.DateTimeFormatOptions = {day: 'numeric', month: 'short', year: 'numeric'};
+        return [new Date(2026, 10, 12), new Date(value)].map(date => date.toLocaleDateString('es-AR', options));
+    }, deletedAt.toISOString());
+    await expect(record).toContainText(`Fecha: ${dates[0]} · Eliminado: ${dates[1]}`);
+    for (const [width, height] of [[1440, 900], [390, 844], [320, 700]] as const) {
+        await page.setViewportSize({width, height});
+        expect(await tabs.evaluate(element => element.scrollWidth)).toBe(await tabs.evaluate(element => element.clientWidth));
+        for (const tab of await tabs.getByRole('tab').all()) {
+            await expect(tab).toBeInViewport({ratio: 1});
+        }
+    }
+    await tabs.getByRole('tab', {name: /Estudios/}).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(tabs.getByRole('tab', {name: /Turnos/})).toHaveAttribute('aria-selected', 'true');
+});
+
+test('muestra los nombres completos en la barra superior compacta', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    for (const [view, label] of [
+        ['cronologia', 'Biblioteca'], ['operaciones', 'Operaciones'], ['episodios', 'Episodios'],
+        ['turnos', 'Turnos y consultas'], ['intake', 'Bandeja de entrada'],
+    ] as const) {
+        await navigateTo(page, view);
+        const route = page.getByRole('navigation', {name: 'Ruta de navegación'});
+        const current = route.locator('[aria-current="page"]');
+        await expect(current).toHaveText(label);
+        for (const width of [320, 360, 375, 390]) {
+            await page.setViewportSize({width, height: 700});
+            expect(await current.evaluate(element => {
+                const text = document.createRange();
+                text.selectNodeContents(element);
+                const parent = element.parentElement!.getBoundingClientRect();
+                return Array.from(text.getClientRects()).every(rect => rect.right <= parent.right + 1);
+            })).toBe(true);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+        }
+        await page.setViewportSize({width: 320, height: 700});
+    }
+});
+
+test('muestra y permite usar los controles de ordenamiento en Biblioteca compacta', async ({page, browserName}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    const header = page.locator('.library-table thead');
+    const sort = header.getByRole('button', {name: 'Estudio'});
+    await expect(header).toHaveCSS('clip-path', 'none');
+    await expect(sort).toBeInViewport({ratio: 1});
+    const dateSort = header.getByRole('button', {name: 'Fecha'});
+    expect((await dateSort.boundingBox())?.y).toBe((await sort.boundingBox())?.y);
+    if (browserName === 'chromium') {
+        await page.getByLabel('Solo impresos').focus();
+        await page.keyboard.press('Tab');
+        await expect(sort).toBeFocused();
+    }
+    await sort.click();
+    await expect(header.getByRole('columnheader', {name: 'Estudio'})).toHaveAttribute('aria-sort', 'ascending');
+});
+
+test('mantiene a la vista las acciones de operación y exportación en móvil', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'operaciones');
+    await page.locator('.operations-head button').click();
+    const operation = page.getByRole('dialog', {name: 'Agregar operación'});
+    await expect(operation.getByRole('button', {name: 'Guardar operación'})).toBeInViewport({ratio: 1});
+    await expect(operation.getByRole('button', {name: 'Cancelar'})).toBeInViewport({ratio: 1});
+    await page.keyboard.press('Escape');
+    await navigateTo(page, 'export');
+    const exportDialog = page.getByRole('dialog', {name: 'Exportar historia'});
+    await expect(exportDialog.getByRole('button', {name: 'Exportar'})).toBeInViewport({ratio: 1});
+    await expect(exportDialog.getByRole('button', {name: 'Cancelar'})).toBeInViewport({ratio: 1});
+});
+
+test('describe dónde se guardan los cambios en el menú del modo local', async ({page}) => {
+    await page.setViewportSize({width: 320, height: 700});
+    await page.goto('/?sin-sesion');
+    await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await expect(page.getByRole('status', {name: 'Modo de prueba local'})).toBeVisible();
+    await navigateTo(page, 'cronologia');
+    await page.getByRole('button', {name: 'Abrir menú'}).click();
+    const menu = page.getByRole('dialog', {name: 'Navegación principal'});
+    await expect(menu.getByText('Los cambios quedan en esta sesión de prueba.')).toBeVisible();
+    await expect(menu.getByText('Sin cuenta conectada')).toBeVisible();
 });
 
 test('busca turnos en móvil con texto de 16 píxeles y conserva la escala al salir', async ({page}) => {

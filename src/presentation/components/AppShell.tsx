@@ -206,7 +206,11 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                         <svg className="icon">
                             <use href="#i-lock"/>
                         </svg>
-                        <span><strong>Solo vos</strong>Los archivos viven en tu Drive privado.</span>
+                        <span>
+                            {isLocalDemo.value
+                                ? <><strong>Prueba local</strong>Los cambios quedan en esta sesión de prueba.</>
+                                : <><strong>Solo vos</strong>Los archivos viven en tu Drive privado.</>}
+                        </span>
                     </p>
                     <div className="sidebar-account">
                         <span className="avatar" aria-hidden="true"><svg className="icon"><use

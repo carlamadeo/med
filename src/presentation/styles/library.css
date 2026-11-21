@@ -374,7 +374,44 @@
         width: 100%;
     }
 
-    .library-table.summary-table-scroll thead,
+    .library-table.summary-table-scroll thead {
+        display: block;
+    }
+
+    .library-table.summary-table-scroll thead tr {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
+        gap: var(--space-1);
+        padding: var(--space-1);
+        border-block: 1px solid var(--color-border);
+        background: var(--color-surface-hover);
+    }
+
+    .library-table.summary-table-scroll thead th {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        font-size: var(--text-xs);
+    }
+
+    .library-table .table-sort-button {
+        width: 100%;
+        min-height: 2.75rem;
+        padding-inline: var(--space-2);
+        border-radius: var(--radius-sm);
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .library-table .table-sort-button:focus-visible {
+        outline-offset: -2px;
+    }
+
+    .library-table .table-sort-button.is-active {
+        background: var(--color-brand-light);
+    }
+
+    .library-table.summary-table-scroll thead th:last-child,
     .library-table.summary-table-scroll tbody td.library-study-metadata[data-empty='true'] {
         position: absolute;
         display: block;

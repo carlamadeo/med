@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
+import {formatStudyDate} from '@domain/library';
 import {enqueueOffline} from '../utils/enqueueOffline';
 import {
     recoveringStudyId,
@@ -55,7 +56,7 @@ const ENTITY_TYPES: { value: EntityType; label: string; icon: string }[] = [
     {value: 'episode', label: 'Episodios', icon: 'i-activity'},
     {value: 'operation', label: 'Operaciones', icon: 'i-scissors'},
     {value: 'portal', label: 'Portales', icon: 'i-globe'},
-    {value: 'event', label: 'Consultas/Recetas', icon: 'i-stethoscope'},
+    {value: 'event', label: 'Consultas y recetas', icon: 'i-stethoscope'},
     {value: 'appointment', label: 'Turnos', icon: 'i-calendar'},
 ];
 
@@ -352,7 +353,7 @@ export function RecoveryDialog({onReconnect, error, sessionLost}: RecoveryDialog
                                         <div className="recovery-item-info">
                                             <h4>{item.title}</h4>
                                             <p className="recovery-item-meta">
-                                                {item.date ? `Fecha: ${item.date} · ` : ''}Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString('es-AR') : 'fecha desconocida'}
+                                                {item.date ? `Fecha: ${formatStudyDate(item.date)} · ` : ''}Eliminado: {item.deletedAt ? formatStudyDate(new Date(item.deletedAt)) : 'fecha desconocida'}
                                             </p>
                                             {!item.recoverable && (
                                                 <p className="recovery-item-warning">

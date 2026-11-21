@@ -1322,9 +1322,8 @@
         gap: 0.5rem;
     }
 
-    .crumbs {
-        overflow: hidden;
-        white-space: nowrap;
+    .crumbs [aria-current='page'] {
+        overflow-wrap: anywhere;
     }
 
     .crumbs span:first-child,
@@ -1385,6 +1384,21 @@
 
     .chart-wrap {
         min-height: 10.5rem;
+    }
+}
+
+@media (max-width: 389px) {
+    .app-shell[data-signed-in='true'] .topbar {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        row-gap: 0;
+        padding-block: var(--space-1);
+    }
+
+    .topbar .crumbs {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        padding: 0 var(--space-2) var(--space-1);
     }
 }
 
@@ -4667,8 +4681,7 @@ fieldset#study-types.study-types {
 }
 
 #share .dialog-actions,
-#confirm .dialog-actions,
-#recovery .dialog-actions {
+#confirm .dialog-actions {
     position: sticky;
     bottom: 0;
     margin-block-end: calc(-1 * var(--dialog-pad, var(--space-6)));
@@ -4751,10 +4764,8 @@ fieldset#study-types.study-types {
 }
 
 .recovery-tablist {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-1);
     padding: var(--space-1);
     margin-bottom: 1rem;
@@ -4766,10 +4777,10 @@ fieldset#study-types.study-types {
 .recovery-tablist .tab-button {
     position: relative;
     display: flex;
-    flex: none;
     align-items: center;
+    min-width: 0;
     gap: 0.375rem;
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     padding: 0.375rem 0.75rem;
     border: 0;
     border-radius: var(--radius-md);
@@ -4777,7 +4788,8 @@ fieldset#study-types.study-types {
     color: var(--color-text-secondary);
     font-size: 0.8125rem;
     font-weight: var(--font-weight-medium);
-    white-space: nowrap;
+    text-align: start;
+    overflow-wrap: anywhere;
     cursor: pointer;
     transition: background-color var(--transition-fast), color var(--transition-fast);
 }
@@ -4804,7 +4816,23 @@ fieldset#study-types.study-types {
     height: 1.125rem;
 }
 
+@media (max-width: 560px) {
+    .recovery-tablist {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .recovery-tablist .tab-button {
+        gap: var(--space-1);
+        padding-inline: var(--space-2);
+    }
+
+    .recovery-tablist .tab-button .icon {
+        display: none;
+    }
+}
+
 .recovery-tab-count {
+    margin-inline-start: auto;
     padding: 0.125rem 0.375rem;
     border-radius: var(--radius-sm);
     background: var(--color-surface-hover);
