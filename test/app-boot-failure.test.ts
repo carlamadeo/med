@@ -11,5 +11,5 @@ it('disables connecting and asks the user to reload', async () => {
 
     await vi.waitFor(() => expect($<HTMLButtonElement>('#connect').disabled).toBe(true));
     expect($('#access-copy').textContent).toBe('No se pudo cargar la página. Actualizala para volver a intentar.');
-    expect($<HTMLButtonElement>('[data-add]').disabled).toBe(true);
+    expect(document.querySelector('[data-add]')).toBeNull();
 });

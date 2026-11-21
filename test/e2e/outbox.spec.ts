@@ -83,8 +83,9 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     });
     await page.goto('/');
     await expect(page.getByRole('heading', {name: 'Resumen', level: 1})).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await context.setOffline(true);
-    await page.getByRole('button', {name: 'Agregar estudio'}).click();
+    await page.locator('[data-add]').click();
     const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Ficha privada A');
     await editor.locator('input[name="date"]').fill('2026-01-01');
@@ -113,6 +114,7 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     });
     await context.setOffline(false);
     await page.reload();
+    await navigateTo(page, 'cronologia');
     await expect(originalEntry).toBeVisible();
     await expect.poll(() => reservationAccounts).toContain('account-a');
     expect(reservationAccounts).not.toContain('account-b');

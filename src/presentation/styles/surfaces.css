@@ -27,10 +27,6 @@
     white-space: nowrap;
 }
 
-.wrap:has(.portals, .operations, .operation-detail, .events, .episodes, .appointments, .intake) > .intro [data-add] {
-    display: none;
-}
-
 #library:not([hidden]):has(.portals, .operations, .operation-detail, .events, .episodes, .appointments, .intake) {
     padding: var(--space-6) 0 var(--space-10);
     border: 0;

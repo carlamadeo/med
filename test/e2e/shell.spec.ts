@@ -154,18 +154,23 @@ test('abre el menú móvil y navega a Resumen', async ({page}) => {
     await expect(page.locator('.kpi-card')).toHaveCount(4);
 });
 
-test('busca estudios desde Resumen sin mostrar el listado de recientes', async ({page}) => {
+test('muestra un Resumen de solo lectura y permite buscar desde Biblioteca', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
     await expect(page.getByRole('heading', {name: 'Actividad de salud'})).toBeVisible();
     await expect(page.getByRole('heading', {name: 'Estudios recientes'})).toHaveCount(0);
-    const search = page.getByRole('searchbox', {name: 'Buscar un estudio'});
-    await expect(search).toBeInViewport();
-    await search.fill('rodilla');
-    await search.press('Enter');
+    await expect(page.getByText('No hay turnos próximos.')).toBeVisible();
+    await expect(page.getByRole('main').getByRole('button')).toHaveCount(0);
+    await expect(page.getByRole('searchbox')).toHaveCount(0);
+    await expect(page.getByRole('button', {name: 'Buscar en el archivo'})).toHaveCount(0);
+    await page.keyboard.press('Control+k');
+    await expect(page.getByRole('combobox', {name: 'Buscar estudios, portales y turnos'})).toHaveCount(0);
+    await page.keyboard.press('n');
+    await expect(page.getByRole('dialog', {name: 'Agregar estudio'})).toHaveCount(0);
+
+    await navigateTo(page, 'cronologia');
     const library = page.getByRole('searchbox', {name: 'Buscar estudios'});
-    await expect(library).toHaveValue('rodilla');
-    await expect(library).toBeFocused();
+    await library.fill('rodilla');
     await expect(page.locator('.library-table .study-title')).toHaveText(['Resonancia de rodilla']);
 });
 
@@ -639,6 +644,8 @@ test('abre la ficha de una operación sin desborde horizontal en móvil', async 
 test('usa campos de 16 píxeles en la búsqueda global y en Operaciones en móvil', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await page.getByRole('button', {name: 'Buscar en el archivo'}).click();
     const globalSearch = page.getByRole('combobox', {name: 'Buscar estudios, portales y turnos'});
     await expect(globalSearch).toBeFocused();
@@ -657,6 +664,8 @@ test('usa campos de 16 píxeles en la búsqueda global y en Operaciones en móvi
 
 test('Escape cierra el selector de tipos y conserva el borrador', async ({page}) => {
     await page.goto('/');
+    await expect(page.locator('#resumen')).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await page.getByRole('button', {name: 'Agregar estudio'}).click();
     const editor = page.getByRole('dialog', {name: 'Agregar estudio'});
     await editor.getByRole('textbox', {name: 'Nombre del estudio'}).fill('Borrador de prueba');
@@ -673,6 +682,8 @@ test('el modo local conserva la biblioteca al cancelar el editor', async ({page}
     await page.goto('/');
     await page.getByRole('button', {name: 'Salir'}).click();
     await page.getByRole('button', {name: 'Probar en modo local (sin cuenta)'}).click();
+    await expect(page.getByRole('status', {name: 'Modo de prueba local'})).toBeVisible();
+    await navigateTo(page, 'cronologia');
     await page.getByRole('button', {name: 'Agregar estudio'}).click();
     await page.getByRole('dialog', {name: 'Agregar estudio'}).getByRole('button', {name: 'Cancelar'}).click();
     await expect(page.getByRole('region', {name: 'Biblioteca'})).toBeVisible();

@@ -2,14 +2,15 @@ import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import JSZip from 'jszip';
 import {driveAppointmentRepo, driveAuth, driveStudyRepo} from '@data';
-import {appointments, markSourceUnavailable} from '@presentation/state/store';
+import {appointments, directoriesReady, markSourceUnavailable} from '@presentation/state/store';
 import {$, mountPage} from './page';
 import {SEED_JSON_ID, SEED_PDF_ID, addRemoteRaw, fakeDriveFile} from './fake-drive';
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function openConsultation(studyIds: string[], section: 'resumen' | 'turnos' = 'resumen') {
+async function openConsultation(studyIds: string[]) {
     await mountPage();
+    await vi.waitFor(() => expect(directoriesReady.value).toBe(true));
     const appointment = await driveAppointmentRepo.save({
         date: '2099-11-20', time: '10:30', timeZone: 'UTC', professional: 'Profesional externo',
         status: 'scheduled', reminderMinutes: null, cost: null, coverage: null, notes: 'Nota privada',
@@ -17,9 +18,9 @@ async function openConsultation(studyIds: string[], section: 'resumen' | 'turnos
     });
     await act(() => {
         appointments.value = [appointment];
-        $(`#nav-${section}`).click();
+        $('#nav-turnos').click();
     });
-    const card = $(section === 'turnos' ? '.appointment-card' : '[aria-labelledby="next-appointment-title"]');
+    const card = $('.appointment-card');
     const prepare = () => [...card.querySelectorAll('button')].find(button => button.textContent === 'Preparar consulta');
     await vi.waitFor(() => expect(prepare()).toBeDefined());
     await act(() => prepare()!.click());
@@ -59,7 +60,7 @@ it('shares the selected reports as separate attachments and only sends explicitl
     const png = '\x89PNG\r\n\x1a\n';
     fakeDriveFile('study-report')!.content = png;
     const share = mockNativeShare(true);
-    const dialog = await openConsultation([SEED_PDF_ID, 'study-report'], 'turnos');
+    const dialog = await openConsultation([SEED_PDF_ID, 'study-report']);
     await act(() => dialog.querySelectorAll<HTMLInputElement>('[data-source="viewer"]')[1]!.click());
     await act(() => consultationButton(dialog, 'Preparar para compartir').click());
     await vi.waitFor(() => expect(consultationButton(dialog, 'Compartir archivos').disabled).toBe(false));
@@ -100,7 +101,7 @@ it('downloads one copy of each selected report and only explicitly selected view
         viewer: 'https://portal.example/consulta',
     });
     const dialog = await openConsultation([SEED_PDF_ID, 'study-association']);
-    expect(document.querySelectorAll(`[aria-labelledby="next-appointment-title"] a[href*="/${SEED_PDF_ID}/"]`)).toHaveLength(1);
+    expect(document.querySelectorAll(`.appointment-card a[href*="/${SEED_PDF_ID}/"]`)).toHaveLength(1);
     expect(dialog.querySelectorAll('input[type="checkbox"][data-source="attachment"]')).toHaveLength(1);
     const viewers = [...dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-source="viewer"]')];
     expect(viewers).toHaveLength(2);
@@ -138,10 +139,9 @@ it('offers the associated attachment when the selected study has no direct attac
         title: 'Control sin adjunto propio', types: ['Otro'], documentIds: [SEED_PDF_ID],
     });
     await mountPage();
-    await act(() => $('#nav-resumen').click());
-    await vi.waitFor(() => expect($('[aria-labelledby="next-appointment-title"]')).not.toBeNull());
-    const card = $('[aria-labelledby="next-appointment-title"]');
-    await act(() => card.querySelector('button')!.click());
+    await vi.waitFor(() => expect(directoriesReady.value).toBe(true));
+    await act(() => $('#nav-turnos').click());
+    await act(() => $('.appointments-head button').click());
     const form = $<HTMLFormElement>('#appointment-form');
     $<HTMLInputElement>('[name="date"]', form).value = '2099-11-20';
     $<HTMLInputElement>('[name="time"]', form).value = '10:30';
@@ -149,13 +149,13 @@ it('offers the associated attachment when the selected study has no direct attac
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    await vi.waitFor(() => expect(card.querySelector('a[aria-label="Abrir PDF de Ecografía abdominal"]'))
+    await vi.waitFor(() => expect(document.querySelector('.appointment-card a[aria-label="Abrir PDF de Ecografía abdominal"]'))
         .not.toBeNull());
-    expect(card.textContent).not.toContain('Sin archivo adjunto');
+    expect($('.appointment-card').textContent).not.toContain('Sin archivo adjunto');
     expect((await driveAppointmentRepo.list())[0]?.studyIds).toEqual(['study-association']);
 });
 
-it('opens the explicitly chosen files and viewers from Próximo turno', async () => {
+it('shows the next appointment as read-only in Resumen and opens its files and viewers in Turnos', async () => {
     addRemoteRaw('study-photo', {
         title: 'Receta fotografiada', reportName: 'receta.png', types: ['Otro'],
     }, 'image/png');
@@ -163,11 +163,9 @@ it('opens the explicitly chosen files and viewers from Próximo turno', async ()
         title: 'Resonancia externa', types: ['Otro'], viewer: 'https://portal.example/viewer/456',
     });
     await mountPage();
-    await act(() => $('#nav-resumen').click());
-    const selector = '[aria-labelledby="next-appointment-title"]';
-    await vi.waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
-    const card = $(selector);
-    await act(() => [...card.querySelectorAll('button')].find(button => button.textContent === 'Agendar turno')!.click());
+    await vi.waitFor(() => expect(directoriesReady.value).toBe(true));
+    await act(() => $('#nav-turnos').click());
+    await act(() => $('.appointments-head button').click());
     const form = $<HTMLFormElement>('#appointment-form');
     $<HTMLInputElement>('[name="date"]', form).value = '2099-11-20';
     $<HTMLInputElement>('[name="time"]', form).value = '10:30';
@@ -193,8 +191,15 @@ it('opens the explicitly chosen files and viewers from Próximo turno', async ()
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
 
-    await vi.waitFor(() => expect(card.querySelector('a[aria-label="Abrir PDF de Ecografía abdominal"]')?.getAttribute('href'))
+    await vi.waitFor(() => expect(document.querySelector('.appointment-card a[aria-label="Abrir PDF de Ecografía abdominal"]')?.getAttribute('href'))
         .toBe(`https://drive.google.com/file/d/${SEED_PDF_ID}/view`));
+    await act(() => $('#nav-resumen').click());
+    const nextAppointment = $('[aria-labelledby="next-appointment-title"]');
+    expect(nextAppointment.textContent).toContain('10:30');
+    expect(nextAppointment.querySelector('button, a[href], input, select, summary, [tabindex]')).toBeNull();
+
+    await act(() => $('#nav-turnos').click());
+    const card = $('.appointment-card');
     expect(card.querySelector('a[aria-label="Abrir imagen de Receta fotografiada"]')?.getAttribute('href'))
         .toBe('https://drive.google.com/file/d/study-photo/view');
     expect(card.querySelector('a[aria-label="Abrir visor de Ecografía abdominal"]')?.getAttribute('href'))
