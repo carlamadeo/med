@@ -2,44 +2,71 @@ import {DriveSessionError, driveAppointmentRepo, driveAuth, googleCalendarRepo} 
 import {Outbox} from '@data/outbox';
 import {validateDocument} from '@data/pdf-analysis';
 import {appointmentInstant, validateAppointment} from '@domain/appointments';
-import {cleanSpecialty} from '@domain/library';
-import type {Appointment, AppointmentDraft} from '@domain/models';
+import {findDoctorByName, type DoctorDirectoryEntry} from '@domain/doctors';
+import {cleanSpecialty, doctorNames, normalizeDoctorName} from '@domain/library';
+import type {Appointment, AppointmentDraft, MedicalEvent, Operation} from '@domain/models';
+import type {AutocompleteOption} from '../components/AutocompleteTextField';
 import {appointments, isLocalDemo} from '../state/store';
 import {enqueueOffline} from './enqueueOffline';
 
 const outbox = new Outbox();
 const demoPrescriptions = new WeakMap<Appointment, File>();
 
+export function buildProfessionalOptions(
+    directory: readonly DoctorDirectoryEntry[],
+    appointmentsList: readonly Appointment[],
+    medicalEventsList: readonly MedicalEvent[],
+    operationsList: readonly Operation[],
+): AutocompleteOption[] {
+    const directoryOptions: AutocompleteOption[] = directory.map((entry) => ({
+        value: entry.name,
+        hint: [entry.specialty, `${entry.studyCount} ${entry.studyCount === 1 ? 'estudio' : 'estudios'}`]
+            .filter(Boolean)
+            .join(' · '),
+    }));
+    const seenKeys = new Set(directory.map((entry) => entry.key));
+    const extraProfessionals = doctorNames([], [
+        ...appointmentsList.map((item) => item.professional),
+        ...medicalEventsList.map((item) => item.doctor),
+        ...operationsList.map((item) => item.surgeon),
+    ]).filter((name) => !seenKeys.has(normalizeDoctorName(name)));
+    return [
+        ...directoryOptions,
+        ...extraProfessionals.map((name) => ({value: name})),
+    ];
+}
+
+export function resolveProfessionalSpecialty(
+    professionalName: string,
+    directory: readonly DoctorDirectoryEntry[],
+    appointmentsList: readonly Appointment[],
+    medicalEventsList: readonly MedicalEvent[],
+): string {
+    const matched = findDoctorByName(directory, professionalName);
+    if (matched?.specialty) return matched.specialty;
+    const key = normalizeDoctorName(professionalName);
+    if (!key) return '';
+    const candidates: Array<{date: string; specialty: string}> = [];
+    for (const item of appointmentsList) {
+        const specialty = cleanSpecialty(item.specialty);
+        if (specialty && normalizeDoctorName(item.professional) === key) {
+            candidates.push({date: item.date ?? '', specialty});
+        }
+    }
+    for (const item of medicalEventsList) {
+        const specialty = cleanSpecialty(item.specialty);
+        if (specialty && normalizeDoctorName(item.doctor) === key) {
+            candidates.push({date: item.date ?? '', specialty});
+        }
+    }
+    candidates.sort((a, b) => b.date.localeCompare(a.date));
+    return candidates[0]?.specialty ?? '';
+}
+
 export function getAppointmentPrescription(appointment: Appointment): Promise<File> {
     if (!isLocalDemo.value) return driveAppointmentRepo.getPrescription(appointment);
     const file = demoPrescriptions.get(appointment);
     return file ? Promise.resolve(file) : Promise.reject(new Error('La receta no está disponible.'));
-}
-
-export const TIMEZONE_OPTIONS: Array<{value: string; label: string}> = [
-    {value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (GMT-3)'},
-    {value: 'America/Argentina/Cordoba', label: 'Córdoba (GMT-3)'},
-    {value: 'America/Argentina/Mendoza', label: 'Mendoza (GMT-3)'},
-    {value: 'America/Montevideo', label: 'Montevideo (GMT-3)'},
-    {value: 'America/Santiago', label: 'Santiago (GMT-3)'},
-    {value: 'America/Sao_Paulo', label: 'São Paulo (GMT-3)'},
-    {value: 'America/Bogota', label: 'Bogotá (GMT-5)'},
-    {value: 'America/Lima', label: 'Lima (GMT-5)'},
-    {value: 'America/Mexico_City', label: 'Ciudad de México (GMT-6)'},
-    {value: 'America/New_York', label: 'Nueva York (GMT-5)'},
-    {value: 'Europe/Madrid', label: 'Madrid (GMT+1)'},
-    {value: 'UTC', label: 'UTC'},
-];
-
-export function normalizeTimeZone(timeZone: string): string {
-    return timeZone === 'America/Buenos_Aires' ? 'America/Argentina/Buenos_Aires' : timeZone;
-}
-
-export function getTimeZoneOptions(defaultTimeZone: string): Array<{value: string; label: string}> {
-    const normalized = normalizeTimeZone(defaultTimeZone);
-    return TIMEZONE_OPTIONS.some((option) => option.value === normalized)
-        ? TIMEZONE_OPTIONS
-        : [{value: normalized, label: normalized}, ...TIMEZONE_OPTIONS];
 }
 
 interface AppointmentSaveResult {

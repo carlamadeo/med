@@ -169,7 +169,6 @@ it('shows the next appointment as read-only in Resumen and opens its files and v
     const form = $<HTMLFormElement>('#appointment-form');
     $<HTMLInputElement>('[name="date"]', form).value = '2099-11-20';
     $<HTMLInputElement>('[name="time"]', form).value = '10:30';
-    $<HTMLSelectElement>('[name="timeZone"]', form).value = 'UTC';
     expect(form.querySelectorAll('input[name="studyId"]')).toHaveLength(4);
     expect(form.querySelectorAll('input[name="studyId"]:checked')).toHaveLength(0);
     await act(() => {

@@ -8,6 +8,7 @@ import {
     closeAppointmentEditor,
     directoriesReady,
     doctors,
+    medicalEvents,
     resetLibraryFilters,
     setStudies,
     studiesReady,
@@ -25,6 +26,7 @@ afterEach(async () => {
     for (const entry of await queue.list('account-one')) await queue.discard('account-one', entry.id!);
     doctors.value = [];
     appointments.value = [];
+    medicalEvents.value = [];
     setStudies([]);
     resetLibraryFilters();
     closeAppointmentEditor();
@@ -231,9 +233,88 @@ it('preloads specialty and addresses (default first) when selecting a doctor in 
     expect($('.appointments').textContent).toContain('Sede Norte 111');
     const cal = fakeCalendars()[0]!;
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
-        summary: 'Dra. Lucía Gómez',
+        summary: 'Turno Dra. Lucía Gómez',
         location: 'Sede Norte 111',
     });
+});
+
+it('allows new professionals, preloads study-inferred specialties in Turnos, and wires doctor autocomplete in Registrar sin turno', async () => {
+    await mountPage();
+    await vi.waitFor(() => expect(directoriesReady.value).toBe(true));
+
+    await act(() => {
+        setStudies([
+            {
+                id: 'study-spec-1',
+                driveFileId: 'study-spec-1',
+                title: 'Control tiroides',
+                date: '2026-05-10',
+                types: ['Laboratorio'],
+                doctor: 'Dra. Sofía Ruiz',
+                specialty: 'Endocrinología',
+                portal: '',
+                viewer: '',
+                reportName: '',
+                hasPdf: false,
+                driveModifiedTime: '',
+                revision: '1',
+            },
+        ]);
+    });
+
+    await act(() => $<HTMLButtonElement>('#nav-turnos').click());
+    await act(() => $<HTMLButtonElement>('.appointments-head button').click());
+
+    await act(() => {
+        $<HTMLInputElement>('#appointment-professional').focus();
+    });
+    const ruizBtn = [...document.querySelectorAll<HTMLButtonElement>('#appointment-professionals button')].find((b) =>
+        b.textContent?.includes('Dra. Sofía Ruiz'),
+    );
+    expect(ruizBtn).toBeDefined();
+    await act(() => ruizBtn!.click());
+    expect($<HTMLInputElement>('#appointment-specialty').value).toBe('Endocrinología');
+
+    // Allows typing and saving a brand-new professional
+    await act(() => {
+        typeInto('#appointment-professional', 'Dr. Nuevo Turno');
+        typeInto('#appointment-specialty', 'Traumatología');
+    });
+    const form = $<HTMLFormElement>('#appointment-form');
+    (form.elements.namedItem('date') as HTMLInputElement).value = '2026-12-05';
+    (form.elements.namedItem('time') as HTMLInputElement).value = '11:00';
+    await act(async () => {
+        form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
+    expect($('.appointments').textContent).toContain('Dr. Nuevo Turno');
+
+    // In "Consultas y recetas sin turno", preloaded doctors appear and auto-fill specialty, while allowing new ones
+    const eventBtn = [...document.querySelectorAll<HTMLButtonElement>('.events-head button')].find((b) =>
+        b.textContent?.includes('Registrar sin turno'),
+    )!;
+    await act(() => eventBtn.click());
+    await act(() => {
+        $<HTMLInputElement>('#event-doctor').focus();
+    });
+    const eventRuiz = [...document.querySelectorAll<HTMLButtonElement>('#event-professionals button')].find((b) =>
+        b.textContent?.includes('Dra. Sofía Ruiz'),
+    );
+    expect(eventRuiz).toBeDefined();
+    await act(() => eventRuiz!.click());
+    expect($<HTMLInputElement>('#event-specialty').value).toBe('Endocrinología');
+
+    await act(() => {
+        typeInto('#event-doctor', 'Dra. Consulta Nueva');
+    });
+    expect($<HTMLInputElement>('#event-specialty').value).toBe('');
+    const eventForm = $<HTMLFormElement>('#event-form');
+    (eventForm.elements.namedItem('date') as HTMLInputElement).value = '2026-12-06';
+    await act(async () => {
+        eventForm.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    });
+    await vi.waitFor(() => expect($<HTMLDialogElement>('#event-dialog').open).toBe(false));
+    expect($('#events-list').textContent).toContain('Dra. Consulta Nueva');
 });
 
 it('queues a doctor offline and syncs to Drive after reconnecting', async () => {

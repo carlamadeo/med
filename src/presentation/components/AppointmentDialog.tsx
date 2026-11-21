@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'preact/hooks';
+import {DEFAULT_APPOINTMENT_TIME_ZONE} from '@domain/appointments';
 import {findDoctorByName} from '@domain/doctors';
-import {COMMON_SPECIALTIES, doctorNames, normalizeDoctorName, specialtyNames} from '@domain/library';
+import {COMMON_SPECIALTIES, specialtyNames} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {normalize} from '@domain/utils';
 import {driveAuth} from '@data';
@@ -14,10 +15,15 @@ import {
     visibleDoctors,
     visibleMedicalEvents,
 } from '../state/store';
-import {deleteAppointment, getTimeZoneOptions, normalizeTimeZone, saveAppointment} from '../utils/appointmentEditor';
+import {
+    buildProfessionalOptions,
+    deleteAppointment,
+    resolveProfessionalSpecialty,
+    saveAppointment,
+} from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
-import {AutocompleteTextField, type AutocompleteOption} from './AutocompleteTextField';
+import {AutocompleteTextField} from './AutocompleteTextField';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 function parseCost(value: FormDataEntryValue | null): number | null {
@@ -62,10 +68,16 @@ function AppointmentForm({
             ? appointment.location
             : null,
     );
+    const initialResolvedSpecialty = resolveProfessionalSpecialty(
+        appointment?.professional ?? '',
+        directory,
+        visibleAppointments.value,
+        visibleMedicalEvents.value,
+    );
     const autoSpecialtyRef = useRef<string | null>(
         appointment?.specialty &&
-            initialDoctor?.specialty &&
-            normalize(initialDoctor.specialty) === normalize(appointment.specialty)
+            initialResolvedSpecialty &&
+            normalize(initialResolvedSpecialty) === normalize(appointment.specialty)
             ? appointment.specialty
             : null,
     );
@@ -86,7 +98,12 @@ function AppointmentForm({
             autoLocationRef.current = nextDefault || null;
         }
 
-        const nextSpecialty = matched?.specialty ?? '';
+        const nextSpecialty = resolveProfessionalSpecialty(
+            nextValue,
+            directory,
+            visibleAppointments.value,
+            visibleMedicalEvents.value,
+        );
         if (!specialty.trim()) {
             if (nextSpecialty) {
                 setSpecialty(nextSpecialty);
@@ -100,9 +117,6 @@ function AppointmentForm({
         }
     };
 
-    const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
-    const defaultTimeZone = normalizeTimeZone(appointment?.timeZone ?? resolvedTimeZone);
-    const timeZoneOptions = getTimeZoneOptions(defaultTimeZone);
     const specialties = !consultation
         ? specialtyNames(
               [...visibleAppointments.value, ...visibleMedicalEvents.value, ...visibleDoctors.value],
@@ -110,22 +124,14 @@ function AppointmentForm({
           )
         : [];
 
-    const directoryOptions: AutocompleteOption[] = directory.map((entry) => ({
-        value: entry.name,
-        hint: [entry.specialty, `${entry.studyCount} ${entry.studyCount === 1 ? 'estudio' : 'estudios'}`]
-            .filter(Boolean)
-            .join(' · '),
-    }));
-    const seenKeys = new Set(directory.map((entry) => entry.key));
-    const extraProfessionals = doctorNames([], [
-        ...visibleAppointments.value.map((item) => item.professional),
-        ...visibleMedicalEvents.value.map((item) => item.doctor),
-        ...operations.value.map((item) => item.surgeon),
-    ]).filter((name) => !seenKeys.has(normalizeDoctorName(name)));
-    const professionalOptions: AutocompleteOption[] = [
-        ...directoryOptions,
-        ...extraProfessionals.map((name) => ({value: name})),
-    ];
+    const professionalOptions = !consultation
+        ? buildProfessionalOptions(
+              directory,
+              visibleAppointments.value,
+              visibleMedicalEvents.value,
+              operations.value,
+          )
+        : [];
 
     const selectedDoctor = !consultation ? findDoctorByName(directory, professional) : undefined;
     const title = consultation
@@ -175,21 +181,6 @@ function AppointmentForm({
                                 required
                                 disabled={busy}
                             />
-                        </label>
-                        <label className="field wide">
-                            <span>Zona horaria</span>
-                            <span className="select-control">
-                                <select id="appointment-timezone" name="timeZone" defaultValue={defaultTimeZone} disabled={busy}>
-                                    {timeZoneOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                                <svg className="icon" aria-hidden="true">
-                                    <use href="#i-chevron-down"/>
-                                </svg>
-                            </span>
                         </label>
                         <AutocompleteTextField
                             id="appointment-professional"
@@ -385,7 +376,7 @@ function AppointmentForm({
                     {!isLocalDemo.value && (
                         <p className="appointment-note">
                             {driveAuth.hasCalendarAccess()
-                                ? 'Se sincroniza automáticamente con tu calendario «Turnos» en Google Calendar (avisos: 1 semana antes a las 11:00 y el día anterior a las 11:00).'
+                                ? 'Se sincroniza automáticamente con tu calendario «Turnos» en Google Calendar, sin notificaciones.'
                                 : 'Para sincronizar con tu calendario «Turnos» en Google Calendar, salí y volvé a conectar tu cuenta autorizando Calendario.'}
                         </p>
                     )}
@@ -485,7 +476,7 @@ export function AppointmentDialog() {
             revision: appointment?.revision,
             date: String(data.get('date') ?? appointment?.date ?? ''),
             time: String(data.get('time') ?? appointment?.time ?? ''),
-            timeZone: String(data.get('timeZone') ?? appointment?.timeZone ?? ''),
+            timeZone: DEFAULT_APPOINTMENT_TIME_ZONE,
             professional: String(data.get('professional') ?? appointment?.professional ?? '').trim(),
             specialty: String(data.get('specialty') ?? appointment?.specialty ?? ''),
             location: String(data.get('location') ?? appointment?.location ?? '').trim() || undefined,

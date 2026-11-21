@@ -2685,7 +2685,7 @@ label.linked-row {
     font-size: 0.8125rem;
 }
 
-.event-form-grid label.wide {
+.event-form-grid .wide {
     grid-column: 1 / -1;
 }
 
@@ -2818,7 +2818,7 @@ label.linked-row {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .event-form-grid label.wide {
+    .event-form-grid .wide {
         grid-column: auto;
     }
 }

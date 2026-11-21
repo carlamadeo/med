@@ -118,6 +118,25 @@ describe('domain/doctors', () => {
         expect(doctorMatchesQuery(directory[1]!, 'inexistente')).toBe(false);
         expect(doctorMatchesQuery(directory[1]!, '')).toBe(true);
     });
+
+    it('infers specialty from the most recent study when no saved doctor specialty exists, while preferring saved specialty', () => {
+        const studies: Study[] = [
+            {...makeStudy('1', 'Dra. Sofía Ruiz'), date: '2026-01-10', specialty: 'Clínica médica'},
+            {...makeStudy('2', 'Dra. Sofía Ruiz'), date: '2026-03-15', specialty: 'Endocrinología'},
+            {...makeStudy('3', 'Dr. Pablo Paz'), date: '2026-02-01', specialty: 'Clínica médica'},
+        ];
+        const saved: Doctor[] = [
+            makeDoctor({
+                id: 'doc-paz',
+                name: 'Dr. Pablo Paz',
+                specialty: 'Cardiología',
+            }),
+        ];
+
+        const directory = buildDoctorDirectory(studies, saved);
+        expect(findDoctorByName(directory, 'Dra. Sofía Ruiz')?.specialty).toBe('Endocrinología');
+        expect(findDoctorByName(directory, 'Dr. Pablo Paz')?.specialty).toBe('Cardiología');
+    });
 });
 
 describe('DriveDoctorRepository', () => {

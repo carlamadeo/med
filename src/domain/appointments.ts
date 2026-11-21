@@ -1,6 +1,8 @@
 import type {Appointment, AppointmentDraft} from './models';
 import {isValidDate} from './utils';
 
+export const DEFAULT_APPOINTMENT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+
 export function validateAppointment(appointment: AppointmentDraft): string[] {
     const errors: string[] = [];
     if (!isValidDate(appointment.date)) errors.push('Ingresá una fecha válida.');
@@ -67,27 +69,6 @@ export async function googleCalendarEventId(appointmentId: string): Promise<stri
     return out;
 }
 
-export function googleCalendarReminderMinutes(appointment: AppointmentDraft): number[] {
-    const start = appointmentInstant(appointment);
-    if (!start) return [];
-    const [year, month, day] = appointment.date.split('-').map(Number);
-    if (!year || !month || !day) return [];
-    const seen = new Set<number>();
-    const result: number[] = [];
-    for (const deltaDays of [-7, -1]) {
-        const shifted = new Date(Date.UTC(year, month - 1, day + deltaDays));
-        const targetDate = shifted.toISOString().slice(0, 10);
-        const target = appointmentInstant({...appointment, date: targetDate, time: '11:00'});
-        if (!target) continue;
-        const minutes = Math.round((start.getTime() - target.getTime()) / 60_000);
-        if (Number.isInteger(minutes) && minutes >= 0 && minutes <= 40_320 && !seen.has(minutes)) {
-            seen.add(minutes);
-            result.push(minutes);
-        }
-    }
-    return result;
-}
-
 export interface GoogleCalendarEventPayload {
     id: string;
     status: 'confirmed';
@@ -98,7 +79,7 @@ export interface GoogleCalendarEventPayload {
     end: {dateTime: string; timeZone: string};
     reminders: {
         useDefault: false;
-        overrides: Array<{method: 'popup'; minutes: number}>;
+        overrides: [];
     };
 }
 
@@ -111,8 +92,15 @@ export function buildGoogleCalendarEvent(
         throw new Error('El turno no tiene una fecha y hora válidas.');
     }
     const end = new Date(start.getTime() + 30 * 60_000);
+    const professional = appointment.professional.trim();
     const location = cleanLocation(appointment.location);
     const specialty = appointment.specialty?.trim() || undefined;
+    const label = professional || specialty;
+    const summary = label
+        ? /^turno\b/i.test(label)
+            ? label
+            : `Turno ${label}`
+        : 'Turno médico';
     const notes = appointment.notes.trim();
     const descriptionLines = [
         specialty ? `Especialidad: ${specialty}` : '',
@@ -123,17 +111,14 @@ export function buildGoogleCalendarEvent(
     return {
         id: eventId,
         status: 'confirmed',
-        summary: appointment.professional.trim() || 'Turno médico',
+        summary,
         location: location ?? '',
         description: descriptionLines.join('\n'),
         start: {dateTime: start.toISOString(), timeZone: appointment.timeZone},
         end: {dateTime: end.toISOString(), timeZone: appointment.timeZone},
         reminders: {
             useDefault: false,
-            overrides: googleCalendarReminderMinutes(appointment).map((minutes) => ({
-                method: 'popup',
-                minutes,
-            })),
+            overrides: [],
         },
     };
 }

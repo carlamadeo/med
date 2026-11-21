@@ -4,7 +4,7 @@ import {appointmentStatus} from '@domain/appointments';
 import {normalize} from '@domain/utils';
 import type {Appointment} from '@domain/models';
 import {setEditingAppointment, setEditingConsultation, visibleAppointments} from '../state/store';
-import {deleteAppointment as removeAppointment, TIMEZONE_OPTIONS} from '../utils/appointmentEditor';
+import {deleteAppointment as removeAppointment} from '../utils/appointmentEditor';
 import {AppointmentStudies} from './AppointmentStudies';
 import {AppointmentPrescriptionDownload} from './AppointmentPrescriptionDownload';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
@@ -127,10 +127,6 @@ export function Appointments() {
                     .format(new Date(year, month - 1, 1))
                     .replace('.', '')
                 : '';
-            const timeZoneLabel =
-              item.timeZone === 'America/Argentina/Buenos_Aires' || item.timeZone === 'America/Buenos_Aires'
-                ? ''
-                : TIMEZONE_OPTIONS.find(option => option.value === item.timeZone)?.label ?? item.timeZone;
             const syncLabel =
               item.syncStatus === 'conflict'
                 ? 'Requiere revisión'
@@ -152,9 +148,7 @@ export function Appointments() {
                       {statusLabel}
                     </span>
                   </div>
-                  <p className="appointment-card-meta">
-                    {item.time}{timeZoneLabel && ` · ${timeZoneLabel}`}
-                  </p>
+                  <p className="appointment-card-meta">{item.time}</p>
                   {item.specialty && <p className="event-specialty">{item.specialty}</p>}
                   {item.location && <p className="appointment-location">{item.location}</p>}
                   {item.reason && <p className="appointment-notes">Motivo: {item.reason}</p>}

@@ -115,6 +115,9 @@ export function AutocompleteTextField({
                     }
                     if (!disabled && normalizedOptions.length > 0) setOpen(true);
                 }}
+                onClick={() => {
+                    if (!disabled && normalizedOptions.length > 0) setOpen(true);
+                }}
                 onKeyDown={(e: KeyboardEvent) => {
                     if (e.key === 'ArrowDown' && filtered.length > 0) {
                         e.preventDefault();

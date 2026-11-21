@@ -1,4 +1,4 @@
-import {buildGoogleCalendarEvent, googleCalendarEventId} from '@domain/appointments';
+import {DEFAULT_APPOINTMENT_TIME_ZONE, buildGoogleCalendarEvent, googleCalendarEventId} from '@domain/appointments';
 import type {Appointment} from '@domain/models';
 import {DriveError, DriveSessionError, type DriveClient} from './drive-api';
 
@@ -79,15 +79,13 @@ export class GoogleCalendarRepository {
             return stored.calendarId;
         }
 
-        const timeZone =
-            Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Argentina/Buenos_Aires';
         const created = await this.client
             .request(
                 `${CALENDAR_ROOT}calendars`,
                 this.client.jsonBody('POST', {
                     summary: CALENDAR_NAME,
                     description: CALENDAR_DESCRIPTION,
-                    timeZone,
+                    timeZone: DEFAULT_APPOINTMENT_TIME_ZONE,
                 }),
                 token,
             )

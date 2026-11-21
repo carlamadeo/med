@@ -3,7 +3,6 @@ import {render} from 'preact';
 import {act} from 'preact/test-utils';
 import {afterEach, expect, it, vi} from 'vitest';
 import {driveAppointmentRepo, driveAuth} from '@data';
-import {getTimeZoneOptions, normalizeTimeZone} from '@presentation/utils/appointmentEditor';
 import {fakeCalendarEvents, fakeCalendars} from './fake-calendar';
 import {$, mountPage} from './page';
 import {server} from './server';
@@ -20,17 +19,20 @@ it('creates a turn and preserves a zero cost', async () => {
     act(() => $('.appointments-head button').click());
     const form = document.querySelector<HTMLFormElement>('#appointment-form')!;
     expect(document.querySelector('#appointment-reminder')).toBeNull();
+    expect(document.querySelector('#appointment-timezone')).toBeNull();
+    expect(document.querySelector('#appointment-dialog')?.textContent).toContain('sin notificaciones');
+    expect(document.querySelector('#appointment-dialog')?.textContent).not.toContain('11:00');
     expect(document.querySelector('#appointment-dialog')?.textContent).not.toContain(
         'Activar recordatorios del navegador',
     );
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-20';
     (form.elements.namedItem('time') as HTMLInputElement).value = '10:30';
-    (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';
     (form.elements.namedItem('cost') as HTMLInputElement).value = '0';
     await act(async () => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
     await vi.waitFor(() => expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(false));
+    expect((await driveAppointmentRepo.list())[0]?.timeZone).toBe('America/Argentina/Buenos_Aires');
     expect(document.querySelector('.appointments')?.textContent).toContain('Importe: $0');
     expect(document.querySelector('.appointments')?.textContent).not.toContain('Agregar al calendario');
     expect(fakeCalendars()).toHaveLength(1);
@@ -39,6 +41,7 @@ it('creates a turn and preserves a zero cost', async () => {
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
         summary: 'Turno médico',
         status: 'confirmed',
+        reminders: {useDefault: false, overrides: []},
     });
 });
 
@@ -49,7 +52,6 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     const form = document.querySelector<HTMLFormElement>('#appointment-form')!;
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-25';
     (form.elements.namedItem('time') as HTMLInputElement).value = '14:30';
-    (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';
     (form.elements.namedItem('professional') as HTMLInputElement).value = 'Dra. Perez';
     (form.elements.namedItem('specialty') as HTMLInputElement).value = 'Cardiología';
     (form.elements.namedItem('location') as HTMLInputElement).value = 'Av. Santa Fe 1234';
@@ -66,15 +68,12 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     const cal = fakeCalendars()[0]!;
     expect(cal.summary).toBe('Turnos');
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
-        summary: 'Dra. Perez',
+        summary: 'Turno Dra. Perez',
         location: 'Av. Santa Fe 1234',
         description: 'Especialidad: Cardiología\nLugar: Av. Santa Fe 1234',
         reminders: {
             useDefault: false,
-            overrides: [
-                {method: 'popup', minutes: 10290},
-                {method: 'popup', minutes: 1650},
-            ],
+            overrides: [],
         },
     });
 
@@ -93,13 +92,11 @@ it('syncs appointment location, doctor, edits and deletes with Google Calendar',
     expect($('.appointments').textContent).toContain('Sede Belgrano');
     expect((await driveAppointmentRepo.list())[0]?.reason).toBeUndefined();
     expect(fakeCalendarEvents(cal.id)[0]).toMatchObject({
+        summary: 'Turno Dra. Perez',
         location: 'Sede Belgrano',
         reminders: {
             useDefault: false,
-            overrides: [
-                {method: 'popup', minutes: 10320},
-                {method: 'popup', minutes: 1680},
-            ],
+            overrides: [],
         },
     });
 
@@ -126,7 +123,6 @@ it('preserves the appointment in Drive and warns inside the dialog if Google Cal
     const form = document.querySelector<HTMLFormElement>('#appointment-form')!;
     (form.elements.namedItem('date') as HTMLInputElement).value = '2026-11-25';
     (form.elements.namedItem('time') as HTMLInputElement).value = '14:30';
-    (form.elements.namedItem('timeZone') as HTMLInputElement).value = 'America/Argentina/Buenos_Aires';
     (form.elements.namedItem('professional') as HTMLInputElement).value = 'Dra. Perez';
     (form.elements.namedItem('location') as HTMLInputElement).value = 'Av. Santa Fe 1234';
     await act(async () => {
@@ -140,12 +136,4 @@ it('preserves the appointment in Drive and warns inside the dialog if Google Cal
     expect($<HTMLDialogElement>('#appointment-dialog').open).toBe(true);
     expect($('.appointments').textContent).toContain('Dra. Perez');
     expect($('.appointments').textContent).toContain('Av. Santa Fe 1234');
-});
-
-it('normalizes legacy Buenos Aires timezone alias to the labeled option', () => {
-    expect(normalizeTimeZone('America/Buenos_Aires')).toBe('America/Argentina/Buenos_Aires');
-    expect(getTimeZoneOptions('America/Buenos_Aires')[0]).toEqual({
-        value: 'America/Argentina/Buenos_Aires',
-        label: 'Buenos Aires (GMT-3)',
-    });
 });

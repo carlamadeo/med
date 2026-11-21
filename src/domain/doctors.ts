@@ -51,16 +51,27 @@ export function buildDoctorDirectory(
     studies: readonly Study[],
     savedDoctors: readonly Doctor[],
 ): DoctorDirectoryEntry[] {
-    const counts = new Map<string, { name: string; studyCount: number }>();
+    const counts = new Map<string, {name: string; studyCount: number; specialty?: string; specialtyDate: string}>();
     for (const study of studies) {
         const name = cleanDoctorName(study.doctor);
         const key = normalizeDoctorName(name);
         if (!key) continue;
+        const specialty = cleanSpecialty(study.specialty);
+        const studyDate = study.date ?? '';
         const existing = counts.get(key);
         if (existing) {
             existing.studyCount += 1;
+            if (specialty && (!existing.specialty || studyDate >= existing.specialtyDate)) {
+                existing.specialty = specialty;
+                existing.specialtyDate = studyDate;
+            }
         } else {
-            counts.set(key, {name, studyCount: 1});
+            counts.set(key, {
+                name,
+                studyCount: 1,
+                specialty,
+                specialtyDate: specialty ? studyDate : '',
+            });
         }
     }
 
@@ -72,14 +83,15 @@ export function buildDoctorDirectory(
         const key = normalizeDoctorName(name);
         if (!key) continue;
         seenKeys.add(key);
+        const info = counts.get(key);
         const addresses = orderedDoctorAddresses(doctor);
         entries.push({
             key,
             name,
-            specialty: cleanSpecialty(doctor.specialty),
+            specialty: cleanSpecialty(doctor.specialty) ?? info?.specialty,
             addresses,
             defaultAddress: addresses[0],
-            studyCount: counts.get(key)?.studyCount ?? 0,
+            studyCount: info?.studyCount ?? 0,
             doctor,
         });
     }
@@ -89,6 +101,7 @@ export function buildDoctorDirectory(
         entries.push({
             key,
             name: info.name,
+            specialty: info.specialty,
             addresses: [],
             studyCount: info.studyCount,
         });

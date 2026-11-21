@@ -18,7 +18,7 @@ function AppointmentDetails({value}: { value: AppointmentDraft }) {
     const coverages = {all: 'Total', partial: 'Parcial', none: 'Sin cobertura'};
     const titles = value.studyIds?.map(id => studies.value.find(study => study.id === id)?.title ?? 'Estudio no disponible');
     return <>
-        <p>Fecha y hora: {value.date} {value.time} · {value.timeZone}</p>
+        <p>Fecha y hora: {value.date} {value.time}</p>
         <p>Profesional: {value.professional || '—'}</p>
         {value.specialty && <p>Especialidad: {value.specialty}</p>}
         {value.location && <p>Lugar: {value.location}</p>}
