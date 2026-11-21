@@ -60,8 +60,9 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
     const dialog = useRef<HTMLDialogElement>(null);
     const cancelled = useRef(false);
     const busy = useRef(false);
-    const latestSources = useRef(sources);
-    latestSources.current = sources;
+    const currentSources = new Map(sources.map(source => [source.key, source]));
+    const latestSources = useRef(currentSources);
+    latestSources.current = currentSources;
     const shareData: ShareData | null = prepared && {
         files: prepared.files.length ? prepared.files : undefined,
         text: prepared.links.join('\n') || undefined,
@@ -93,10 +94,9 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
 
     function assertSelection() {
         if (owner.current === null || driveAuth.cachedAccountId() !== owner.current) throw new DriveSessionError();
-        const latest = new Map(latestSources.current.map(source => [source.key, source]));
         if (preview.some(source => {
             if (!selected.has(source.key)) return false;
-            const current = latest.get(source.key);
+            const current = latestSources.current.get(source.key);
             return !current || current.href !== source.href ||
                 (source.kind === 'attachment' && (current.kind !== 'attachment' ||
                     current.study.revision !== source.study.revision));
@@ -190,25 +190,34 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
                 <fieldset className="appointment-study-picker" disabled={action !== null}>
                     <legend>Fuentes de los estudios del turno</legend>
                     <div className="appointment-study-options">
-                        {preview.map(source => (
-                            <label key={source.key}>
-                                <input type="checkbox" data-source={source.kind} checked={selected.has(source.key)}
-                                       onChange={event => {
-                                           const checked = event.currentTarget.checked;
-                                           setPrepared(null);
-                                           setError('');
-                                           setSelected(previous => {
-                                               const next = new Set(previous);
-                                               if (checked) next.add(source.key);
-                                               else next.delete(source.key);
-                                               return next;
-                                           });
-                                       }}/>
-                                <span>
-                                    {source.title} · {source.kind === 'attachment' ? studyAttachmentLabel(source.study) : 'Enlace al visor'}
-                                </span>
-                            </label>
-                        ))}
+                        {preview.map(source => {
+                            const action = source.kind === 'attachment' ? studyAttachmentLabel(source.study) : 'Abrir visor';
+                            return (
+                                <div key={source.key} className="consultation-source">
+                                    <label>
+                                        <input type="checkbox" data-source={source.kind} checked={selected.has(source.key)}
+                                               onChange={event => {
+                                                   const checked = event.currentTarget.checked;
+                                                   setPrepared(null);
+                                                   setError('');
+                                                   setSelected(previous => {
+                                                       const next = new Set(previous);
+                                                       if (checked) next.add(source.key);
+                                                       else next.delete(source.key);
+                                                       return next;
+                                                   });
+                                               }}/>
+                                        <span>
+                                            {source.title} · {source.kind === 'attachment' ? action : 'Enlace al visor'}
+                                        </span>
+                                    </label>
+                                    {currentSources.get(source.key)?.href === source.href && (
+                                        <a href={source.href} target="_blank" rel="noopener noreferrer"
+                                           aria-label={`${action} de ${source.title}`}>{action}</a>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </fieldset>
                 <p className="appointment-note" role="status">

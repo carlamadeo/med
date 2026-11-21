@@ -328,16 +328,14 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
                     </span>
                 )}
                 <div className="portal-card-actions">
-                    {studyCount > 0 && (
-                        <button
-                            className="button secondary button-sm"
-                            type="button"
-                            aria-label={`Ver estudios de ${docName}`}
-                            onClick={() => onViewStudies(docName)}
-                        >
-                            Ver estudios
-                        </button>
-                    )}
+                    <button
+                        className="button secondary button-sm card-studies-action"
+                        type="button"
+                        aria-label={`Ver estudios de ${docName}`}
+                        onClick={() => onViewStudies(docName)}
+                    >
+                        Ver estudios
+                    </button>
                     <button
                         className="button ghost button-sm"
                         type="button"

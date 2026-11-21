@@ -1,6 +1,5 @@
-import type {VNode} from 'preact';
 import {useState} from 'preact/hooks';
-import {filterStudiesByQuery, formatStudyDate, hasStudyAttachment, reportUrl, studyAttachmentLabel} from '@domain/library';
+import {filterStudiesByQuery, formatStudyDate, hasStudyAttachment, reportUrl} from '@domain/library';
 import type {Study} from '@domain/models';
 import {isLocalDemo, isSourceUnavailable, offline, pendingChanges, studies} from '../state/store';
 import {ConsultationPackageDialog, type ConsultationSource} from './ConsultationPackageDialog';
@@ -73,107 +72,53 @@ export function AppointmentStudyPicker({studyIds = [], disabled}: AppointmentStu
     );
 }
 
-interface AppointmentStudiesProps {
-    studyIds?: readonly string[];
-    renderCard: (studyList: VNode | null, prepareAction: VNode | null) => VNode;
-}
-
-export function AppointmentStudies({studyIds, renderCard}: AppointmentStudiesProps) {
+export function PrepareAppointment({studyIds}: {studyIds?: readonly string[]}) {
     const [preparing, setPreparing] = useState(false);
-    if (!studyIds?.length) return renderCard(null, null);
-    const byId = new Map(studies.value.map(study => [study.id, study]));
-    const pending = pendingChanges.value;
-    const isOffline = offline.value;
-    const changedAttachments = new Set(pending.filter(entry => entry.kind === 'delete' ||
-        entry.attachment || entry.draft?.removeReport).map(entry => entry.studyId));
-    const deletedStudies = new Set(pending.filter(entry => entry.kind === 'delete').map(entry => entry.studyId));
-    const changedViewers = new Set(pending.filter(entry => entry.kind === 'save' && entry.studyId &&
-        entry.draft && entry.draft.viewer !== byId.get(entry.studyId)?.viewer).map(entry => entry.studyId));
-    const attachments = new Map<string, ConsultationSource>();
-    const viewers = new Map<string, ConsultationSource>();
-    const addAttachment = (document: Study) => {
-        const key = `attachment:${document.driveFileId}`;
-        if (attachments.has(key)) return false;
-        attachments.set(key, {
-            key, kind: 'attachment', study: document, title: document.title, href: reportUrl(document.driveFileId),
-        });
-        return true;
-    };
-    const rows = [...new Set(studyIds)].map(id => {
-        const study = byId.get(id);
-        if (!study) return <li key={id}>Estudio no disponible</li>;
-        if (deletedStudies.has(id)) return (
-            <li key={id}>
-                <span>{study.title}</span>
-                <span className="appointment-study-note">Eliminación pendiente de sincronización</span>
-            </li>
-        );
+    if (!studyIds?.length || isLocalDemo.value) return null;
 
-        const pendingFileChange = changedAttachments.has(id);
-        const hasAttachment = hasStudyAttachment(study);
-        const associated = [...new Set(study.documentIds ?? [])];
-        const attachmentNote = pendingFileChange ? 'Archivo pendiente de sincronización'
-            : !hasAttachment ? (study.viewer || associated.length ? null : 'Sin archivo adjunto')
-                : isSourceUnavailable(study.driveFileId) ? 'Archivo no disponible'
-                    : isOffline ? 'Conectate para abrir el archivo' : null;
-        const viewerNote = changedViewers.has(id) ? 'Visor pendiente de sincronización'
-            : !study.viewer ? null
-                : isSourceUnavailable(study.viewer) ? 'Visor no disponible'
-                    : isOffline ? 'Conectate para abrir el visor' : null;
-        const showAttachment = hasAttachment && !attachmentNote && addAttachment(study);
-        const viewerKey = `viewer:${study.viewer}`;
-        const showViewer = study.viewer && !viewerNote && !viewers.has(viewerKey);
-        if (showViewer) {
-            viewers.set(viewerKey, {
-                key: viewerKey, kind: 'viewer', title: study.title, href: study.viewer,
-            });
+    const sources: ConsultationSource[] = [];
+    if (!offline.value) {
+        const byId = new Map(studies.value.map(study => [study.id, study]));
+        const pending = pendingChanges.value;
+        const changedAttachments = new Set(pending.filter(entry => entry.kind === 'delete' ||
+            entry.attachment || entry.draft?.removeReport).map(entry => entry.studyId));
+        const deletedStudies = new Set(pending.filter(entry => entry.kind === 'delete').map(entry => entry.studyId));
+        const changedViewers = new Set(pending.filter(entry => entry.kind === 'save' && entry.studyId &&
+            entry.draft && entry.draft.viewer !== byId.get(entry.studyId)?.viewer).map(entry => entry.studyId));
+        const attachments = new Map<string, ConsultationSource>();
+        const viewers = new Map<string, ConsultationSource>();
+
+        function addAttachment(study: Study | undefined) {
+            if (!study || changedAttachments.has(study.id) || !hasStudyAttachment(study) ||
+                isSourceUnavailable(study.driveFileId)) return;
+            const key = `attachment:${study.driveFileId}`;
+            if (!attachments.has(key)) {
+                attachments.set(key, {
+                    key, kind: 'attachment', study, title: study.title, href: reportUrl(study.driveFileId),
+                });
+            }
         }
 
-        return (
-            <li key={id}>
-                <span>{study.title}</span>
-                {attachmentNote && <span className="appointment-study-note">{attachmentNote}</span>}
-                {showAttachment && (
-                    <a href={reportUrl(study.driveFileId)} target="_blank" rel="noopener noreferrer"
-                       aria-label={`${studyAttachmentLabel(study)} de ${study.title}`}>
-                        {studyAttachmentLabel(study)}
-                    </a>
-                )}
-                {viewerNote && <span className="appointment-study-note">{viewerNote}</span>}
-                {showViewer && (
-                    <a href={study.viewer} target="_blank" rel="noopener noreferrer"
-                       aria-label={`Abrir visor de ${study.title}`}>Abrir visor</a>
-                )}
-                {associated.map(documentId => {
-                    const document = byId.get(documentId);
-                    const pendingDocument = changedAttachments.has(documentId);
-                    const label = document?.title ?? 'Documento asociado';
-                    if (pendingDocument) return <span key={documentId} className="appointment-study-note">{label} · Pendiente de sincronización</span>;
-                    if (!document || !hasStudyAttachment(document) || isSourceUnavailable(document.driveFileId)) {
-                        return <span key={documentId} className="appointment-study-note">{label} · Archivo no disponible</span>;
-                    }
-                    if (isOffline) return <span key={documentId} className="appointment-study-note">{label} · Conectate para abrir el archivo</span>;
-                    if (!addAttachment(document)) return null;
-                    const action = studyAttachmentLabel(document);
-                    return <a key={documentId} href={reportUrl(document.driveFileId)} target="_blank"
-                              rel="noopener noreferrer" aria-label={`${action} de ${label}`}>{action} · {label}</a>;
-                })}
-            </li>
-        );
-    });
-    const sources = [...attachments.values(), ...viewers.values()];
+        for (const id of studyIds) {
+            const study = byId.get(id);
+            if (!study || deletedStudies.has(id)) continue;
+            addAttachment(study);
+            for (const documentId of study.documentIds ?? []) addAttachment(byId.get(documentId));
 
-    const studyList = (
-        <div className="appointment-studies">
-            <p>Estudios para llevar</p>
-            <ul className="appointment-study-list">
-                {rows}
-            </ul>
-        </div>
-    );
-    const prepareAction = (
+            if (study.viewer && !changedViewers.has(id) && !isSourceUnavailable(study.viewer)) {
+                const key = `viewer:${study.viewer}`;
+                if (!viewers.has(key)) {
+                    viewers.set(key, {key, kind: 'viewer', title: study.title, href: study.viewer});
+                }
+            }
+        }
+
+        sources.push(...attachments.values(), ...viewers.values());
+    }
+
+    return (
         <>
-            {sources.length > 0 && !isLocalDemo.value && (
+            {sources.length > 0 && (
                 <button
                     type="button"
                     className="button ghost button-sm appointment-prepare"
@@ -185,6 +130,4 @@ export function AppointmentStudies({studyIds, renderCard}: AppointmentStudiesPro
             {preparing && <ConsultationPackageDialog sources={sources} onClose={() => setPreparing(false)}/>}
         </>
     );
-
-    return renderCard(studyList, prepareAction);
 }

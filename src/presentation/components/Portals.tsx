@@ -283,7 +283,9 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                                     )}
                                 </div>
                                 <div className="portal-card-actions">
-                                    <button className="button secondary button-sm" type="button" onClick={() => onViewStudies(portal.name)}>Ver estudios
+                                    <button className="button secondary button-sm card-studies-action" type="button"
+                                            aria-label={`Ver estudios de ${portal.displayName}`}
+                                            onClick={() => onViewStudies(portal.name)}>Ver estudios
                                     </button>
                                     <button className="button ghost button-sm" type="button"
                                             onClick={() => openEdit(portal)}>Editar
