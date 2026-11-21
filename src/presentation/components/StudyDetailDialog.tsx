@@ -14,8 +14,18 @@ interface StudyDetailDialogProps {
 
 export function StudyDetailDialog({study, returnFocus, onClose, onEdit, onDelete}: StudyDetailDialogProps) {
     const dialog = useRef<HTMLDialogElement>(null);
-    const attachmentAvailable = hasStudyAttachment(study) && study.driveFileId && !isSourceUnavailable(study.driveFileId);
+    const hasAttachment = hasStudyAttachment(study);
+    const attachmentAvailable = hasAttachment && study.driveFileId && !isSourceUnavailable(study.driveFileId);
     const viewerAvailable = study.viewer && !isSourceUnavailable(study.viewer);
+    const copies = [
+        {
+            label: 'Informe',
+            hasSource: hasAttachment || study.pendingAttachment,
+            printed: study.printed?.report,
+            status: 'Impreso',
+        },
+        {label: 'Imagen', hasSource: Boolean(study.viewer), printed: study.printed?.image, status: 'Impresa'},
+    ].filter(({hasSource, printed}) => hasSource || printed);
     const operation = operations.value.find(item => item.id === study.operationId);
     const archive = studies.value;
     const documentIds = study.documentIds ?? [];
@@ -69,7 +79,7 @@ export function StudyDetailDialog({study, returnFocus, onClose, onEdit, onDelete
                             {studyAttachmentName(study)}
                         </a>
                     ) : study.pendingAttachment ? 'Adjunto pendiente de sincronización'
-                        : hasStudyAttachment(study) ? 'Archivo adjunto no disponible' : 'Sin archivo adjunto'}</li>
+                        : hasAttachment ? 'Archivo adjunto no disponible' : 'Sin archivo adjunto'}</li>
                     <li>{viewerAvailable ? <a href={study.viewer} target="_blank" rel="noopener noreferrer">Abrir visor</a>
                         : study.viewer ? 'Visor no disponible' : 'Sin enlace al visor'}</li>
                 </ul>
@@ -88,23 +98,22 @@ export function StudyDetailDialog({study, returnFocus, onClose, onEdit, onDelete
                     </ul>
                 </section>
             )}
-            <section className="study-detail-section" aria-labelledby="study-detail-copies">
-                <h3 id="study-detail-copies">Copias impresas</h3>
-                <ul className="study-detail-copy-list">
-                    {[
-                        {label: 'Informe', printed: study.printed?.report, status: 'Impreso'},
-                        {label: 'Imagen', printed: study.printed?.image, status: 'Impresa'},
-                    ].map(({label, printed, status}) => (
-                        <li key={label}>
-                            <span>{label}</span>
-                            <span className="status-pill" data-tone={printed ? 'success' : 'neutral'}>
-                                {printed && <svg className="icon" aria-hidden="true"><use href="#i-check"/></svg>}
-                                {printed ? status : 'Sin registro'}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            </section>
+            {copies.length > 0 && (
+                <section className="study-detail-section" aria-labelledby="study-detail-copies">
+                    <h3 id="study-detail-copies">Copias impresas</h3>
+                    <ul className="study-detail-copy-list">
+                        {copies.map(({label, printed, status}) => (
+                            <li key={label}>
+                                <span>{label}</span>
+                                <span className="status-pill" data-tone={printed ? 'success' : 'neutral'}>
+                                    {printed && <svg className="icon" aria-hidden="true"><use href="#i-check"/></svg>}
+                                    {printed ? status : 'Sin registro'}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
             <div className="dialog-actions">
                 <button className="button danger" type="button" disabled={Boolean(study.syncStatus)}
                         onClick={() => { close(); onDelete(study); }}>Eliminar</button>

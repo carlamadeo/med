@@ -190,10 +190,6 @@
     color: var(--color-text-secondary);
 }
 
-.library-table a.study-source:not(:hover) {
-    background: var(--color-surface-hover);
-}
-
 .library-table span.study-source {
     background: transparent;
     opacity: 0.45;
