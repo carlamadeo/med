@@ -52,7 +52,7 @@ export interface LongestEpisode {
     end: string;
 }
 
-function filterEpisodesByPeriod(episodes: readonly Episode[], period: Period): Episode[] {
+export function filterEpisodesByPeriod(episodes: readonly Episode[], period: Period): Episode[] {
     if (period === 'all') return [...episodes];
     const now = new Date();
     let cutoff: Date;
