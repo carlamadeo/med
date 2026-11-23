@@ -41,11 +41,13 @@ sesión de la pestaña.
 1. Creá un repositorio en tu cuenta de GitHub y subí este código a la rama `main`. El sitio de Pages puede ser público:
    publica la interfaz, mientras que los datos de cada cuenta quedan en Drive. Para publicar desde un repositorio
    privado, verificá que tu plan de GitHub admita Pages en repositorios privados.
-2. En Google Cloud, creá un proyecto y habilitá **Google Drive API** y **Google Calendar API**. En **Google Auth Platform**, configurá la pantalla
+2. En Google Cloud, creá un proyecto y habilitá **Google Drive API** y **Google Calendar API**. En **Google Auth
+   Platform**, configurá la pantalla
    de autorización. Si la audiencia es externa y la app está en modo de prueba, agregá como usuaria de prueba la cuenta
    con la que vas a usar el archivo.
 3. Creá un cliente OAuth de tipo **Aplicación web**. En **Orígenes autorizados de JavaScript**, agregá el origen de la
-   página, por ejemplo `https://tu-usuario.github.io`, sin el nombre del repositorio al final. Los permisos de la app son
+   página, por ejemplo `https://tu-usuario.github.io`, sin el nombre del repositorio al final. Los permisos de la app
+   son
    `https://www.googleapis.com/auth/drive.file` y `https://www.googleapis.com/auth/calendar.app.created`.
 4. En GitHub, agregá el **ID de cliente** de Google como variable del repositorio llamada `GOOGLE_CLIENT_ID` en
    **Settings → Secrets and variables → Actions → Variables**. El ID es público. Esta app funciona sin el secreto del
@@ -57,7 +59,8 @@ sesión de la pestaña.
 
 ## Probar en la computadora
 
-Con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior, ejecutá `npm ci`, `npm run build` y `npm start`. La vista previa abre en `http://localhost:4173`. Para
+Con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior, ejecutá `npm ci`, `npm run build` y `npm start`.
+La vista previa abre en `http://localhost:4173`. Para
 probar con Drive real, agregá `http://localhost` y `http://localhost:4173` al cliente OAuth y pasá su ID al compilar:
 
 ```sh

@@ -5,7 +5,15 @@ import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import {formatStudyDate, sortStudies} from '@domain/library';
 import type {Operation, OperationDraft, Study} from '@domain/models';
-import {isLocalDemo, operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
+import {
+    isLocalDemo,
+    operations,
+    visibleOperations,
+    studies,
+    view,
+    resetLibraryFilters,
+    libraryOperation
+} from '../state/store';
 import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {OperationStudyLinks} from './OperationStudyLinks';
@@ -457,16 +465,23 @@ export function Operations() {
 
                 <fieldset disabled={busy}>
                     <div className="operation-form-grid">
-                        <label><span className="field-label">Nombre <small>(obligatorio)</small></span> <input id="operation-name" name="name" required maxLength={120}
-                                             defaultValue={editing?.name ?? ''}/></label>
-                        <label><span className="field-label">Fecha <small>(obligatoria)</small></span> <input id="operation-date" name="date" type="date" required
-                                            defaultValue={editing?.date ?? ''}/></label>
-                        <label><span className="field-label">Cirujano <small aria-hidden="true">Opcional</small></span> <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
-                        <label><span className="field-label">Institución <small aria-hidden="true">Opcional</small></span> <input name="institution" defaultValue={editing?.institution ?? ''}/></label>
-                        <label className="wide"><span className="field-label">Procedimiento <small>(obligatorio)</small></span> <input id="operation-type" name="type" required
-                                                                     defaultValue={editing?.type ?? ''}/></label>
-                        <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea name="notes"
-                                                                defaultValue={editing?.notes ?? ''}/></label>
+                        <label><span className="field-label">Nombre <small>(obligatorio)</small></span> <input
+                            id="operation-name" name="name" required maxLength={120}
+                            defaultValue={editing?.name ?? ''}/></label>
+                        <label><span className="field-label">Fecha <small>(obligatoria)</small></span> <input
+                            id="operation-date" name="date" type="date" required
+                            defaultValue={editing?.date ?? ''}/></label>
+                        <label><span className="field-label">Cirujano <small aria-hidden="true">Opcional</small></span>
+                            <input name="surgeon" defaultValue={editing?.surgeon ?? ''}/></label>
+                        <label><span className="field-label">Institución <small
+                            aria-hidden="true">Opcional</small></span> <input name="institution"
+                                                                              defaultValue={editing?.institution ?? ''}/></label>
+                        <label className="wide"><span className="field-label">Procedimiento <small>(obligatorio)</small></span>
+                            <input id="operation-type" name="type" required
+                                   defaultValue={editing?.type ?? ''}/></label>
+                        <label className="wide"><span className="field-label">Notas <small
+                            aria-hidden="true">Opcional</small></span> <textarea name="notes"
+                                                                                 defaultValue={editing?.notes ?? ''}/></label>
                     </div>
                     {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                     <div className="dialog-actions">

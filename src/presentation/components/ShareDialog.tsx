@@ -681,11 +681,16 @@ export function ShareDialog({onReconnect, onPrint, error, busy, sessionLost}: Sh
                             onClick={handleCancel}>Cancelar
                     </button>
                     {onPrint && study && attachmentAvailable && study.driveFileId && !isSourceUnavailable(study.driveFileId) && !prepared && (
-                        <button type="button" className="button secondary" disabled={busy || sessionLost || preparing || zipping}
+                        <button type="button" className="button secondary"
+                                disabled={busy || sessionLost || preparing || zipping}
                                 onClick={() => {
                                     handleClose();
                                     onPrint(study);
-                                }}><svg className="icon" aria-hidden="true"><use href="#i-print"/></svg>Imprimir archivo</button>
+                                }}>
+                            <svg className="icon" aria-hidden="true">
+                                <use href="#i-print"/>
+                            </svg>
+                            Imprimir archivo</button>
                     )}
                     {directViewerText && (
                         <div className="share-links">
@@ -724,10 +729,12 @@ export function ShareDialog({onReconnect, onPrint, error, busy, sessionLost}: Sh
                         {preparedViewerText && (
                             <div className="share-links">
                                 <a className="button secondary button-sm"
-                                   href={`https://wa.me/?text=${encodeURIComponent(preparedViewerText)}`} target="_blank"
+                                   href={`https://wa.me/?text=${encodeURIComponent(preparedViewerText)}`}
+                                   target="_blank"
                                    rel="noopener noreferrer">Abrir WhatsApp con enlace</a>
                                 <a className="button secondary button-sm"
-                                   href={`mailto:?body=${encodeURIComponent(preparedViewerText)}`}>Abrir correo con enlace</a>
+                                   href={`mailto:?body=${encodeURIComponent(preparedViewerText)}`}>Abrir correo con
+                                    enlace</a>
                             </div>
                         )}
                         <button type="button" className="button primary" id="share-send"

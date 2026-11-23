@@ -39,7 +39,7 @@ import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
-export function Portals({onViewStudies}: {onViewStudies: (portal: string) => void}) {
+export function Portals({onViewStudies}: { onViewStudies: (portal: string) => void }) {
     const [editing, setEditing] = useState<Portal | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -334,10 +334,12 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                         <div className="portal-form-grid">
                             <label>Nombre <input id="portal-name" name="name" required maxLength={120}
                                                  defaultValue={editing?.displayName ?? ''}/></label>
-                            <label><span className="field-label">Enlace <small aria-hidden="true">Opcional</small></span> <input id="portal-url" name="url" type="url"
-                                                 defaultValue={editing?.url ?? ''}/></label>
-                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea name="notes"
-                                                                    defaultValue={editing?.notes ?? ''}/></label>
+                            <label><span className="field-label">Enlace <small
+                                aria-hidden="true">Opcional</small></span> <input id="portal-url" name="url" type="url"
+                                                                                  defaultValue={editing?.url ?? ''}/></label>
+                            <label className="wide"><span className="field-label">Notas <small
+                                aria-hidden="true">Opcional</small></span> <textarea name="notes"
+                                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
                         {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                         <div className="dialog-actions">

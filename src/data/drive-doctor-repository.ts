@@ -10,7 +10,8 @@ const MARKER = 'medico-v1';
 const ENTRY_FIELDS = 'id,description,version,modifiedTime,mimeType,trashed,appProperties';
 
 export class DriveDoctorRepository {
-    constructor(private client: DriveClient) {}
+    constructor(private client: DriveClient) {
+    }
 
     private parse(file: DriveFileResponse): Doctor & { id: string; revision: string } {
         if (!ID_PATTERN.test(file.id) || file.trashed || file.appProperties?.misEstudios !== MARKER) {

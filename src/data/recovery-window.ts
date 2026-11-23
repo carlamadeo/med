@@ -8,7 +8,7 @@ export function isRecoverable(deletedAt: string, now = Date.now()): boolean {
     return Number.isFinite(age) && age >= 0 && age < 30 * 86400000;
 }
 
-export interface RestoreDriveRecordOptions<T extends {id: string}> {
+export interface RestoreDriveRecordOptions<T extends { id: string }> {
     client: DriveClient;
     id: string;
     revision: string;
@@ -24,7 +24,7 @@ export interface RestoreDriveRecordOptions<T extends {id: string}> {
 }
 
 /** Restores a trashed Drive record after verifying revision, ownership, and recovery window. */
-export async function restoreDriveRecord<T extends {id: string}>(
+export async function restoreDriveRecord<T extends { id: string }>(
     options: RestoreDriveRecordOptions<T>,
 ): Promise<T> {
     const {
@@ -73,7 +73,7 @@ export async function restoreDriveRecord<T extends {id: string}>(
     if (onRestored) {
         await onRestored(owner, record);
     }
-    await storage.updateSessionDirectory<{id: string}>(owner, deletedCacheKey, (cached) =>
+    await storage.updateSessionDirectory<{ id: string }>(owner, deletedCacheKey, (cached) =>
         cached ? cached.filter(item => item.id !== id) : null,
     );
     return record;

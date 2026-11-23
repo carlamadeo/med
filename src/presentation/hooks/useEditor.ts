@@ -73,7 +73,19 @@ export function useEditor({
         removeReport: false, operationId: study?.operationId ?? '', documentIds: study?.documentIds ?? [],
         printed: study?.printed ?? {report: false, image: false},
     });
-    const {title, date, doctor, specialty, portal, viewer, types, removeReport, operationId, documentIds, printed} = draft.value;
+    const {
+        title,
+        date,
+        doctor,
+        specialty,
+        portal,
+        viewer,
+        types,
+        removeReport,
+        operationId,
+        documentIds,
+        printed
+    } = draft.value;
     const setField = <K extends keyof typeof draft.value>(key: K) => (value: (typeof draft.value)[K]) => {
         draft.value = {...draft.value, [key]: value};
     };

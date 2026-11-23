@@ -5,29 +5,31 @@ Gracias por tu interés en contribuir. Este documento describe el flujo de traba
 ## Configuración del entorno
 
 ### Requisitos
+
 - Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior
 - npm (incluido con Node.js)
 
 ### Instalación
+
 ```bash
 npm ci
 ```
 
 ## Scripts principales
 
-| Comando | Descripción |
-|---------|-------------|
-| `npm run dev` | Inicia servidor de desarrollo Vite |
-| `npm run build` | Type-check + build de producción |
-| `npm run typecheck` | Verifica tipos TypeScript (`tsc --noEmit`) |
-| `npm run lint` | Ejecuta ESLint y Stylelint |
-| `npm test` | Ejecuta pruebas unitarias (Vitest) |
-| `npm run test:coverage` | Pruebas con cobertura |
-| `npm run test:e2e` | Pruebas end-to-end (Playwright) |
-| `npm run test:offline` | Pruebas de recarga sin conexión |
-| `npm run test:outbox` | Pruebas de sincronización/cola |
-| `npm run test:lighthouse` | Métricas Lighthouse |
-| `npm run docs:api` | Genera documentación API (TypeDoc) |
+| Comando                   | Descripción                                |
+|---------------------------|--------------------------------------------|
+| `npm run dev`             | Inicia servidor de desarrollo Vite         |
+| `npm run build`           | Type-check + build de producción           |
+| `npm run typecheck`       | Verifica tipos TypeScript (`tsc --noEmit`) |
+| `npm run lint`            | Ejecuta ESLint y Stylelint                 |
+| `npm test`                | Ejecuta pruebas unitarias (Vitest)         |
+| `npm run test:coverage`   | Pruebas con cobertura                      |
+| `npm run test:e2e`        | Pruebas end-to-end (Playwright)            |
+| `npm run test:offline`    | Pruebas de recarga sin conexión            |
+| `npm run test:outbox`     | Pruebas de sincronización/cola             |
+| `npm run test:lighthouse` | Métricas Lighthouse                        |
+| `npm run docs:api`        | Genera documentación API (TypeDoc)         |
 
 ## Estructura del proyecto
 
@@ -43,25 +45,30 @@ src/
 ## Convenciones de código
 
 ### TypeScript
+
 - Usa `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride` (ya en `tsconfig.json`)
 - Imports de solo tipo con `import type` (forzado por ESLint)
 - Alias de ruta: `@/`, `@domain/`, `@data/`, `@core/`, `@presentation/`, `@workers/`
 
 ### Estilo (Prettier)
+
 - 2 espacios, comillas simples, punto y coma, ancho 100 caracteres
 - Ejecuta `npm run lint` antes del commit para verificar ESLint y Stylelint
 
 ### Nomenclatura
+
 - **Componentes**: PascalCase (`StudyRow.tsx`)
 - **Dominio/Datos/Tests**: kebab-case descriptivo (`drive-study-repository.ts`)
 - **CSS**: Tokens de diseño existentes, consistentes con Stylelint
 
 ### Estado
+
 - **Compartido**: Preact Signals (`src/presentation/state/`)
 - **Derivado**: `computed` signals
 - **Local de formulario**: `useState` / `useReducer` en el componente
 
 ### Reglas de negocio
+
 - Mantén reglas puras en `src/domain/` (independientes de Preact, DOM, Google APIs)
 - Repositorios detrás de interfaces en `src/domain/repository.ts`
 
@@ -78,11 +85,13 @@ src/
 Consulta la [guía de verificación](docs/verificacion.md) para elegir las pruebas según el flujo afectado.
 
 ### Unitarias (Vitest + jsdom)
+
 - Ubicación: `test/`
 - Setup: `test/setup.ts` (fake IndexedDB, MSW)
 - Cobertura mínima: 80% líneas/funciones/statements, 70% branches
 
 ### E2E (Playwright)
+
 - Configs: `playwright.config.ts`, `playwright.offline.config.ts`, `playwright.outbox.config.ts`
 - Perfiles: Chromium de escritorio, Chrome móvil emulado y WebKit con perfil de iPhone en las suites general y de cola.
   La suite offline usa Chromium de escritorio.
@@ -90,7 +99,9 @@ Consulta la [guía de verificación](docs/verificacion.md) para elegir las prueb
 ## Commits y PRs
 
 ### Mensajes de commit
+
 Imperativo, descriptivo:
+
 ```
 Refactor study list and filtering logic
 Fix offline queue conflict resolution
@@ -98,6 +109,7 @@ Add OCR fallback for scanned PDFs
 ```
 
 ### Pull Requests
+
 1. Explica el cambio y su motivación
 2. Lista checks ejecutados (`typecheck`, `lint`, `test`, `build`)
 3. Vincula issues relacionados

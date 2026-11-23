@@ -53,7 +53,7 @@ export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
 export const libraryPortal = signal('');
 export const libraryDoctor = signal('');
-export const libraryOperation = signal<{id: string; name: string} | null>(null);
+export const libraryOperation = signal<{ id: string; name: string } | null>(null);
 
 effect(() => {
     const currentView = view.value;

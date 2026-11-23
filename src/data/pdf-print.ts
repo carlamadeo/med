@@ -20,8 +20,11 @@ export async function renderPdfForPrint(file: File, signal: AbortSignal): Promis
         stopAtErrors: true,
     });
     let destroying: Promise<void> | undefined;
-    const destroy = () => destroying ??= loading.destroy().catch(() => {});
-    const abort = () => { void destroy(); };
+    const destroy = () => destroying ??= loading.destroy().catch(() => {
+    });
+    const abort = () => {
+        void destroy();
+    };
     signal.addEventListener('abort', abort, {once: true});
     const canvas = document.createElement('canvas');
     try {

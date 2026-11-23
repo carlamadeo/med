@@ -72,7 +72,7 @@ export function AppointmentStudyPicker({studyIds = [], disabled}: AppointmentStu
     );
 }
 
-export function PrepareAppointment({studyIds}: {studyIds?: readonly string[]}) {
+export function PrepareAppointment({studyIds}: { studyIds?: readonly string[] }) {
     const [preparing, setPreparing] = useState(false);
     if (!studyIds?.length || isLocalDemo.value) return null;
 

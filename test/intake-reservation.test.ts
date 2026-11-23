@@ -6,7 +6,15 @@ import {
     reserveIntakeDestination,
 } from '@data/intake-reservations';
 
-const draft = {title: 'Informe revisado', date: '2024-02-01', types: ['Otro'], doctor: 'Profesional', portal: '', viewer: '', reportName: ''};
+const draft = {
+    title: 'Informe revisado',
+    date: '2024-02-01',
+    types: ['Otro'],
+    doctor: 'Profesional',
+    portal: '',
+    viewer: '',
+    reportName: ''
+};
 
 it('reutiliza la reserva por cuenta y origen tras una respuesta incierta', async () => {
     localStorage.clear();
@@ -14,7 +22,10 @@ it('reutiliza la reserva por cuenta y origen tras una respuesta incierta', async
     expect(await reserveIntakeDestination('account', 'source', draft, reserve)).toBe('reserved');
     expect(await reserveIntakeDestination('account', 'source', draft, reserve)).toBe('reserved');
     expect(reserve).toHaveBeenCalledTimes(1);
-    await expect(reserveIntakeDestination('account', 'source', {...draft, title: 'Cambiado'}, reserve)).rejects.toThrow();
+    await expect(reserveIntakeDestination('account', 'source', {
+        ...draft,
+        title: 'Cambiado'
+    }, reserve)).rejects.toThrow();
     expect(await reserveIntakeDestination('another-account', 'source', draft, reserve)).toBe('reserved');
     localStorage.clear();
 });
@@ -39,7 +50,11 @@ it('migra solamente las reservas de la cuenta solicitada y conserva el identific
     expect(await listIntakeReservationSources(owner)).toEqual(['source']);
     expect(localStorage.getItem(oldKey)).toBeNull();
     expect(localStorage.getItem(otherKey)).not.toBeNull();
-    expect(await readIntakeReservation(owner, 'source')).toEqual({id: 'id-legado', fingerprint: 'huella-original', draft});
+    expect(await readIntakeReservation(owner, 'source')).toEqual({
+        id: 'id-legado',
+        fingerprint: 'huella-original',
+        draft
+    });
     expect(await readIntakeReservation(owner, 'missing')).toBeUndefined();
     await clearIntakeReservation(owner, 'source', 'otro-id');
     expect(await listIntakeReservationSources(owner)).toEqual(['source']);

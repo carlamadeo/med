@@ -6,7 +6,9 @@ import {cleanSpecialty} from '@domain/library';
 import type {Appointment, AppointmentDraft} from '@domain/models';
 import {validateDocument} from './pdf-analysis';
 
-type AppointmentDescription = Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> & {prescriptionName?: string};
+type AppointmentDescription = Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> & {
+    prescriptionName?: string
+};
 
 export class DriveAppointmentRepository {
     constructor(private client: DriveClient, private cacheWrites = true) {
@@ -22,7 +24,7 @@ export class DriveAppointmentRepository {
         const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
         const {mimeType} = file;
         const prescription: Appointment['prescription'] = typeof prescriptionName === 'string' && prescriptionName &&
-            (mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png')
+        (mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png')
             ? {name: prescriptionName, mimeType} : undefined;
         return {
             ...fields,
@@ -57,8 +59,10 @@ export class DriveAppointmentRepository {
         const token = expectedToken ?? await this.client.getAccessToken();
         await this.client.assertSession(token);
         const owner = this.cacheWrites ? await this.client.cacheOwner() : undefined;
-        const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds,
-            prescriptionFile, removePrescription} = draft;
+        const {
+            date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds,
+            prescriptionFile, removePrescription
+        } = draft;
         const specialty = cleanSpecialty(draft.specialty);
         const location = cleanLocation(draft.location);
         const reason = draft.reason?.trim();

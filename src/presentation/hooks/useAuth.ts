@@ -62,7 +62,7 @@ export function useAuth({
             directoriesReady.value = false;
             directoryWarning.value = false;
             directoryFailures.value = [];
-if (!signedIn) {
+            if (!signedIn) {
                 setIsSignedIn(false);
                 view.value = 'cronologia';
                 resetLibraryFilters();
@@ -116,7 +116,8 @@ if (!signedIn) {
                     // Clear editor error on successful reconnect
                     onEditorReconnect?.();
                     // Retry a failed migration when the account opens Bandeja.
-                    void listIntakeReservationSources(owner).catch(() => {});
+                    void listIntakeReservationSources(owner).catch(() => {
+                    });
                     await loadStudies();
                     if (sequence !== authSequence.current) return;
                     await loadDirectories();

@@ -28,23 +28,23 @@ interface AutocompleteTextFieldProps {
 }
 
 export function AutocompleteTextField({
-    id,
-    name,
-    label,
-    value,
-    onChange,
-    onSelect,
-    options,
-    placeholder,
-    listId,
-    maxLength = 120,
-    disabled = false,
-    required = false,
-    optional = true,
-    className,
-    autoComplete = 'off',
-    ariaDescribedBy,
-}: AutocompleteTextFieldProps) {
+                                          id,
+                                          name,
+                                          label,
+                                          value,
+                                          onChange,
+                                          onSelect,
+                                          options,
+                                          placeholder,
+                                          listId,
+                                          maxLength = 120,
+                                          disabled = false,
+                                          required = false,
+                                          optional = true,
+                                          className,
+                                          autoComplete = 'off',
+                                          ariaDescribedBy,
+                                      }: AutocompleteTextFieldProps) {
     const [open, setOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [fallbackId] = useState(() => `autocomplete-${++nextAutocompleteId}`);
@@ -154,7 +154,8 @@ export function AutocompleteTextField({
                 aria-describedby={ariaDescribedBy}
             />
             {open && !disabled && filtered.length > 0 && (
-                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox" aria-label={`Sugerencias de ${label}`}>
+                <ul id={listId} className="portal-autocomplete-dropdown" role="listbox"
+                    aria-label={`Sugerencias de ${label}`}>
                     {filtered.map((option, index) => (
                         <li key={option.value} role="option" aria-selected={index === activeIndex}>
                             <button

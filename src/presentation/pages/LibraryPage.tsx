@@ -353,7 +353,8 @@ export function LibraryPage() {
             if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
             if (draft.intakeSourceId && pendingOwner) {
                 // If storage is unavailable, Bandeja can still reconcile the confirmed upload later.
-                await clearIntakeReservation(pendingOwner, draft.intakeSourceId, saved.id).catch(() => {});
+                await clearIntakeReservation(pendingOwner, draft.intakeSourceId, saved.id).catch(() => {
+                });
                 if (await driveAuth.getAccessToken() !== token) throw new DriveSessionError();
             }
             invalidateStudies();
@@ -467,7 +468,8 @@ export function LibraryPage() {
                 <main className="wrap" id="main" role="main">
                     {isLocalDemo.value && (
                         <div className="demo-notice" role="status" aria-label="Modo de prueba local">
-                            <strong>Modo local de prueba:</strong> Estás probando la app sin conexión a Google Drive. Podés crear, ver, ordenar y filtrar estudios libremente.
+                            <strong>Modo local de prueba:</strong> Estás probando la app sin conexión a Google Drive.
+                            Podés crear, ver, ordenar y filtrar estudios libremente.
                         </div>
                     )}
                     <LibraryIntro onAddStudy={() => openEditor(null)} onImport={() => setImportOpen(true)}
@@ -481,7 +483,8 @@ export function LibraryPage() {
                             {' Los estudios disponibles siguen visibles. '}
                             {!isSummary && (
                                 <button className="button secondary button-sm" type="button"
-                                        disabled={offline.value} onClick={() => void loadStudies(true)}>Volver a consultar Drive</button>
+                                        disabled={offline.value} onClick={() => void loadStudies(true)}>Volver a
+                                    consultar Drive</button>
                             )}
                         </div>
                     )}
@@ -526,7 +529,9 @@ export function LibraryPage() {
                 </main>
             </AppShell>
             <AppointmentDialog/>
-            <StudyImportDialog key={importGeneration} open={importOpen} onClose={() => setImportOpen(false)} studies={studies.value} onSaved={study => setStudies([...studies.value.filter(item => item.id !== study.id), study])}/>
+            <StudyImportDialog key={importGeneration} open={importOpen} onClose={() => setImportOpen(false)}
+                               studies={studies.value}
+                               onSaved={study => setStudies([...studies.value.filter(item => item.id !== study.id), study])}/>
             <EditorDialog
                 onClose={() => {
                     setEditorOpen(false);

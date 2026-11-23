@@ -254,7 +254,7 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
 
     const entries = doctorDirectory.value;
     const normalizedQuery = normalizeDoctorName(query);
-    const doctorsBySpecialty = new Map<string, {label: string; entries: DoctorDirectoryEntry[]}>();
+    const doctorsBySpecialty = new Map<string, { label: string; entries: DoctorDirectoryEntry[] }>();
     for (const entry of entries) {
         if (!doctorMatchesQuery(entry, normalizedQuery)) continue;
         const key = normalize(entry.specialty ?? '');
@@ -564,7 +564,8 @@ export function Doctors({onViewStudies, onRetryLoad}: DoctorsProps) {
                                             </div>
                                         ))}
                                     </div>
-                                    <button type="button" className="button secondary button-sm" onClick={addAddressRow}>
+                                    <button type="button" className="button secondary button-sm"
+                                            onClick={addAddressRow}>
                                         Agregar dirección
                                     </button>
                                 </fieldset>

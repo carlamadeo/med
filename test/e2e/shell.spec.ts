@@ -87,7 +87,10 @@ test.beforeEach(async ({page}) => {
     await page.route('**/types.json', (route) => route.fulfill({json: ['Mamografía', 'Resonancia', 'Laboratorio', 'Consulta']}));
     await page.addInitScript((key) => {
         if (!new URLSearchParams(location.search).has('sin-sesion')) {
-            sessionStorage.setItem(key, JSON.stringify({accessToken: 'synthetic-token', expires: Date.now() + 3600000}));
+            sessionStorage.setItem(key, JSON.stringify({
+                accessToken: 'synthetic-token',
+                expires: Date.now() + 3600000
+            }));
         }
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     }, sessionKey);
@@ -144,19 +147,41 @@ test('abre los estudios desde las tarjetas y mantiene sus otras acciones accesib
         const entry = Object.entries(entries).find(([marker]) => query.includes(marker));
         if (!entry) return route.fallback();
         const [marker, data] = entry;
-        return route.fulfill({json: {files: [{
-            id: marker, version: '1', trashed: false,
-            mimeType: 'application/json', appProperties: {misEstudios: marker},
-            description: JSON.stringify(data),
-        }]}});
+        return route.fulfill({
+            json: {
+                files: [{
+                    id: marker, version: '1', trashed: false,
+                    mimeType: 'application/json', appProperties: {misEstudios: marker},
+                    description: JSON.stringify(data),
+                }]
+            }
+        });
     });
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
 
     const scenarios = [
-        {view: 'portales', selector: '#portals-list .portal-card', name: 'Hospital Italiano', edit: 'Editar portal', remove: 'Eliminar portal'},
-        {view: 'medicos', selector: '#doctors-list .portal-card', name: 'Dra. Pérez', edit: 'Editar médico', remove: 'Eliminar ficha de médico'},
-        {view: 'operaciones', selector: '#operations-list .operation-card', name: 'Operación de prueba', edit: 'Editar operación', remove: 'Eliminar operación'},
+        {
+            view: 'portales',
+            selector: '#portals-list .portal-card',
+            name: 'Hospital Italiano',
+            edit: 'Editar portal',
+            remove: 'Eliminar portal'
+        },
+        {
+            view: 'medicos',
+            selector: '#doctors-list .portal-card',
+            name: 'Dra. Pérez',
+            edit: 'Editar médico',
+            remove: 'Eliminar ficha de médico'
+        },
+        {
+            view: 'operaciones',
+            selector: '#operations-list .operation-card',
+            name: 'Operación de prueba',
+            edit: 'Editar operación',
+            remove: 'Eliminar operación'
+        },
     ];
     for (const scenario of scenarios) {
         await navigateTo(page, scenario.view);
@@ -192,19 +217,29 @@ test('mantiene compactas y alineadas las tarjetas de operaciones y turnos en esc
         timeZone: 'America/Argentina/Buenos_Aires', status: 'scheduled', cost: null, coverage: null,
     };
     const entries = {
-        'operacion-v1': [operation, {...operation, name: 'Operación con notas', notes: 'Control y seguimiento. '.repeat(12)}],
-        'turno-v1': [appointment, {...appointment, professional: 'Dr. Gómez', specialty: 'Neurología',
-            location: 'Consultorio 8B', reason: 'Control anual', cost: 10230}],
+        'operacion-v1': [operation, {
+            ...operation,
+            name: 'Operación con notas',
+            notes: 'Control y seguimiento. '.repeat(12)
+        }],
+        'turno-v1': [appointment, {
+            ...appointment, professional: 'Dr. Gómez', specialty: 'Neurología',
+            location: 'Consultorio 8B', reason: 'Control anual', cost: 10230
+        }],
     };
     await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
         const query = new URL(route.request().url()).searchParams.get('q') ?? '';
         const entry = Object.entries(entries).find(([marker]) => query.includes(marker));
         if (!entry) return route.fallback();
         const [marker, records] = entry;
-        return route.fulfill({json: {files: records.map((record, index) => ({
-            id: `${marker}-${index}`, version: '1', mimeType: 'application/json',
-            appProperties: {misEstudios: marker}, description: JSON.stringify(record),
-        }))}});
+        return route.fulfill({
+            json: {
+                files: records.map((record, index) => ({
+                    id: `${marker}-${index}`, version: '1', mimeType: 'application/json',
+                    appProperties: {misEstudios: marker}, description: JSON.stringify(record),
+                }))
+            }
+        });
     });
     await page.setViewportSize({width: 1440, height: 900});
     await page.goto('/');
@@ -215,7 +250,9 @@ test('mantiene compactas y alineadas las tarjetas de operaciones y turnos en esc
         await navigateTo(page, view);
         const cards = page.locator(cardSelector);
         await expect(cards).toHaveCount(2);
-        await page.evaluate(async () => { await document.fonts.ready; });
+        await page.evaluate(async () => {
+            await document.fonts.ready;
+        });
         const first = (await cards.first().boundingBox())!;
         const second = (await cards.last().boundingBox())!;
         expect(second.x).toBeGreaterThan(first.x);
@@ -254,7 +291,10 @@ test('da espacio a la dirección al agregar y editar un médico', async ({page, 
     expect((await address.boundingBox())!.width).toBeGreaterThan(nameWidth * 0.85);
 });
 
-test('muestra las sugerencias de especialidad debajo del campo en el formulario de médicos', async ({page, isMobile}) => {
+test('muestra las sugerencias de especialidad debajo del campo en el formulario de médicos', async ({
+                                                                                                        page,
+                                                                                                        isMobile
+                                                                                                    }) => {
     await page.setViewportSize({width: isMobile ? 320 : 960, height: 460});
     await page.goto('/?sin-sesion');
     await page.locator('#enter-demo').click();
@@ -347,9 +387,15 @@ test('muestra todas las categorías de recuperación y fechas con el mismo forma
     await page.route('https://www.googleapis.com/drive/v3/files?**', route => {
         const query = new URL(route.request().url()).searchParams.get('q') ?? '';
         if (!query.includes('trashed = true') || !query.includes('estudio-v1')) return route.fallback();
-        return route.fulfill({json: {files: [{
-            ...files[0], trashed: true, appProperties: {misEstudios: 'estudio-v1', deletedAt: deletedAt.toISOString()},
-        }]}});
+        return route.fulfill({
+            json: {
+                files: [{
+                    ...files[0],
+                    trashed: true,
+                    appProperties: {misEstudios: 'estudio-v1', deletedAt: deletedAt.toISOString()},
+                }]
+            }
+        });
     });
     await page.goto('/');
     await expect(page.locator('#resumen')).toBeVisible();
@@ -608,7 +654,9 @@ test('imprime todas las páginas del archivo adjunto desde Compartir', async ({p
         expect(pages).toEqual([true, true]);
     }
     await page.emulateMedia({media: 'screen'});
-    await page.evaluate(() => { window.print = () => document.body.setAttribute('data-print-invoked', 'true'); });
+    await page.evaluate(() => {
+        window.print = () => document.body.setAttribute('data-print-invoked', 'true');
+    });
     await preview.getByRole('button', {name: 'Imprimir', exact: true}).click();
     await expect(page.locator('body')).toHaveAttribute('data-print-invoked', 'true');
     await page.keyboard.press('Escape');
@@ -904,18 +952,43 @@ test('muestra registros largos completos en las secciones secundarias', async ({
     test.setTimeout(60_000);
     const name = 'Institución de atención integral y seguimiento clínico especializado';
     const entries: Record<string, object> = {
-        'portal-v1': {name, displayName: name, url: 'https://example.com', notes: 'Información de acceso para consultas.'},
-        'operacion-v1': {name, date: '2024-01-01', surgeon: 'Dra. Pérez', institution: name, type: 'Procedimiento', notes: 'Seguimiento posterior.'},
-        'evento-medico-v1': {kind: 'consultation', date: '2024-01-01', doctor: name, notes: 'Indicaciones para el seguimiento.', studyIds: ['study-1'], documentIds: []},
+        'portal-v1': {
+            name,
+            displayName: name,
+            url: 'https://example.com',
+            notes: 'Información de acceso para consultas.'
+        },
+        'operacion-v1': {
+            name,
+            date: '2024-01-01',
+            surgeon: 'Dra. Pérez',
+            institution: name,
+            type: 'Procedimiento',
+            notes: 'Seguimiento posterior.'
+        },
+        'evento-medico-v1': {
+            kind: 'consultation',
+            date: '2024-01-01',
+            doctor: name,
+            notes: 'Indicaciones para el seguimiento.',
+            studyIds: ['study-1'],
+            documentIds: []
+        },
         'episodio-v1': {illness: name, observations: [], medications: [], closed: true},
     };
     await page.route('https://www.googleapis.com/drive/v3/files?**', async (route) => {
         const query = new URL(route.request().url()).searchParams.get('q') ?? '';
         const type = Object.keys(entries).find((key) => query.includes(key));
         if (!type) return route.fallback();
-        await route.fulfill({json: {files: [{id: 'sample-' + type, version: '1', trashed: false,
-            modifiedTime: '2024-01-01T00:00:00Z', mimeType: 'application/json',
-            appProperties: {misEstudios: type}, description: JSON.stringify(entries[type])}]}});
+        await route.fulfill({
+            json: {
+                files: [{
+                    id: 'sample-' + type, version: '1', trashed: false,
+                    modifiedTime: '2024-01-01T00:00:00Z', mimeType: 'application/json',
+                    appProperties: {misEstudios: type}, description: JSON.stringify(entries[type])
+                }]
+            }
+        });
     });
     await page.setViewportSize({width: 320, height: 700});
     await page.goto('/');
@@ -936,11 +1009,15 @@ test('abre la ficha de una operación sin desborde horizontal en móvil', async 
     await page.route('https://www.googleapis.com/drive/v3/files?**', (route) => {
         const query = new URL(route.request().url()).searchParams.get('q') ?? '';
         if (!query.includes('operacion-v1')) return route.fallback();
-        return route.fulfill({json: {files: [{
-            id: 'operation-1', version: '1', trashed: false, modifiedTime: '2024-01-01T00:00:00Z',
-            mimeType: 'application/json', appProperties: {misEstudios: 'operacion-v1'},
-            description: JSON.stringify({name, date: '2024-01-01', type: 'Cirugía de prueba'}),
-        }]}});
+        return route.fulfill({
+            json: {
+                files: [{
+                    id: 'operation-1', version: '1', trashed: false, modifiedTime: '2024-01-01T00:00:00Z',
+                    mimeType: 'application/json', appProperties: {misEstudios: 'operacion-v1'},
+                    description: JSON.stringify({name, date: '2024-01-01', type: 'Cirugía de prueba'}),
+                }]
+            }
+        });
     });
     await page.setViewportSize({width: 320, height: 700});
     await page.goto('/');

@@ -143,7 +143,11 @@ export const storage = {
         return records;
     },
 
-    async readSessionStudySnapshot(owner: string): Promise<{ records: StudyRecord[]; lastSync: number; skipped: number } | null> {
+    async readSessionStudySnapshot(owner: string): Promise<{
+        records: StudyRecord[];
+        lastSync: number;
+        skipped: number
+    } | null> {
         const db = await getDB();
         const tx = db.transaction(['studies', 'meta'], 'readonly');
         const meta = tx.objectStore('meta');
@@ -157,7 +161,7 @@ export const storage = {
             : null;
     },
 
-    async writeSessionStudies(owner: string, records: StudyRecord[], snapshot?: {skipped: number}): Promise<void> {
+    async writeSessionStudies(owner: string, records: StudyRecord[], snapshot?: { skipped: number }): Promise<void> {
         const db = await getDB();
         const tx = db.transaction(['studies', 'meta'], 'readwrite');
         const meta = tx.objectStore('meta');

@@ -17,7 +17,13 @@ it('opens a doctor’s studies by name and clears the filter when leaving the li
         setStudies([
             {...base, id: 'one', driveFileId: 'one', title: 'Ecografía', doctor: 'Dra. Ana López'},
             {...base, id: 'two', driveFileId: 'two', title: 'Radiografía', doctor: ' DRA. ANA  LOPEZ '},
-            {...base, id: 'other', driveFileId: 'other', title: 'Informe para Dra. Ana López', doctor: 'Dr. Juan Pérez'},
+            {
+                ...base,
+                id: 'other',
+                driveFileId: 'other',
+                title: 'Informe para Dra. Ana López',
+                doctor: 'Dr. Juan Pérez'
+            },
             {...base, id: 'unnamed', driveFileId: 'unnamed', title: 'Hemograma', doctor: ' '},
         ]);
         categoryTypes.value = ['Mamografía'];
@@ -46,7 +52,14 @@ it('opens a doctor’s studies by name and clears the filter when leaving the li
 
 it('clears the portal filter when leaving the library', async () => {
     await act(() => {
-        portals.value = [{id: 'clinic', name: 'Clínica Sur', displayName: 'Clínica Sur', url: '', notes: '', revision: '1'}];
+        portals.value = [{
+            id: 'clinic',
+            name: 'Clínica Sur',
+            displayName: 'Clínica Sur',
+            url: '',
+            notes: '',
+            revision: '1'
+        }];
         const base = {
             date: '2020-01-01', viewer: '', reportName: '', hasPdf: false, doctor: '',
             driveModifiedTime: '', revision: '1', types: ['Otro'],

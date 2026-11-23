@@ -3,12 +3,20 @@ import {act} from 'preact/test-utils';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import JSZip from 'jszip';
 import {ShareDialog} from '@presentation/components/ShareDialog';
-import {isSourceUnavailable, setSharingStudyId, setSharingStudyIds, setStudies, unavailableSources} from '@presentation/state/store';
+import {
+    isSourceUnavailable,
+    setSharingStudyId,
+    setSharingStudyIds,
+    setStudies,
+    unavailableSources
+} from '@presentation/state/store';
 import {DriveError, driveAuth, driveStudyRepo} from '@data';
 import {mockAttachmentMetadata} from './mock-attachment-metadata';
 
 const root = document.createElement('div');
-beforeEach(() => { mockAttachmentMetadata(); });
+beforeEach(() => {
+    mockAttachmentMetadata();
+});
 afterEach(() => {
     render(null, root);
     root.remove();
@@ -19,14 +27,19 @@ afterEach(() => {
 });
 
 it('opens printing from single-study sharing only when the study has an attachment', async () => {
-    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: '',
-        driveModifiedTime: '', revision: '1', viewer: 'https://example.org'};
+    const base = {
+        date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: '',
+        driveModifiedTime: '', revision: '1', viewer: 'https://example.org'
+    };
     const attached = {...base, id: 'pdf', driveFileId: 'pdf', title: 'Informe', hasPdf: true};
     setStudies([attached, {...base, id: 'link', driveFileId: 'link', title: 'Visor', hasPdf: false}]);
     const onPrint = vi.fn(() => expect(root.querySelector('dialog[open]')).toBeNull());
     const print = () => [...root.querySelectorAll('button')].find(button => button.textContent === 'Imprimir archivo');
     await act(() => {
-        render(h(ShareDialog, {onReconnect: () => {}, onPrint, error: null, busy: false, sessionLost: false}), root);
+        render(h(ShareDialog, {
+            onReconnect: () => {
+            }, onPrint, error: null, busy: false, sessionLost: false
+        }), root);
         setSharingStudyId('link');
     });
     expect(print()).toBeUndefined();
@@ -39,8 +52,10 @@ it('opens printing from single-study sharing only when the study has an attachme
 });
 
 it('keeps the report printable after a missing associated document or a temporary download failure', async () => {
-    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: 'informe.pdf',
-        driveModifiedTime: '', revision: '1', viewer: '', hasPdf: true};
+    const base = {
+        date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', reportName: 'informe.pdf',
+        driveModifiedTime: '', revision: '1', viewer: '', hasPdf: true
+    };
     setStudies([
         {...base, id: 'report', driveFileId: 'report', title: 'Informe', documentIds: ['annex']},
         {...base, id: 'annex', driveFileId: 'annex', title: 'Anexo'},
@@ -52,7 +67,11 @@ it('keeps the report printable after a missing associated document or a temporar
     });
     document.body.append(root);
     await act(() => {
-        render(h(ShareDialog, {onReconnect: () => {}, onPrint: () => {}, error: null, busy: false, sessionLost: false}), root);
+        render(h(ShareDialog, {
+            onReconnect: () => {
+            }, onPrint: () => {
+            }, error: null, busy: false, sessionLost: false
+        }), root);
         setSharingStudyId('report');
     });
     await act(() => root.querySelector<HTMLInputElement>('input[value="annex"]')!.click());
@@ -162,7 +181,10 @@ it('requires reviewing the selected version if the study refreshes while the dia
     const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile');
     document.body.append(root);
     await act(() => {
-        render(h(ShareDialog, {onReconnect: () => {}, error: null, busy: false, sessionLost: false}), root);
+        render(h(ShareDialog, {
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false
+        }), root);
         setSharingStudyId('one');
     });
     await act(() => setStudies([{...original, revision: '2', reportName: 'otro.pdf'}]));
@@ -229,7 +251,10 @@ it('can prepare another study after closing while retrieval is in progress', asy
     vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(retrieve);
     document.body.append(root);
     await act(() => {
-        render(h(ShareDialog, {onReconnect: () => {}, error: null, busy: false, sessionLost: false}), root);
+        render(h(ShareDialog, {
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false
+        }), root);
         setSharingStudyId('one');
     });
     const submit = () => act(() => {
@@ -262,7 +287,8 @@ it('shares a photo under its original image format', async () => {
     document.body.append(root);
     await act(() => {
         render(h(ShareDialog, {
-            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false,
         }), root);
         setSharingStudyId('foto');
     });
@@ -330,7 +356,8 @@ it('shares multiple selected studies, lets user toggle each source and deduplica
 
     await act(() => {
         render(h(ShareDialog, {
-            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false,
         }), root);
         setSharingStudyIds(['one', 'two']);
     });
@@ -404,12 +431,14 @@ it('creates a ZIP with all prepared files and viewer links when multiple files a
     const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:zip-test');
     Object.defineProperty(URL, 'createObjectURL', {configurable: true, value: createUrl});
     Object.defineProperty(URL, 'revokeObjectURL', {configurable: true, value: vi.fn()});
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
+    });
     document.body.append(root);
 
     await act(() => {
         render(h(ShareDialog, {
-            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false,
         }), root);
         setSharingStudyIds(['one', 'two']);
     });
@@ -457,7 +486,8 @@ it('combines multiple selected viewer links in ShareData.text and WhatsApp/email
 
     await act(() => {
         render(h(ShareDialog, {
-            onReconnect: () => {}, error: null, busy: false, sessionLost: false,
+            onReconnect: () => {
+            }, error: null, busy: false, sessionLost: false,
         }), root);
         setSharingStudyIds(['one', 'two']);
     });

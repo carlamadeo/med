@@ -8,13 +8,26 @@ import type {Study} from '@domain/models';
 import {StudyImportDialog} from '@presentation/components/StudyImportDialog';
 
 const root = document.createElement('div');
-afterEach(() => { render(null, root); root.remove(); vi.restoreAllMocks(); });
+afterEach(() => {
+    render(null, root);
+    root.remove();
+    vi.restoreAllMocks();
+});
 
 it('rejects a stale tab without overwriting or discarding a newer local batch', async () => {
     const file = new File(['%PDF-test'], 'prueba.pdf', {type: 'application/pdf'});
     const row: ImportRow = {
         key: 'local-study', file, status: 'ready', message: '', selected: true, duplicateConfirmed: '',
-        draft: {title: 'Primera versión', date: '2020-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: file.name, file},
+        draft: {
+            title: 'Primera versión',
+            date: '2020-01-01',
+            types: ['Otro'],
+            doctor: '',
+            portal: '',
+            viewer: '',
+            reportName: file.name,
+            file
+        },
     };
     const account = 'batch-race-account';
     const first = await replaceImportBatch(account, null, [row]);
@@ -33,7 +46,14 @@ it('restores an opted-in batch and retries an uncertain upload with the retained
     vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
     const reserve = vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('retained-id');
     const save = vi.spyOn(driveStudyRepo, 'save').mockRejectedValueOnce(new Error('lost response'))
-        .mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+        .mockImplementation(async draft => ({
+            ...draft,
+            id: draft.id!,
+            driveFileId: draft.id!,
+            driveModifiedTime: '',
+            revision: '1',
+            hasPdf: true
+        }));
     const original = new File(['%PDF-synthetic'], 'histórico.pdf', {type: 'application/pdf'});
     const onSaved = vi.fn();
     let studies: Study[] = [];
@@ -43,7 +63,9 @@ it('restores an opted-in batch and retries an uncertain upload with the retained
     await mount();
     const input = root.querySelector('input[type=file]')!;
     Object.defineProperty(input, 'files', {value: [original]});
-    await act(() => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(() => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
     expect(button('Conservar borrador')).toBeDefined();
     await act(() => button('Conservar borrador')?.click());
@@ -71,7 +93,9 @@ it('restores an opted-in batch and retries an uncertain upload with the retained
     await mount();
     const renamed = root.querySelector('input[type=file]')!;
     Object.defineProperty(renamed, 'files', {value: [new File(['%PDF-synthetic'], 'otro-nombre.pdf', {type: 'application/pdf'})]});
-    await act(() => { renamed.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(() => {
+        renamed.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('El PDF coincide con un informe importado: histórico.'));
     expect((button('Guardar selección') as HTMLButtonElement).disabled).toBe(true);
     await act(() => button('Borrar huellas de importación')?.click());
@@ -85,7 +109,14 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
     vi.spyOn(analysis, 'analyzePdf').mockImplementation(async file => ({types: ['Laboratorio'], ...(file.name === 'uno.pdf' ? {date: '2020-01-01'} : {})}));
     vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
-    const save = vi.spyOn(driveStudyRepo, 'save').mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+    const save = vi.spyOn(driveStudyRepo, 'save').mockImplementation(async draft => ({
+        ...draft,
+        id: draft.id!,
+        driveFileId: draft.id!,
+        driveModifiedTime: '',
+        revision: '1',
+        hasPdf: true
+    }));
     vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
     const first = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
     const second = new File(['b'], 'dos.pdf', {type: 'application/pdf'});
@@ -95,16 +126,22 @@ it('saves a ready study and leaves a study without a date pending', async () => 
     await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [first, second]});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('Ingresá una fecha válida'));
     expect(root.querySelectorAll('input[type=date]')).toHaveLength(0);
     const pending = root.querySelector('section[aria-label="dos.pdf"]')!;
     const review = pending.querySelector<HTMLButtonElement>('button[aria-expanded=false]')!;
-    await act(() => { review.click(); });
+    await act(() => {
+        review.click();
+    });
     expect(pending.querySelector('input[type=date]')).not.toBeNull();
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo para guardar'));
     const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
-    await act(async () => { button.click(); });
+    await act(async () => {
+        button.click();
+    });
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'uno', date: '2020-01-01'}), 'token');
@@ -123,7 +160,14 @@ it('retries an uncertain save using the same ID and unchanged draft', async () =
     vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
     vi.spyOn(analysis, 'analyzePdf').mockResolvedValue({date: '2020-01-01', types: ['Laboratorio']});
     const reserve = vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
-    const save = vi.spyOn(driveStudyRepo, 'save').mockRejectedValueOnce(new Error('response lost')).mockImplementation(async draft => ({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true}));
+    const save = vi.spyOn(driveStudyRepo, 'save').mockRejectedValueOnce(new Error('response lost')).mockImplementation(async draft => ({
+        ...draft,
+        id: draft.id!,
+        driveFileId: draft.id!,
+        driveModifiedTime: '',
+        revision: '1',
+        hasPdf: true
+    }));
     vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
     const file = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
     Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([1]).buffer});
@@ -131,12 +175,18 @@ it('retries an uncertain save using the same ID and unchanged draft', async () =
     await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
     const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
-    await act(async () => { button.click(); });
+    await act(async () => {
+        button.click();
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('No se pudo confirmar el guardado'));
-    await act(async () => { button.click(); });
+    await act(async () => {
+        button.click();
+    });
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(root.textContent).toContain('Se guardó el estudio correctamente.');
     expect(reserve).toHaveBeenCalledTimes(1);
@@ -154,7 +204,14 @@ it('does not expose a late save to a different account', async () => {
     vi.spyOn(driveStudyRepo, 'reserveId').mockResolvedValue('reserved');
     let complete!: (value: Awaited<ReturnType<typeof driveStudyRepo.save>>) => void;
     vi.spyOn(driveStudyRepo, 'save').mockImplementation(draft => new Promise(resolve => {
-        complete = () => resolve({...draft, id: draft.id!, driveFileId: draft.id!, driveModifiedTime: '', revision: '1', hasPdf: true});
+        complete = () => resolve({
+            ...draft,
+            id: draft.id!,
+            driveFileId: draft.id!,
+            driveModifiedTime: '',
+            revision: '1',
+            hasPdf: true
+        });
     }));
     vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm, data) => data as ArrayBuffer);
     const file = new File(['a'], 'uno.pdf', {type: 'application/pdf'});
@@ -163,13 +220,19 @@ it('does not expose a late save to a different account', async () => {
     await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved}), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
     const button = [...root.querySelectorAll('button')].find(element => element.textContent === 'Guardar selección')!;
-    await act(async () => { button.click(); });
+    await act(async () => {
+        button.click();
+    });
     await vi.waitFor(() => expect(complete).toBeDefined());
     account = 'another-account';
-    await act(async () => { complete({} as Awaited<ReturnType<typeof driveStudyRepo.save>>); });
+    await act(async () => {
+        complete({} as Awaited<ReturnType<typeof driveStudyRepo.save>>);
+    });
     expect(onSaved).not.toHaveBeenCalled();
 });
 
@@ -184,19 +247,45 @@ it('selects only ready rows and requires confirmation for normalized library mat
         Object.defineProperty(file, 'arrayBuffer', {value: async () => new Uint8Array([index === 1 ? 1 : index + 1]).buffer});
         return file;
     });
-    const existing = {id: 'existing', driveFileId: 'existing', title: ' ÉCO ', date: '2020-01-01', types: ['Laboratorio'], doctor: '', portal: '', viewer: '', reportName: 'otro.pdf', hasPdf: true, driveModifiedTime: '', revision: '1'};
-    await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [existing], onSaved: vi.fn()}), root));
+    const existing = {
+        id: 'existing',
+        driveFileId: 'existing',
+        title: ' ÉCO ',
+        date: '2020-01-01',
+        types: ['Laboratorio'],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: 'otro.pdf',
+        hasPdf: true,
+        driveModifiedTime: '',
+        revision: '1'
+    };
+    await act(() => render(h(StudyImportDialog, {
+        open: true,
+        onClose: vi.fn(),
+        studies: [existing],
+        onSaved: vi.fn()
+    }), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: files});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('Archivo idéntico'));
     expect(root.textContent).toContain('Posible duplicado de');
     const review = root.querySelector<HTMLButtonElement>('button[aria-label="Revisar eco.pdf"]')!;
-    await act(() => { review.click(); });
+    await act(() => {
+        review.click();
+    });
     const confirmation = [...root.querySelectorAll('label')].find(label => label.textContent?.includes('Es otro estudio'))!.querySelector('input')!;
-    await act(() => { confirmation.click(); });
+    await act(() => {
+        confirmation.click();
+    });
     const select = [...root.querySelectorAll('button')].find(button => button.textContent === 'Seleccionar estudios listos')!;
-    await act(() => { select.click(); });
+    await act(() => {
+        select.click();
+    });
     const selections = [...root.querySelectorAll<HTMLInputElement>('input[aria-label^="Seleccionar "]')];
     expect(selections.filter(input => input.checked).map(input => input.getAttribute('aria-label'))).toEqual(['Seleccionar eco.pdf']);
 });
@@ -205,7 +294,11 @@ it('hides a batch on disconnect and restores it only for the same account', asyn
     document.body.append(root);
     let notify!: (signedIn: boolean) => void;
     let account = 'account';
-    vi.spyOn(driveAuth, 'onAuthChange').mockImplementation(callback => { notify = callback; return () => {}; });
+    vi.spyOn(driveAuth, 'onAuthChange').mockImplementation(callback => {
+        notify = callback;
+        return () => {
+        };
+    });
     vi.spyOn(driveAuth, 'cachedAccountId').mockImplementation(() => account);
     vi.spyOn(driveAuth, 'getAccountId').mockImplementation(async () => account);
     vi.spyOn(analysis, 'validateDocument').mockResolvedValue('application/pdf');
@@ -216,15 +309,21 @@ it('hides a batch on disconnect and restores it only for the same account', asyn
     await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved: vi.fn()}), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [file]});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('1 estudio listo'));
     await act(() => notify(false));
     expect(root.textContent).not.toContain('privado.pdf');
-    await act(async () => { notify(true); });
+    await act(async () => {
+        notify(true);
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('privado.pdf'));
     await act(() => notify(false));
     account = 'other';
-    await act(async () => { notify(true); });
+    await act(async () => {
+        notify(true);
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('Arrastrá los PDF acá'));
     expect(root.textContent).not.toContain('privado.pdf');
 });
@@ -244,10 +343,14 @@ it('allows removing an invalid PDF without removing the other rows', async () =>
     await act(() => render(h(StudyImportDialog, {open: true, onClose: vi.fn(), studies: [], onSaved: vi.fn()}), root));
     const input = root.querySelector<HTMLInputElement>('input[type=file]')!;
     Object.defineProperty(input, 'files', {configurable: true, value: [good, invalid]});
-    await act(async () => { input.dispatchEvent(new Event('change', {bubbles: true})); });
+    await act(async () => {
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
     await vi.waitFor(() => expect(root.textContent).toContain('No se pudo abrir el PDF.'));
     const remove = root.querySelector<HTMLButtonElement>('button[aria-label="Quitar invalido.pdf"]')!;
-    await act(() => { remove.click(); });
+    await act(() => {
+        remove.click();
+    });
     expect(root.textContent).not.toContain('invalido.pdf');
     expect(root.textContent).toContain('valido.pdf');
     expect(root.textContent).toContain('1 estudio listo para guardar');

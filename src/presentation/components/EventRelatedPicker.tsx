@@ -24,7 +24,10 @@ export function EventRelatedPicker({name, options, initialIds = []}: EventRelate
     const missing = [...selected].filter(id => !availableIds.has(id)).map(id => ({id, label: missingLabel}));
     const entries: RelatedOption[] = [...options, ...missing];
     const search = normalize(query);
-    const matches = search ? entries.filter(({label, keywords}) => normalize(`${label} ${keywords ?? ''}`).includes(search)) : entries;
+    const matches = search ? entries.filter(({
+                                                 label,
+                                                 keywords
+                                             }) => normalize(`${label} ${keywords ?? ''}`).includes(search)) : entries;
 
     const toggle = (id: string, checked: boolean) => setSelected(previous => {
         const next = new Set(previous);
@@ -38,32 +41,36 @@ export function EventRelatedPicker({name, options, initialIds = []}: EventRelate
             <summary tabIndex={0}>
                 <span>{title}</span>
                 <span className="count-badge" aria-live="polite">
-                    {selected.size}<span className="sr-only"> {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
+                    {selected.size}<span
+                    className="sr-only"> {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
                 </span>
-                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                <svg className="icon" aria-hidden="true">
+                    <use href="#i-chevron-down"/>
+                </svg>
             </summary>
             {[...selected].map(id => <input key={id} type="hidden" name={name} value={id}/>)}
             <div className="event-related-panel">
                 {entries.length > 0 ? (
-                    <>
-                        <input type="search" aria-label={searchLabel} placeholder={searchLabel}
-                               value={query} onInput={event => setQuery(event.currentTarget.value)}
-                               onKeyDown={event => {
-                                   if (event.key === 'Enter') event.preventDefault();
-                               }}/>
-                        {matches.length > 0 ? (
-                            <div className="event-related-options">
-                                {matches.map(({id, label}) => (
-                                    <label key={id}>
-                                        <input type="checkbox" checked={selected.has(id)}
-                                               onChange={event => toggle(id, event.currentTarget.checked)}/>
-                                        <span>{label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        ) : <p className="event-related-empty" role="status">Sin coincidencias</p>}
-                    </>
-                ) : <p className="event-related-empty">{isStudy ? 'No hay estudios para vincular.' : 'No hay documentos para vincular.'}</p>}
+                        <>
+                            <input type="search" aria-label={searchLabel} placeholder={searchLabel}
+                                   value={query} onInput={event => setQuery(event.currentTarget.value)}
+                                   onKeyDown={event => {
+                                       if (event.key === 'Enter') event.preventDefault();
+                                   }}/>
+                            {matches.length > 0 ? (
+                                <div className="event-related-options">
+                                    {matches.map(({id, label}) => (
+                                        <label key={id}>
+                                            <input type="checkbox" checked={selected.has(id)}
+                                                   onChange={event => toggle(id, event.currentTarget.checked)}/>
+                                            <span>{label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            ) : <p className="event-related-empty" role="status">Sin coincidencias</p>}
+                        </>
+                    ) :
+                    <p className="event-related-empty">{isStudy ? 'No hay estudios para vincular.' : 'No hay documentos para vincular.'}</p>}
             </div>
         </details>
     );

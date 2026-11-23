@@ -3,25 +3,44 @@ import type {ExtractedFields} from '@domain/extract';
 import type {AppointmentDraft, StudyDraft} from '@domain/models';
 import {isValidDate, normalize, viewerURL} from '@domain/utils';
 
-export type DocumentRef = {id: string; name: string};
+export type DocumentRef = { id: string; name: string };
 const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 type StudyFields = Pick<StudyDraft, 'title' | 'date' | 'types' | 'doctor' | 'portal' | 'viewer'>;
 type AppointmentFields = Pick<AppointmentDraft, 'date' | 'time' | 'professional' | 'specialty' | 'location'>;
-type BaseDraft = {id: number; revision: number; recordId?: string; edit?: 'fields' | 'viewer'};
+type BaseDraft = { id: number; revision: number; recordId?: string; edit?: 'fields' | 'viewer' };
 export type Draft = BaseDraft & (
-    | {kind: 'study'; fields: StudyFields; document?: DocumentRef}
-    | {kind: 'appointment'; fields: AppointmentFields}
-);
-export interface BotState {draft?: Draft; offset?: number}
-export interface Incoming {id: number; text?: string; document?: DocumentRef; action?: string}
-export type Button = {text: string; callback_data: string};
-export class CalendarSyncPending extends Error {}
+    | { kind: 'study'; fields: StudyFields; document?: DocumentRef }
+    | { kind: 'appointment'; fields: AppointmentFields }
+    );
+
+export interface BotState {
+    draft?: Draft;
+    offset?: number
+}
+
+export interface Incoming {
+    id: number;
+    text?: string;
+    document?: DocumentRef;
+    action?: string
+}
+
+export type Button = { text: string; callback_data: string };
+
+export class CalendarSyncPending extends Error {
+}
+
 interface Services {
     send(text: string, buttons?: Button[][]): Promise<void>;
+
     persist(): Promise<void>;
+
     analyze(document: DocumentRef): Promise<ExtractedFields>;
+
     reserve(): Promise<string>;
+
     save(draft: Draft): Promise<string>;
+
     today(): string;
 }
 
@@ -92,6 +111,7 @@ function appointmentFields(text: string, today: string): AppointmentFields {
 function applyLabels(draft: Draft, text: string, today: string): boolean {
     const labels = labelsIn(text);
     let changed = false;
+
     function update(label: string, apply: (value: string) => void) {
         const value = labels.get(label);
         if (value !== undefined) {
@@ -99,20 +119,41 @@ function applyLabels(draft: Draft, text: string, today: string): boolean {
             changed = true;
         }
     }
+
     if (draft.kind === 'study') {
         const {fields} = draft;
-        update('nombre', value => { fields.title = value; });
-        update('fecha', value => { fields.date = dateIn(value, today, false); });
-        update('tipo', value => { fields.types = value.split(',').map(type => type.trim()).filter(Boolean); });
-        update('profesional', value => { fields.doctor = value; });
-        update('institucion', value => { fields.portal = value; });
+        update('nombre', value => {
+            fields.title = value;
+        });
+        update('fecha', value => {
+            fields.date = dateIn(value, today, false);
+        });
+        update('tipo', value => {
+            fields.types = value.split(',').map(type => type.trim()).filter(Boolean);
+        });
+        update('profesional', value => {
+            fields.doctor = value;
+        });
+        update('institucion', value => {
+            fields.portal = value;
+        });
     } else {
         const {fields} = draft;
-        update('fecha', value => { fields.date = dateIn(value, today, true); });
-        update('hora', value => { fields.time = timeIn(value); });
-        update('profesional', value => { fields.professional = value; });
-        update('especialidad', value => { fields.specialty = value; });
-        update('lugar', value => { fields.location = value; });
+        update('fecha', value => {
+            fields.date = dateIn(value, today, true);
+        });
+        update('hora', value => {
+            fields.time = timeIn(value);
+        });
+        update('profesional', value => {
+            fields.professional = value;
+        });
+        update('especialidad', value => {
+            fields.specialty = value;
+        });
+        update('lugar', value => {
+            fields.location = value;
+        });
     }
     return changed;
 }
@@ -122,7 +163,15 @@ function displayDate(value: string): string {
 }
 
 export function appointmentDraft(fields: AppointmentFields): AppointmentDraft {
-    return {...fields, timeZone: DEFAULT_APPOINTMENT_TIME_ZONE, status: 'scheduled', notes: '', cost: null, coverage: null, calendarReminders: 'standard'};
+    return {
+        ...fields,
+        timeZone: DEFAULT_APPOINTMENT_TIME_ZONE,
+        status: 'scheduled',
+        notes: '',
+        cost: null,
+        coverage: null,
+        calendarReminders: 'standard'
+    };
 }
 
 function missing(draft: Draft, today: string): string | undefined {
@@ -253,7 +302,11 @@ export function createConversation(state: BotState, services: Services) {
                 ...base, kind: 'study', document: input.document,
                 fields: {
                     title: types.join(' y ') || input.document?.name.replace(/\.pdf$/i, '') || '',
-                    date: hints.date ?? '', types, doctor: hints.doctor ?? '', portal: '', viewer: links.length === 1 ? links[0]! : '',
+                    date: hints.date ?? '',
+                    types,
+                    doctor: hints.doctor ?? '',
+                    portal: '',
+                    viewer: links.length === 1 ? links[0]! : '',
                 },
             };
             applyLabels(state.draft, text, services.today());

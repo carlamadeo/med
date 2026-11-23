@@ -75,11 +75,11 @@ export interface GoogleCalendarEventPayload {
     summary: string;
     location: string;
     description: string;
-    start: {dateTime: string; timeZone: string};
-    end: {dateTime: string; timeZone: string};
+    start: { dateTime: string; timeZone: string };
+    end: { dateTime: string; timeZone: string };
     reminders: {
         useDefault: false;
-        overrides: Array<{method: 'popup'; minutes: number}>;
+        overrides: Array<{ method: 'popup'; minutes: number }>;
     };
 }
 

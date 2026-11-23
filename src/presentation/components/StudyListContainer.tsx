@@ -1,5 +1,18 @@
 import {useRef} from 'preact/hooks';
-import {filteredStudies, loading, error, view, categoryTypes, libraryQuery, libraryPortal, libraryDoctor, libraryOperation, libraryHasFilters, sortOrder, resetLibraryFilters} from '../state/store';
+import {
+    filteredStudies,
+    loading,
+    error,
+    view,
+    categoryTypes,
+    libraryQuery,
+    libraryPortal,
+    libraryDoctor,
+    libraryOperation,
+    libraryHasFilters,
+    sortOrder,
+    resetLibraryFilters
+} from '../state/store';
 import {StudyList} from './StudyList';
 import {EmptyState} from './EmptyState';
 import {Operations} from './Operations';
@@ -27,19 +40,19 @@ interface StudyListContainerProps {
 }
 
 export function StudyListContainer({
-                                         onEdit,
-                                         onDelete,
-                                         onShare,
-                                         onShareMultiple,
-                                         onRetryLoad,
-                                         onAddStudy,
-                                         onOpenCandidate,
-                                         typesReady,
-                                         availableTypes,
-                                         offline,
-                                         directoryWarning,
-                                         pendingChangesCount
-                                     }: StudyListContainerProps) {
+                                       onEdit,
+                                       onDelete,
+                                       onShare,
+                                       onShareMultiple,
+                                       onRetryLoad,
+                                       onAddStudy,
+                                       onOpenCandidate,
+                                       typesReady,
+                                       availableTypes,
+                                       offline,
+                                       directoryWarning,
+                                       pendingChangesCount
+                                   }: StudyListContainerProps) {
     const searchInput = useRef<HTMLInputElement>(null);
     const studiesList = filteredStudies.value;
     const hasFilters = libraryHasFilters.value || sortOrder.value !== 'date-desc';
@@ -49,11 +62,13 @@ export function StudyListContainer({
     return (
         <>
             {offline &&
-                <p className="offline-notice" role="status">Sin conexión: estás viendo la última copia disponible en este dispositivo.</p>}
+                <p className="offline-notice" role="status">Sin conexión: estás viendo la última copia disponible en
+                    este dispositivo.</p>}
             {(pendingChangesCount > 0) && (
                 <div id="pending-changes-placeholder"/>)}
             {directoryWarning && (
-                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volverá a intentar al recuperar la conexión.</p>
+                <p id="directory-warning" role="status">No se pudieron actualizar las operaciones y portales. Se volverá
+                    a intentar al recuperar la conexión.</p>
             )}
             {view.value === 'operaciones' && <Operations/>}
             {view.value === 'episodios' && <Episodes/>}
@@ -85,7 +100,9 @@ export function StudyListContainer({
                             <LibraryTabs availableTypes={availableTypes}/>
                         </div>
                         <div className="search library-search">
-                            <svg className="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                            <svg className="icon" aria-hidden="true">
+                                <use href="#i-search"/>
+                            </svg>
                             <input
                                 ref={searchInput}
                                 type="search"
@@ -96,18 +113,30 @@ export function StudyListContainer({
                             />
                         </div>
                     </div>
-                    {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value} <button type="button" className="button quiet button-sm" onClick={() => libraryPortal.value = ''}>Quitar filtro</button></p>}
+                    {libraryPortal.value && <p className="active-filter-pill">Institución: {libraryPortal.value}
+                        <button type="button" className="button quiet button-sm"
+                                onClick={() => libraryPortal.value = ''}>Quitar filtro
+                        </button>
+                    </p>}
                     {libraryDoctor.value && (
                         <p className="active-filter-pill">
                             Profesional: {libraryDoctor.value}{' '}
-                            <button type="button" className="button quiet button-sm" onClick={() => libraryDoctor.value = ''}>
+                            <button type="button" className="button quiet button-sm"
+                                    onClick={() => libraryDoctor.value = ''}>
                                 Quitar filtro
                             </button>
                         </p>
                     )}
-                    {libraryOperation.value && <p className="active-filter-pill">Operación: {libraryOperation.value.name} <button type="button" className="button quiet button-sm" onClick={() => libraryOperation.value = null}>Quitar filtro</button></p>}
+                    {libraryOperation.value &&
+                        <p className="active-filter-pill">Operación: {libraryOperation.value.name}
+                            <button type="button" className="button quiet button-sm"
+                                    onClick={() => libraryOperation.value = null}>Quitar filtro
+                            </button>
+                        </p>}
                     {categoryTypes.value.length === 1 && !isLoading && !loadError && (
-                        <p className="related-heading">Estudios de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'}, ordenados por fecha</p>
+                        <p className="related-heading">Estudios
+                            de {categoryTypes.value[0]} · {studiesList.length} {studiesList.length === 1 ? 'estudio' : 'estudios'},
+                            ordenados por fecha</p>
                     )}
 
                     {isLoading ? (
@@ -189,7 +218,8 @@ export function StudyListContainer({
                         <StudyList
                             onEdit={onEdit}
                             onDelete={onDelete}
-                            onShare={onShare ?? (() => {})}
+                            onShare={onShare ?? (() => {
+                            })}
                             onShareMultiple={onShareMultiple}
                             sortOrder={sortOrder.value}
                             onSortChange={order => sortOrder.value = order}

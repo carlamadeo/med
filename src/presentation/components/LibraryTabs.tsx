@@ -35,7 +35,9 @@ export function LibraryTabs(_props: LibraryTabsProps) {
                     <option value="">Todas las especialidades</option>
                     {specialties.map(name => <option key={name} value={name}>{name}</option>)}
                 </select>
-                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                <svg className="icon" aria-hidden="true">
+                    <use href="#i-chevron-down"/>
+                </svg>
             </div>
         </div>
     );

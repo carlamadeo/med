@@ -234,13 +234,22 @@ export function ExportDialog({onReconnect, error, sessionLost}: ExportDialogProp
                     <legend>Qué exportar</legend>
                     <div className="export-options">
                         <label className="export-option">
-                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'} onChange={() => { setScope('all'); previewRef.current = JSON.stringify([readExportSnapshot(), null]); }}/>
+                            <input type="radio" name="export-scope" value="all" checked={scope === 'all'}
+                                   onChange={() => {
+                                       setScope('all');
+                                       previewRef.current = JSON.stringify([readExportSnapshot(), null]);
+                                   }}/>
                             <span>Todos los estudios <small>{studies.value.length}</small></span>
                         </label>
-                        {libraryHasFilters.value && (view.value === 'cronologia' || view.value === 'categoria') && <label className="export-option">
-                            <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'} onChange={() => { setScope('filtered'); previewRef.current = JSON.stringify([readExportSnapshot(), filteredStudies.value]); }}/>
-                            <span>Resultados filtrados <small>{filteredStudies.value.length}</small></span>
-                        </label>}
+                        {libraryHasFilters.value && (view.value === 'cronologia' || view.value === 'categoria') &&
+                            <label className="export-option">
+                                <input type="radio" name="export-scope" value="filtered" checked={scope === 'filtered'}
+                                       onChange={() => {
+                                           setScope('filtered');
+                                           previewRef.current = JSON.stringify([readExportSnapshot(), filteredStudies.value]);
+                                       }}/>
+                                <span>Resultados filtrados <small>{filteredStudies.value.length}</small></span>
+                            </label>}
                     </div>
                 </fieldset>
 

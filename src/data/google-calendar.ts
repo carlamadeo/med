@@ -16,8 +16,8 @@ interface StoredCalendarConfig {
 
 /** Synchronizes scheduled medical appointments with a dedicated "Turnos" secondary Google Calendar. */
 export class GoogleCalendarRepository {
-    private cachedCalendar: {token: string; id: string} | null = null;
-    private calendarLookup: {token: string; promise: Promise<string>} | null = null;
+    private cachedCalendar: { token: string; id: string } | null = null;
+    private calendarLookup: { token: string; promise: Promise<string> } | null = null;
 
     constructor(private client: DriveClient) {
         this.client.onAuthChange((signedIn) => {
@@ -35,7 +35,7 @@ export class GoogleCalendarRepository {
             if (file.trashed || file.appProperties?.misEstudios !== CALENDAR_CONFIG_MARKER) continue;
             if (!fallbackFileId) fallbackFileId = file.id;
             try {
-                const parsed = JSON.parse(file.description) as {calendarId?: unknown};
+                const parsed = JSON.parse(file.description) as { calendarId?: unknown };
                 if (typeof parsed.calendarId === 'string' && parsed.calendarId.trim()) {
                     return {fileId: file.id, calendarId: parsed.calendarId.trim()};
                 }
@@ -50,7 +50,7 @@ export class GoogleCalendarRepository {
         try {
             const calendar = await this.client
                 .request(`${CALENDAR_ROOT}calendars/${encodeURIComponent(calendarId)}`, {}, token)
-                .then((response) => response.json() as Promise<{id?: string; deleted?: boolean}>);
+                .then((response) => response.json() as Promise<{ id?: string; deleted?: boolean }>);
             await this.client.assertSession(token);
             return calendar.deleted !== true;
         } catch (error) {
@@ -89,7 +89,7 @@ export class GoogleCalendarRepository {
                 }),
                 token,
             )
-            .then((response) => response.json() as Promise<{id?: string}>);
+            .then((response) => response.json() as Promise<{ id?: string }>);
         await this.client.assertSession(token);
         if (!created.id) {
             throw new Error('Google Calendar no devolvió un identificador para el calendario.');
@@ -149,7 +149,7 @@ export class GoogleCalendarRepository {
     async syncAppointment(
         appointment: Appointment,
         expectedToken?: string,
-        options?: {preferUpdate?: boolean},
+        options?: { preferUpdate?: boolean },
     ): Promise<'synced' | 'removed' | 'skipped'> {
         if (!this.client.hasCalendarAccess) return 'skipped';
         if (appointment.status === 'cancelled' || appointment.status === 'absent') {

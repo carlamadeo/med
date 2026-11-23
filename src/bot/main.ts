@@ -58,14 +58,17 @@ async function run() {
     });
     console.log('Bot activo. Los borradores se guardan en el directorio local configurado.');
     let stopped = false;
-    for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { stopped = true; });
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => {
+        stopped = true;
+    });
     while (!stopped) {
         try {
             for (const update of await telegram.updates(state.offset)) {
                 if (stopped) break;
                 if (privateUpdate(update, owner)) {
                     const callback = update.callback_query;
-                    if (callback) await telegram.answer(callback.id).catch(() => {});
+                    if (callback) await telegram.answer(callback.id).catch(() => {
+                    });
                     const input = incoming(update);
                     if (input) await talk(input);
                 }

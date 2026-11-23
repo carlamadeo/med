@@ -11,4 +11,5 @@ testing guidance.
   Vite's relative asset paths for GitHub Pages.
 - Keep user-facing text in Spanish. Use synthetic fixtures and keep credentials and real medical records out of the
   repository.
-- Use Node.js 24.15 or later in the 24.x line, or Node.js 26 or later. Run `npm run lint`, `npm run typecheck`, and the tests that exercise the changed behavior.
+- Use Node.js 24.15 or later in the 24.x line, or Node.js 26 or later. Run `npm run lint`, `npm run typecheck`, and the
+  tests that exercise the changed behavior.

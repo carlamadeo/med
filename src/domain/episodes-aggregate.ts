@@ -1,6 +1,12 @@
 import type {Episode} from './models';
 import {isValidDate} from './utils';
-import {episodeDuration, episodeStartDate, episodeEndDate, symptomFrequency, severityIndicator} from './episode-summary';
+import {
+    episodeDuration,
+    episodeStartDate,
+    episodeEndDate,
+    symptomFrequency,
+    severityIndicator
+} from './episode-summary';
 
 export type Period = 'year' | '12months' | 'all';
 
@@ -12,7 +18,7 @@ export interface EpisodesAggregate {
     monthlyFrequency: MonthlyStat[];
     topSymptoms: SymptomStat[];
     topMedications: MedicationStat[];
-    severityDistribution: {low: number; medium: number; high: number};
+    severityDistribution: { low: number; medium: number; high: number };
     longestEpisode: LongestEpisode | null;
     mostFrequentIllness: string | null;
     avgEpisodesPerYear: number;
@@ -91,7 +97,7 @@ function computeMonthlyFrequency(episodes: readonly Episode[], months: number): 
 
 export function computeEpisodesAggregate(episodes: readonly Episode[], period: Period = '12months'): EpisodesAggregate {
     const filtered = filterEpisodesByPeriod(episodes, period);
-    
+
     if (filtered.length === 0) {
         return emptyAggregate();
     }
@@ -99,8 +105,19 @@ export function computeEpisodesAggregate(episodes: readonly Episode[], period: P
     const totalEpisodes = filtered.length;
     let totalDaysIll = 0;
     let totalDuration = 0;
-    const illnessMap = new Map<string, {count: number; totalDays: number; durations: number[]; lastDate: string; severities: ('low'|'medium'|'high')[]}>();
-    const symptomMap = new Map<string, {totalCount: number; intensitySum: number; intensityCount: number; episodes: Set<string>}>();
+    const illnessMap = new Map<string, {
+        count: number;
+        totalDays: number;
+        durations: number[];
+        lastDate: string;
+        severities: ('low' | 'medium' | 'high')[]
+    }>();
+    const symptomMap = new Map<string, {
+        totalCount: number;
+        intensitySum: number;
+        intensityCount: number;
+        episodes: Set<string>
+    }>();
     const medicationMap = new Map<string, number>();
     let severityLow = 0, severityMedium = 0, severityHigh = 0;
     let longestEpisode: LongestEpisode | null = null;
@@ -126,7 +143,13 @@ export function computeEpisodesAggregate(episodes: readonly Episode[], period: P
         else severityHigh++;
 
         const illnessKey = ep.illness.trim() || 'Sin diagnóstico';
-        const existing = illnessMap.get(illnessKey) ?? {count: 0, totalDays: 0, durations: [], lastDate: '', severities: []};
+        const existing = illnessMap.get(illnessKey) ?? {
+            count: 0,
+            totalDays: 0,
+            durations: [],
+            lastDate: '',
+            severities: []
+        };
         existing.count++;
         if (dur !== null) {
             existing.totalDays += dur;
@@ -140,7 +163,12 @@ export function computeEpisodesAggregate(episodes: readonly Episode[], period: P
 
         const freq = symptomFrequency(ep);
         for (const [name, data] of freq) {
-            const existingSym = symptomMap.get(name) ?? {totalCount: 0, intensitySum: 0, intensityCount: 0, episodes: new Set<string>()};
+            const existingSym = symptomMap.get(name) ?? {
+                totalCount: 0,
+                intensitySum: 0,
+                intensityCount: 0,
+                episodes: new Set<string>()
+            };
             existingSym.totalCount += data.count;
             if (data.maxIntensity > 0) {
                 existingSym.intensitySum += data.maxIntensity;
@@ -195,7 +223,7 @@ export function computeEpisodesAggregate(episodes: readonly Episode[], period: P
 
     const mostFrequentIllness = illnessBreakdown[0]?.illness ?? null;
 
-    const yearsSpan = period === 'all' && filtered.length > 0 ? 
+    const yearsSpan = period === 'all' && filtered.length > 0 ?
         (() => {
             const dates = filtered.flatMap(ep => ep.observations.map(o => o.date).filter(isValidDate));
             if (dates.length === 0) return 1;

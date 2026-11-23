@@ -3,12 +3,14 @@ import type {Appointment} from '@domain/models';
 import {isLocalDemo, offline} from '../state/store';
 import {getAppointmentPrescription} from '../utils/appointmentEditor';
 
-export function AppointmentPrescriptionDownload({appointment}: {appointment: Appointment}) {
+export function AppointmentPrescriptionDownload({appointment}: { appointment: Appointment }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const current = useRef<Appointment | null>(appointment);
     current.current = appointment;
-    useEffect(() => () => { current.current = null; }, []);
+    useEffect(() => () => {
+        current.current = null;
+    }, []);
 
     async function download() {
         if (busy) return;

@@ -130,7 +130,9 @@ it('imports a candidate from the inbox, saves it with provenance, and resolves u
         value: {request: (_: string, callback: () => Promise<unknown>) => callback()},
     });
     try {
-        await act(async () => { form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})); });
+        await act(async () => {
+            form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+        });
         await vi.waitFor(() => expect(editor.textContent).toContain('confirmar el guardado anterior'));
         expect(await new Outbox().list(owner)).toEqual([]);
     } finally {

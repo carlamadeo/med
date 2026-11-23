@@ -21,7 +21,7 @@ export function normalizeDoctorName(name: string): string {
 }
 
 export function groupStudiesByDoctor(studies: readonly Study[]) {
-    const doctors = new Map<string, {key: string; name: string; studyCount: number}>();
+    const doctors = new Map<string, { key: string; name: string; studyCount: number }>();
     for (const study of studies) {
         const key = normalizeDoctorName(study.doctor);
         if (!key) continue;
@@ -182,7 +182,7 @@ function sortDisplayNames(names: Map<string, string>): string[] {
     return [...names.values()].sort((a, b) => a.localeCompare(b, 'es', {sensitivity: 'base'}));
 }
 
-export function specialtyNames(records: readonly {specialty?: string}[], defaults: readonly string[] = []): string[] {
+export function specialtyNames(records: readonly { specialty?: string }[], defaults: readonly string[] = []): string[] {
     const names = new Map<string, string>();
     for (const name of defaults) addNormalizedName(names, name);
     for (const record of records) addNormalizedName(names, record.specialty);

@@ -16,12 +16,18 @@ afterEach(() => {
 });
 
 it('limits mounted rows and lets keyboard users open a later page', async () => {
-    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
-        hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const base = {
+        date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: false, driveModifiedTime: '', revision: '1'
+    };
     const records = Array.from({length: 125}, (_, index) => ({
         ...base, id: String(index), driveFileId: String(index), title: `Informe ${index + 1}`,
     }));
-    const draw = (studies: typeof records) => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies}), root);
+    const draw = (studies: typeof records) => render(h(StudyList, {
+        onEdit: () => {
+        }, onDelete: () => {
+        }, studies
+    }), root);
     await act(() => draw(records));
     expect(root.querySelectorAll('.study-title')).toHaveLength(50);
     expect(root.textContent).toContain('1–50 de 125 estudios');
@@ -114,17 +120,44 @@ it('shows empty state when no studies', async () => {
 });
 
 it('shows the four print states independently of attachment or viewer availability', async () => {
-    const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '', driveModifiedTime: '', revision: '1'};
+    const base = {
+        date: '2024-01-01',
+        types: [],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        driveModifiedTime: '',
+        revision: '1'
+    };
     setStudies([
-        {...base, id: 'pdf', driveFileId: 'report', title: 'Informe', hasPdf: true, viewer: 'https://example.com/visor',
-            printed: {report: true, image: true}},
-        {...base, id: 'image', driveFileId: 'photo', title: 'Orden', hasPdf: false, attachmentMime: 'image/png',
-            printed: {report: true, image: false}},
-        {...base, id: 'paper', driveFileId: 'paper', title: 'Copia', hasPdf: false, printed: {report: false, image: true}},
+        {
+            ...base,
+            id: 'pdf',
+            driveFileId: 'report',
+            title: 'Informe',
+            hasPdf: true,
+            viewer: 'https://example.com/visor',
+            printed: {report: true, image: true}
+        },
+        {
+            ...base, id: 'image', driveFileId: 'photo', title: 'Orden', hasPdf: false, attachmentMime: 'image/png',
+            printed: {report: true, image: false}
+        },
+        {
+            ...base,
+            id: 'paper',
+            driveFileId: 'paper',
+            title: 'Copia',
+            hasPdf: false,
+            printed: {report: false, image: true}
+        },
         {...base, id: 'legacy', driveFileId: 'legacy', title: 'Ficha anterior', hasPdf: false},
     ]);
     await act(() => render(h(StudyList, {
-        onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value,
+        onEdit: () => {
+        }, onDelete: () => {
+        }, studies: visibleStudies.value,
     }), root));
 
     expect(root.querySelector('time')?.dateTime).toBe('2024-01-01');
@@ -155,7 +188,11 @@ it.each([
         doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false,
         driveModifiedTime: '', revision: '1', ...fields,
     }]);
-    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    await act(() => render(h(StudyList, {
+        onEdit: () => {
+        }, onDelete: () => {
+        }, studies: visibleStudies.value
+    }), root));
     await act(() => root.querySelector<HTMLButtonElement>('.study-title')!.click());
 
     const dialog = root.querySelector('dialog[open]')!;
@@ -202,9 +239,11 @@ it('keeps unsynced studies protected without a status column', async () => {
 });
 
 it('opens details from the row and routes edit and delete through the existing handlers', async () => {
-    setStudies([{id: 'one', driveFileId: 'one', title: 'Informe', date: '2024-01-01', types: [],
+    setStudies([{
+        id: 'one', driveFileId: 'one', title: 'Informe', date: '2024-01-01', types: [],
         doctor: 'Dra. Núñez', portal: '', viewer: 'https://example.com/visor', reportName: '', hasPdf: false,
-        driveModifiedTime: '', revision: '1'}]);
+        driveModifiedTime: '', revision: '1'
+    }]);
     const onEdit = vi.fn();
     const onDelete = vi.fn();
     await act(() => render(h(StudyList, {onEdit, onDelete, studies: visibleStudies.value}), root));
@@ -223,13 +262,19 @@ it('opens details from the row and routes edit and delete through the existing h
 });
 
 it('groups linked studies under their own heading in the detail dialog', async () => {
-    const base = {date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '',
-        hasPdf: true, driveModifiedTime: '', revision: '1'};
+    const base = {
+        date: '2024-01-01', types: [], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: true, driveModifiedTime: '', revision: '1'
+    };
     setStudies([
         {...base, id: 'main', driveFileId: 'main', title: 'Control anual', documentIds: ['related']},
         {...base, id: 'related', driveFileId: 'report', title: 'Hemograma'},
     ]);
-    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    await act(() => render(h(StudyList, {
+        onEdit: () => {
+        }, onDelete: () => {
+        }, studies: visibleStudies.value
+    }), root));
     const openDetails = (title: string) => act(() => root.querySelector<HTMLButtonElement>(
         `button[aria-label="Ver detalle de ${title}"]`,
     )!.click());
@@ -261,14 +306,27 @@ it('shows a +N badge when a study has more than two types', async () => {
         driveModifiedTime: '',
         revision: '1',
     }]);
-    await act(() => render(h(StudyList, {onEdit: () => {}, onDelete: () => {}, studies: visibleStudies.value}), root));
+    await act(() => render(h(StudyList, {
+        onEdit: () => {
+        }, onDelete: () => {
+        }, studies: visibleStudies.value
+    }), root));
     const badges = [...root.querySelectorAll('.type-badge')];
     expect(badges.map((badge) => badge.textContent)).toEqual(['Laboratorio', 'Ecografía', '+2']);
     expect(badges[2]?.getAttribute('title')).toBe('Radiografía, Otro');
 });
 
 it('renders a year divider row between studies from different years when sorted by date', async () => {
-    const base = {types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const base = {
+        types: ['Otro'],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1'
+    };
     setStudies([
         {...base, id: '1', driveFileId: '1', title: 'Estudio 2025', date: '2025-05-01'},
         {...base, id: '2', driveFileId: '2', title: 'Estudio 2024 B', date: '2024-08-10'},
@@ -276,7 +334,9 @@ it('renders a year divider row between studies from different years when sorted 
         {...base, id: '4', driveFileId: '4', title: 'Estudio 2023', date: '2023-11-20'},
     ]);
     await act(() => render(h(StudyList, {
-        onEdit: () => {}, onDelete: () => {}, sortOrder: 'date-desc', studies: visibleStudies.value,
+        onEdit: () => {
+        }, onDelete: () => {
+        }, sortOrder: 'date-desc', studies: visibleStudies.value,
     }), root));
 
     const dividers = [...root.querySelectorAll('.year-divider-row')].map((row) => row.textContent?.trim());
@@ -284,7 +344,9 @@ it('renders a year divider row between studies from different years when sorted 
 
     // When sorted by title, year dividers are not shown
     await act(() => render(h(StudyList, {
-        onEdit: () => {}, onDelete: () => {}, sortOrder: 'title', studies: visibleStudies.value,
+        onEdit: () => {
+        }, onDelete: () => {
+        }, sortOrder: 'title', studies: visibleStudies.value,
     }), root));
     expect(root.querySelectorAll('.year-divider-row')).toHaveLength(0);
 });
@@ -301,7 +363,14 @@ it('allows selecting multiple shareable studies while keeping single-study share
     };
     setStudies([
         {...base, id: 'one', driveFileId: 'one', title: 'Estudio PDF', hasPdf: true, viewer: ''},
-        {...base, id: 'two', driveFileId: 'two', title: 'Estudio Visor', hasPdf: false, viewer: 'https://example.org/v'},
+        {
+            ...base,
+            id: 'two',
+            driveFileId: 'two',
+            title: 'Estudio Visor',
+            hasPdf: false,
+            viewer: 'https://example.org/v'
+        },
         {...base, id: 'three', driveFileId: 'three', title: 'Sin fuentes', hasPdf: false, viewer: ''},
         {...base, id: 'four', driveFileId: 'four', title: 'Pendiente', hasPdf: true, viewer: '', syncStatus: 'pending'},
     ]);
@@ -310,8 +379,10 @@ it('allows selecting multiple shareable studies while keeping single-study share
     document.body.append(root);
 
     await act(() => render(h(StudyList, {
-        onEdit: () => {},
-        onDelete: () => {},
+        onEdit: () => {
+        },
+        onDelete: () => {
+        },
         onShare,
         onShareMultiple,
         studies: visibleStudies.value,

@@ -16,19 +16,19 @@ Drive conserva el estado remoto y los workers procesan documentos en el navegado
 
 **Responsabilidad**: Reglas de negocio puras, sin dependencias externas.
 
-| Archivo | Propósito |
-|---------|-----------|
-| `models.ts` | Interfaces: `Study`, `Operation`, `Portal`, `MedicalEvent`, `Episode`, `Appointment`, `Filters`, `ViewMode` |
-| `library.ts` | Reglas de filtrado, ordenación, sugerencias de portales |
-| `validation/study.ts` | Validación de borradores de estudio |
-| `extract.ts` | Extracción de metadatos de PDF (fecha, tipos, doctor, firma) |
-| `search.ts` | Búsqueda y archivo de consultas |
-| `summary.ts` | Agregaciones para gráficos/resumen |
-| `appointments.ts` | Reglas de turnos |
-| `document-compatibility.ts` | Compatibilidad de documentos adjuntos |
-| `repository.ts` | **Interfaces** de repositorio (contratos) |
-| `pdf-signatures.ts` | Detección de firmas en PDF |
-| `utils.ts` | Utilidades puras (normalización, fechas) |
+| Archivo                     | Propósito                                                                                                   |
+|-----------------------------|-------------------------------------------------------------------------------------------------------------|
+| `models.ts`                 | Interfaces: `Study`, `Operation`, `Portal`, `MedicalEvent`, `Episode`, `Appointment`, `Filters`, `ViewMode` |
+| `library.ts`                | Reglas de filtrado, ordenación, sugerencias de portales                                                     |
+| `validation/study.ts`       | Validación de borradores de estudio                                                                         |
+| `extract.ts`                | Extracción de metadatos de PDF (fecha, tipos, doctor, firma)                                                |
+| `search.ts`                 | Búsqueda y archivo de consultas                                                                             |
+| `summary.ts`                | Agregaciones para gráficos/resumen                                                                          |
+| `appointments.ts`           | Reglas de turnos                                                                                            |
+| `document-compatibility.ts` | Compatibilidad de documentos adjuntos                                                                       |
+| `repository.ts`             | **Interfaces** de repositorio (contratos)                                                                   |
+| `pdf-signatures.ts`         | Detección de firmas en PDF                                                                                  |
+| `utils.ts`                  | Utilidades puras (normalización, fechas)                                                                    |
 
 **Principio**: Código portable, testeable sin DOM ni APIs de Google.
 
@@ -38,22 +38,22 @@ Drive conserva el estado remoto y los workers procesan documentos en el navegado
 
 **Responsabilidad**: Implementaciones concretas de los repositorios + acceso a Drive/IndexedDB/Outbox.
 
-| Archivo | Propósito |
-|---------|-----------|
-| `drive-api.ts` | Cliente Drive bajo nivel (`DriveClient`, `DriveError`, `DriveConflictError`) |
-| `drive-auth-repository.ts` | Autenticación OAuth, verificación de cuenta |
-| `drive-study-repository.ts` | CRUD estudios en Drive + caché IndexedDB |
-| `drive-operation-repository.ts` | CRUD operaciones |
-| `drive-portal-repository.ts` | CRUD portales |
-| `drive-appointment-repository.ts` | CRUD turnos |
-| `drive-medical-event-repository.ts` | CRUD eventos médicos |
-| `drive-episode-repository.ts` | CRUD episodios |
-| `drive-intake-repository.ts` | Listado y descarga de candidatos PDF de una carpeta de Drive |
-| `drive-medical-event-list.ts` | Listado de eventos |
-| `outbox.ts` | Cola de mutaciones offline (IndexedDB + Web Locks) |
-| `pdf-analysis.ts` | Análisis de PDF (texto, OCR, firmas) |
-| `recovery-window.ts` | Cálculo de elegibilidad para recuperar un registro eliminado |
-| `study-types.ts` | Catálogo de tipos de estudio |
+| Archivo                             | Propósito                                                                    |
+|-------------------------------------|------------------------------------------------------------------------------|
+| `drive-api.ts`                      | Cliente Drive bajo nivel (`DriveClient`, `DriveError`, `DriveConflictError`) |
+| `drive-auth-repository.ts`          | Autenticación OAuth, verificación de cuenta                                  |
+| `drive-study-repository.ts`         | CRUD estudios en Drive + caché IndexedDB                                     |
+| `drive-operation-repository.ts`     | CRUD operaciones                                                             |
+| `drive-portal-repository.ts`        | CRUD portales                                                                |
+| `drive-appointment-repository.ts`   | CRUD turnos                                                                  |
+| `drive-medical-event-repository.ts` | CRUD eventos médicos                                                         |
+| `drive-episode-repository.ts`       | CRUD episodios                                                               |
+| `drive-intake-repository.ts`        | Listado y descarga de candidatos PDF de una carpeta de Drive                 |
+| `drive-medical-event-list.ts`       | Listado de eventos                                                           |
+| `outbox.ts`                         | Cola de mutaciones offline (IndexedDB + Web Locks)                           |
+| `pdf-analysis.ts`                   | Análisis de PDF (texto, OCR, firmas)                                         |
+| `recovery-window.ts`                | Cálculo de elegibilidad para recuperar un registro eliminado                 |
+| `study-types.ts`                    | Catálogo de tipos de estudio                                                 |
 
 Las interfaces compartidas viven en [`domain/repository.ts`](../src/domain/repository.ts). Las instancias que usa la
 interfaz se exponen desde [`data/index.ts`](../src/data/index.ts).
@@ -64,11 +64,11 @@ interfaz se exponen desde [`data/index.ts`](../src/data/index.ts).
 
 **Responsabilidad**: Infraestructura transversal.
 
-| Archivo | Propósito |
-|---------|-----------|
-| `config.ts` | Configuración de OAuth, Drive y límites de análisis y caché |
-| [`storage.ts`](../src/core/storage.ts) | Caché en IndexedDB, control del dueño de la sesión y migraciones |
-| [`service-worker.template`](../src/core/service-worker.template) | Plantilla del service worker de producción que genera Vite |
+| Archivo                                                          | Propósito                                                        |
+|------------------------------------------------------------------|------------------------------------------------------------------|
+| `config.ts`                                                      | Configuración de OAuth, Drive y límites de análisis y caché      |
+| [`storage.ts`](../src/core/storage.ts)                           | Caché en IndexedDB, control del dueño de la sesión y migraciones |
+| [`service-worker.template`](../src/core/service-worker.template) | Plantilla del service worker de producción que genera Vite       |
 
 ---
 
@@ -87,6 +87,7 @@ presentation/
 ```
 
 **Patrón de estado**:
+
 - **Global**: Signals en `state/` (reactivos, compartidos)
 - **Derivado**: `computed` signals (ej. `filteredStudies`)
 - **Local**: `useState`/`useReducer` en componente (borradores de formulario)
@@ -97,11 +98,11 @@ presentation/
 
 **Responsabilidad**: Procesamiento pesado fuera del hilo principal.
 
-| Worker | Función |
-|--------|---------|
-| `pdf.worker.ts` | Orquesta PDF.js + Tesseract, expone API Comlink |
+| Worker                                          | Función                                                |
+|-------------------------------------------------|--------------------------------------------------------|
+| `pdf.worker.ts`                                 | Orquesta PDF.js + Tesseract, expone API Comlink        |
 | [`pdf-engine.ts`](../src/workers/pdf-engine.ts) | Extracción de texto, OCR y detección de firmas del PDF |
-| [`ocr.worker.ts`](../src/workers/ocr.worker.ts) | OCR de imágenes JPEG y PNG en un worker independiente |
+| [`ocr.worker.ts`](../src/workers/ocr.worker.ts) | OCR de imágenes JPEG y PNG en un worker independiente  |
 
 [`pdf-analysis.ts`](../src/data/pdf-analysis.ts) coordina las llamadas con Comlink y termina el worker si el análisis
 se cancela. El selector y el guardado manual del editor admiten PDF.
@@ -120,7 +121,8 @@ aplica cambios pendientes y filtros para producir las vistas derivadas de la bib
 
 ### Guardar un estudio
 
-1. [`EditorDialog`](../src/presentation/components/EditorDialog.tsx) usa [`useEditor`](../src/presentation/hooks/useEditor.ts)
+1. [`EditorDialog`](../src/presentation/components/EditorDialog.tsx) usa [
+   `useEditor`](../src/presentation/hooks/useEditor.ts)
    para preparar el borrador, analizar el PDF y presentar sugerencias revisables.
 2. `saveStudy` en [`LibraryPage`](../src/presentation/pages/LibraryPage.tsx) valida el borrador y comprueba la cuenta.
    En línea, reutiliza el ID reservado para un alta y llama a
@@ -147,6 +149,7 @@ vuelve a consultar Drive y valida la elegibilidad antes de aplicar la recuperaci
 ## Convenciones transversales
 
 ### Imports
+
 ```typescript
 // Capas - usar alias
 import type {Study} from '@domain/models';
@@ -156,11 +159,13 @@ import {Outbox} from '@data/outbox';
 ```
 
 ### Errores
+
 - `DriveError` - errores genéricos de API
 - `DriveConflictError` - revisión obsoleta que requiere resolución
 - `DriveSessionError` - token expirado/revocado
 
 ### Testing
+
 - **Domain/Data**: Vitest + fake IndexedDB + MSW
 - **Presentation**: Vitest (componentes) + Playwright (E2E)
 - **Workers**: Pruebas de integración con PDF e imágenes sintéticos
@@ -170,6 +175,7 @@ import {Outbox} from '@data/outbox';
 ## Extensibilidad
 
 ### Agregar nuevo tipo de entidad
+
 1. Interface en `domain/models.ts`
 2. Interfaz repositorio en `domain/repository.ts`
 3. Implementación en `data/drive-X-repository.ts`
@@ -178,6 +184,7 @@ import {Outbox} from '@data/outbox';
 6. Tests unitarios + E2E
 
 ### Agregar nueva vista (ViewMode)
+
 1. Agregar a `ViewMode` en `models.ts`
 2. Lógica de filtrado/orden en `domain/library.ts` si aplica
 3. Componente de vista en `presentation/components/`

@@ -30,8 +30,12 @@ it('lee un informe PDF sintético usando el lector de Telegram', async () => {
 });
 
 it('toma el enlace embebido del mensaje y solo admite el chat personal autorizado', () => {
-    const update = {update_id: 1, message: {chat: {id: 44, type: 'private'}, from: {id: 44},
-        caption: 'Abrir informe', caption_entities: [{type: 'text_link', url: 'https://portal.example/visor'}]}};
+    const update = {
+        update_id: 1, message: {
+            chat: {id: 44, type: 'private'}, from: {id: 44},
+            caption: 'Abrir informe', caption_entities: [{type: 'text_link', url: 'https://portal.example/visor'}]
+        }
+    };
     expect(privateUpdate(update, 44)).toBe(true);
     expect(privateUpdate(update, 45)).toBe(false);
     expect(privateUpdate({...update, message: {...update.message, chat: {id: 44, type: 'group'}}}, 44)).toBe(false);
@@ -42,21 +46,46 @@ it('guarda el PDF con el visor y un turno con recordatorios sin duplicarlos al r
     const directory = await mkdtemp(join(tmpdir(), 'mis-estudios-telegram-'));
     try {
         await writeJson(join(directory, 'google-client.json'), {installed: {client_id: 'test', client_secret: 'test'}});
-        await writeJson(join(directory, 'google-authorization.json'), {folderId: FOLDER_ID, refreshToken: 'test', calendar: true});
-        server.use(http.post('https://oauth2.googleapis.com/token', () => HttpResponse.json({access_token: 'test', expires_in: 3600})));
+        await writeJson(join(directory, 'google-authorization.json'), {
+            folderId: FOLDER_ID,
+            refreshToken: 'test',
+            calendar: true
+        });
+        server.use(http.post('https://oauth2.googleapis.com/token', () => HttpResponse.json({
+            access_token: 'test',
+            expires_in: 3600
+        })));
         const bot = await googleServices(directory, async () => document());
         const studyId = await bot.reserve();
         const study = {
             kind: 'study' as const, id: 1, revision: 0, recordId: studyId, document: {id: 'test', name: 'Informe.pdf'},
-            fields: {title: 'Ecografía', types: ['Ecografía'], date: '2024-03-18', viewer: 'https://portal.example/visor', doctor: '', portal: ''},
+            fields: {
+                title: 'Ecografía',
+                types: ['Ecografía'],
+                date: '2024-03-18',
+                viewer: 'https://portal.example/visor',
+                doctor: '',
+                portal: ''
+            },
         };
         await bot.save(study);
         await bot.save(study);
-        expect(fakeDriveFile(studyId)).toMatchObject({mimeType: 'application/pdf', appProperties: {misEstudios: 'estudio-v1'}});
+        expect(fakeDriveFile(studyId)).toMatchObject({
+            mimeType: 'application/pdf',
+            appProperties: {misEstudios: 'estudio-v1'}
+        });
         expect(JSON.parse(fakeDriveFile(studyId)!.description)).toMatchObject({viewer: 'https://portal.example/visor'});
         const appointmentId = await bot.reserve();
-        const appointment = {kind: 'appointment' as const, id: 2, revision: 0, recordId: appointmentId,
-            fields: {date: '2030-11-24', time: '15:30', professional: 'Dra. Pérez', specialty: 'Cardiología', location: 'Hospital'}};
+        const appointment = {
+            kind: 'appointment' as const, id: 2, revision: 0, recordId: appointmentId,
+            fields: {
+                date: '2030-11-24',
+                time: '15:30',
+                professional: 'Dra. Pérez',
+                specialty: 'Cardiología',
+                location: 'Hospital'
+            }
+        };
         await bot.save(appointment);
         await bot.save(appointment);
         expect(fakeDriveFile(appointmentId)?.appProperties).toMatchObject({misEstudios: 'turno-v1'});

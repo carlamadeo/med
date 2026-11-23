@@ -45,14 +45,14 @@ interface AppointmentFormProps {
 }
 
 function AppointmentForm({
-    editor,
-    busy,
-    message,
-    error,
-    onSubmit,
-    onClose,
-    onRequestDelete,
-}: AppointmentFormProps) {
+                             editor,
+                             busy,
+                             message,
+                             error,
+                             onSubmit,
+                             onClose,
+                             onRequestDelete,
+                         }: AppointmentFormProps) {
     const appointment = editor.appointment;
     const consultation = editor.mode === 'consultation';
     const registering = consultation && appointment?.status === 'scheduled';
@@ -65,7 +65,7 @@ function AppointmentForm({
 
     const autoLocationRef = useRef<string | null>(
         appointment?.location &&
-            initialDoctor?.addresses.some((addr) => normalize(addr) === normalize(appointment.location!))
+        initialDoctor?.addresses.some((addr) => normalize(addr) === normalize(appointment.location!))
             ? appointment.location
             : null,
     );
@@ -77,8 +77,8 @@ function AppointmentForm({
     );
     const autoSpecialtyRef = useRef<string | null>(
         appointment?.specialty &&
-            initialResolvedSpecialty &&
-            normalize(initialResolvedSpecialty) === normalize(appointment.specialty)
+        initialResolvedSpecialty &&
+        normalize(initialResolvedSpecialty) === normalize(appointment.specialty)
             ? appointment.specialty
             : null,
     );
@@ -100,18 +100,18 @@ function AppointmentForm({
 
     const specialties = !consultation
         ? specialtyNames(
-              [...visibleAppointments.value, ...visibleMedicalEvents.value, ...visibleDoctors.value],
-              COMMON_SPECIALTIES,
-          )
+            [...visibleAppointments.value, ...visibleMedicalEvents.value, ...visibleDoctors.value],
+            COMMON_SPECIALTIES,
+        )
         : [];
 
     const professionalOptions = !consultation
         ? buildProfessionalOptions(
-              directory,
-              visibleAppointments.value,
-              visibleMedicalEvents.value,
-              operations.value,
-          )
+            directory,
+            visibleAppointments.value,
+            visibleMedicalEvents.value,
+            operations.value,
+        )
         : [];
 
     const selectedDoctor = !consultation ? findDoctorByName(directory, professional) : undefined;

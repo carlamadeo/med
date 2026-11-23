@@ -29,7 +29,7 @@ function monthDay(date: string): { month: string; day: string } {
 
 function computeHealthActivity(episodes: readonly Episode[], appointments: readonly Appointment[], operations: readonly Operation[], months = 6) {
     const now = new Date();
-    const result: Array<{key: string; label: string; count: number}> = [];
+    const result: Array<{ key: string; label: string; count: number }> = [];
     for (let i = months - 1; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -59,7 +59,7 @@ function getActiveEpisodes(episodes: readonly Episode[]) {
 }
 
 function getCurrentMedications(episodes: readonly Episode[]) {
-    const meds = new Map<string, {name: string; frequency?: string; count: number}>();
+    const meds = new Map<string, { name: string; frequency?: string; count: number }>();
     for (const ep of episodes) {
         if (ep.closed || ep.endDate) continue;
         for (const med of ep.medications) {
@@ -74,7 +74,7 @@ function getCurrentMedications(episodes: readonly Episode[]) {
 }
 
 function getTopSymptomsActive(episodes: readonly Episode[], limit = 3) {
-    const freq = new Map<string, {count: number; maxIntensity: number}>();
+    const freq = new Map<string, { count: number; maxIntensity: number }>();
     for (const ep of episodes) {
         if (ep.closed || ep.endDate) continue;
         for (const obs of ep.observations) {
@@ -143,7 +143,11 @@ export function Resumen() {
     const activityThisMonth = healthActivity[healthActivity.length - 1]?.count ?? 0;
     const totalActivity = healthActivity.reduce((sum, item) => sum + item.count, 0);
     const averageActivity = healthActivity.length ? totalActivity / healthActivity.length : 0;
-    const bestMonth = healthActivity.reduce((top, item) => (item.count > top.count ? item : top), healthActivity[0] ?? {key: '', label: '', count: 0});
+    const bestMonth = healthActivity.reduce((top, item) => (item.count > top.count ? item : top), healthActivity[0] ?? {
+        key: '',
+        label: '',
+        count: 0
+    });
 
     if (loading.value && studies.length === 0 && episodes.length === 0 && appointments.length === 0) {
         return (
@@ -195,7 +199,8 @@ export function Resumen() {
                     </div>
                     <p className="kpi-value">{activeEpisodes.length}</p>
                     <div className="kpi-foot">
-                        <span className="kpi-note">{activeEpisodes.length === 1 ? 'episodio en curso' : 'episodios en curso'}</span>
+                        <span
+                            className="kpi-note">{activeEpisodes.length === 1 ? 'episodio en curso' : 'episodios en curso'}</span>
                     </div>
                 </article>
 
@@ -206,7 +211,8 @@ export function Resumen() {
                     </div>
                     <p className="kpi-value">{totalDaysIllThisYear}</p>
                     <div className="kpi-foot">
-                        <span className="delta" data-tone="neutral">{totalEpisodesThisYear} {totalEpisodesThisYear === 1 ? 'episodio' : 'episodios'}</span>
+                        <span className="delta"
+                              data-tone="neutral">{totalEpisodesThisYear} {totalEpisodesThisYear === 1 ? 'episodio' : 'episodios'}</span>
                         <span className="kpi-note">este año</span>
                     </div>
                 </article>
@@ -218,7 +224,8 @@ export function Resumen() {
                     </div>
                     <p className="kpi-value">{currentMeds.length}</p>
                     <div className="kpi-foot">
-                        <span className="kpi-note">{currentMeds.slice(0, 2).map(m => m.name).join(', ') || 'ninguno'}</span>
+                        <span
+                            className="kpi-note">{currentMeds.slice(0, 2).map(m => m.name).join(', ') || 'ninguno'}</span>
                     </div>
                 </article>
 
@@ -229,7 +236,8 @@ export function Resumen() {
                     </div>
                     <p className="kpi-value">{operations.length}</p>
                     <div className="kpi-foot">
-                        <span className="kpi-note">{recentOp ? `${recentOp.name} (${formatMonth(recentOp.date!.slice(0, 7))})` : 'sin registros'}</span>
+                        <span
+                            className="kpi-note">{recentOp ? `${recentOp.name} (${formatMonth(recentOp.date!.slice(0, 7))})` : 'sin registros'}</span>
                     </div>
                 </article>
             </div>
@@ -242,14 +250,16 @@ export function Resumen() {
                             <p className="card-desc">Episodios + turnos + operaciones por mes</p>
                             <div className="chart-headline">
                                 <span className="chart-total">{totalActivity}</span>
-                                <span className="chart-delta"><svg className="icon"><use href="#i-trend"/></svg> +{activityThisMonth} este mes</span>
+                                <span className="chart-delta"><svg className="icon"><use
+                                    href="#i-trend"/></svg> +{activityThisMonth} este mes</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="chart-wrap">
                         <SummaryChart data={healthActivity}/>
-                        {totalActivity === 0 && <p className="chart-empty">Todavía no hay actividad de salud en este período.</p>}
+                        {totalActivity === 0 &&
+                            <p className="chart-empty">Todavía no hay actividad de salud en este período.</p>}
                     </div>
 
                     <dl className="chart-foot">
@@ -305,43 +315,57 @@ export function Resumen() {
                         <div className="insights-list">
                             {activeEpisodes.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-alert"/>
+                                    </svg>
                                     <span>{activeEpisodes.length} episodio{activeEpisodes.length !== 1 ? 's' : ''} en curso: {activeEpisodes.map(e => e.illness || 'Salud').join(', ')}</span>
                                 </div>
                             )}
                             {topActiveSymptoms.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-activity"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-activity"/>
+                                    </svg>
                                     <span>Síntomas activos: {topActiveSymptoms.map(s => `${s.name}${s.maxIntensity ? ` (${s.maxIntensity}/5)` : ''}`).join(', ')}</span>
                                 </div>
                             )}
                             {currentMeds.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-pill"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-pill"/>
+                                    </svg>
                                     <span>Medicación: {currentMeds.slice(0, 3).map(m => `${m.name}${m.frequency ? ` ${m.frequency}` : ''}`).join('; ')}</span>
                                 </div>
                             )}
                             {appointmentsThisMonth > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-calendar"/>
+                                    </svg>
                                     <span>{appointmentsThisMonth} turno{appointmentsThisMonth !== 1 ? 's' : ''} este mes</span>
                                 </div>
                             )}
                             {specialties.length > 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-stethoscope"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-stethoscope"/>
+                                    </svg>
                                     <span>Especialidades este año: {specialties.join(', ')}</span>
                                 </div>
                             )}
                             {recentOp && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-scissors"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-scissors"/>
+                                    </svg>
                                     <span>Última operación: {recentOp.name} ({formatMonth(recentOp.date!.slice(0, 7))})</span>
                                 </div>
                             )}
                             {activeEpisodes.length === 0 && currentMeds.length === 0 && appointmentsThisMonth === 0 && (
                                 <div className="insight-item">
-                                    <svg className="icon insight-icon" aria-hidden="true"><use href="#i-check"/></svg>
+                                    <svg className="icon insight-icon" aria-hidden="true">
+                                        <use href="#i-check"/>
+                                    </svg>
                                     <span>Sin episodios activos ni turnos próximos. ¡Todo tranquilo!</span>
                                 </div>
                             )}

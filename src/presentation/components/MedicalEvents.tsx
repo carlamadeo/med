@@ -4,7 +4,14 @@ import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
-import {COMMON_SPECIALTIES, formatStudyDate, hasStudyAttachment, reportUrl, specialtyNames, studyAttachmentName} from '@domain/library';
+import {
+    COMMON_SPECIALTIES,
+    formatStudyDate,
+    hasStudyAttachment,
+    reportUrl,
+    specialtyNames,
+    studyAttachmentName
+} from '@domain/library';
 import type {MedicalEvent, MedicalEventDraft} from '@domain/models';
 import {
     doctorDirectory,
@@ -23,7 +30,7 @@ import {EventRelatedPicker} from './EventRelatedPicker';
 
 const outbox = new Outbox();
 
-export function MedicalEvents({query}: {query: string}) {
+export function MedicalEvents({query}: { query: string }) {
     const studyAttachments = studies.value.filter(hasStudyAttachment);
     const [editing, setEditing] = useState<MedicalEvent | null>(null);
     const [busy, setBusy] = useState(false);
@@ -328,7 +335,8 @@ export function MedicalEvents({query}: {query: string}) {
             </ul>
         ) : (
             <div className="event-empty">
-                <span className="event-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-clipboard"/></svg></span>
+                <span className="event-empty-icon"><svg className="icon" aria-hidden="true"><use
+                    href="#i-clipboard"/></svg></span>
                 <p>{query ? 'No hay consultas ni recetas que coincidan con la búsqueda.' : 'Todavía no hay consultas ni recetas sin turno.'}</p>
             </div>
         )}
@@ -398,20 +406,23 @@ export function MedicalEvents({query}: {query: string}) {
                                 className="wide"
                                 disabled={busy}
                             />
-                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea id="event-notes" name="notes"
-                                                                    defaultValue={editing?.notes ?? ''}/></label>
+                            <label className="wide"><span className="field-label">Notas <small
+                                aria-hidden="true">Opcional</small></span> <textarea id="event-notes" name="notes"
+                                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
 
-                        <EventRelatedPicker name="studyId" initialIds={editing?.studyIds} options={studies.value.map(study => ({
-                            id: study.id,
-                            label: `${study.title} · ${formatStudyDate(study.date)}`,
-                            keywords: `${study.doctor} ${study.portal} ${study.date}`,
-                        }))}/>
-                        <EventRelatedPicker name="documentId" initialIds={editing?.documentIds} options={studyAttachments.map(study => ({
-                            id: study.id,
-                            label: studyAttachmentName(study),
-                            keywords: `${study.reportName} ${study.title} ${study.doctor} ${study.portal} ${study.date} ${formatStudyDate(study.date)}`,
-                        }))}/>
+                        <EventRelatedPicker name="studyId" initialIds={editing?.studyIds}
+                                            options={studies.value.map(study => ({
+                                                id: study.id,
+                                                label: `${study.title} · ${formatStudyDate(study.date)}`,
+                                                keywords: `${study.doctor} ${study.portal} ${study.date}`,
+                                            }))}/>
+                        <EventRelatedPicker name="documentId" initialIds={editing?.documentIds}
+                                            options={studyAttachments.map(study => ({
+                                                id: study.id,
+                                                label: studyAttachmentName(study),
+                                                keywords: `${study.reportName} ${study.title} ${study.doctor} ${study.portal} ${study.date} ${formatStudyDate(study.date)}`,
+                                            }))}/>
 
                         {message && <p className="form-error" role="alert">{message}</p>}
                     </fieldset>

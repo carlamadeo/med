@@ -46,7 +46,7 @@ export function resolveProfessionalSpecialty(
     if (matched?.specialty) return matched.specialty;
     const key = normalizeDoctorName(professionalName);
     if (!key) return '';
-    const candidates: Array<{date: string; specialty: string}> = [];
+    const candidates: Array<{ date: string; specialty: string }> = [];
     for (const item of appointmentsList) {
         const specialty = cleanSpecialty(item.specialty);
         if (specialty && normalizeDoctorName(item.professional) === key) {
@@ -67,7 +67,7 @@ export function resolveProfessionalSpecialty(
 export function syncAutoField(
     currentValue: string,
     suggestedValue: string,
-    autoRef: {current: string | null},
+    autoRef: { current: string | null },
     setValue: (value: string) => void,
 ): void {
     if (!currentValue.trim()) {

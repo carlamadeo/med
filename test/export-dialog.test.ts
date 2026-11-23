@@ -27,7 +27,10 @@ function study(id: string, fields: Partial<Study> = {}): Study {
 async function openDialog() {
     document.body.append(root);
     await act(() => {
-        render(h(ExportDialog, {onReconnect: () => {}, error: null, sessionLost: false}), root);
+        render(h(ExportDialog, {
+            onReconnect: () => {
+            }, error: null, sessionLost: false
+        }), root);
         setExporting(true);
     });
 }
@@ -42,7 +45,8 @@ function captureDownload() {
     const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:test');
     Object.defineProperty(URL, 'createObjectURL', {configurable: true, value: createUrl});
     Object.defineProperty(URL, 'revokeObjectURL', {configurable: true, value: vi.fn()});
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
+    });
     return createUrl;
 }
 
@@ -149,15 +153,30 @@ it('keeps one snapshot of related records while fetching attachments', async () 
     setStudies([study('one', {hasPdf: true, operationId: 'op1'})]);
     operations.value = [{id: 'op1', name: 'Operación inicial', color: '', studyIds: ['one']}];
     portals.value = [{id: 'portal1', name: 'portal', displayName: 'Portal inicial', url: 'https://example.com'}];
-    doctors.value = [{id: 'doctor1', name: 'Dra. Inicial', specialty: 'Cardiología', addresses: ['Av. 1'], defaultAddress: 'Av. 1', revision: '1'}];
+    doctors.value = [{
+        id: 'doctor1',
+        name: 'Dra. Inicial',
+        specialty: 'Cardiología',
+        addresses: ['Av. 1'],
+        defaultAddress: 'Av. 1',
+        revision: '1'
+    }];
     medicalEvents.value = [{
         id: 'event1', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '',
         studyIds: ['one'], documentIds: [], revision: '1',
     }];
     episodes.value = [{id: 'episode1', illness: 'Episodio inicial', observations: [], medications: [], revision: '1'}];
     appointments.value = [{
-        id: 'appointment1', revision: '1', date: '2024-01-01', time: '12:00', timeZone: 'America/Argentina/Buenos_Aires',
-        professional: 'Profesional', notes: '', status: 'scheduled', cost: null, coverage: null,
+        id: 'appointment1',
+        revision: '1',
+        date: '2024-01-01',
+        time: '12:00',
+        timeZone: 'America/Argentina/Buenos_Aires',
+        professional: 'Profesional',
+        notes: '',
+        status: 'scheduled',
+        cost: null,
+        coverage: null,
     }];
     vi.spyOn(driveStudyRepo, 'getDocumentFile').mockImplementation(async () => {
         operations.value = [];
@@ -260,7 +279,7 @@ it('allows export when changes are queued for a different account', async () => 
     await openDialog();
     await submit();
 
-const zip = await downloadedZip(createUrl);
+    const zip = await downloadedZip(createUrl);
     expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
         version: 1, scope: 'all', totalStudies: 1, studies: [{id: 'one'}],
     });
@@ -319,8 +338,26 @@ it('exports only filtered studies and directly related records', async () => {
     operations.value = [{id: 'op', name: 'Operación', color: '', studyIds: []}];
     portals.value = [{id: 'p', name: 'Clínica Norte', displayName: 'Norte', url: 'https://example.com'}];
     medicalEvents.value = [
-        {id: 'linked', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['one', 'two'], documentIds: ['two'], revision: '1'},
-        {id: 'other', kind: 'consultation', date: '2024-01-01', doctor: '', notes: '', studyIds: ['two'], documentIds: [], revision: '1'},
+        {
+            id: 'linked',
+            kind: 'consultation',
+            date: '2024-01-01',
+            doctor: '',
+            notes: '',
+            studyIds: ['one', 'two'],
+            documentIds: ['two'],
+            revision: '1'
+        },
+        {
+            id: 'other',
+            kind: 'consultation',
+            date: '2024-01-01',
+            doctor: '',
+            notes: '',
+            studyIds: ['two'],
+            documentIds: [],
+            revision: '1'
+        },
     ];
     const loadAttachment = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockResolvedValue(new File(['%PDF-contenido'], 'informe.pdf', {type: 'application/pdf'}));
     const createUrl = captureDownload();
@@ -328,8 +365,16 @@ it('exports only filtered studies and directly related records', async () => {
     expect(root.querySelector<HTMLInputElement>('input[value=filtered]')?.checked).toBe(true);
     await submit();
     const zip = await downloadedZip(createUrl);
-    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({scope: 'filtered', totalStudies: 1, studies: [{id: 'one', documentIds: []}]});
-    expect(JSON.parse(await zip.file('medical-events.json')!.async('text'))).toMatchObject([{id: 'linked', studyIds: ['one'], documentIds: []}]);
+    expect(JSON.parse(await zip.file('manifest.json')!.async('text'))).toMatchObject({
+        scope: 'filtered',
+        totalStudies: 1,
+        studies: [{id: 'one', documentIds: []}]
+    });
+    expect(JSON.parse(await zip.file('medical-events.json')!.async('text'))).toMatchObject([{
+        id: 'linked',
+        studyIds: ['one'],
+        documentIds: []
+    }]);
     expect(zip.file('pdfs/two.pdf')).toBeNull();
     expect(loadAttachment).toHaveBeenCalledOnce();
     store.resetLibraryFilters();

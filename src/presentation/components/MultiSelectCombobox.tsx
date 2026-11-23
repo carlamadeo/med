@@ -15,18 +15,18 @@ export interface MultiSelectComboboxProps {
 }
 
 export function MultiSelectCombobox({
-    options,
-    value,
-    onChange,
-    placeholder = 'Elegí tipos…',
-    searchPlaceholder = 'Filtrar o escribir un tipo nuevo…',
-    label,
-    ariaLabel = 'Tipos de estudio',
-    optionCounts,
-    required = false,
-    allowCreate = false,
-    ariaDescribedBy,
-}: MultiSelectComboboxProps) {
+                                        options,
+                                        value,
+                                        onChange,
+                                        placeholder = 'Elegí tipos…',
+                                        searchPlaceholder = 'Filtrar o escribir un tipo nuevo…',
+                                        label,
+                                        ariaLabel = 'Tipos de estudio',
+                                        optionCounts,
+                                        required = false,
+                                        allowCreate = false,
+                                        ariaDescribedBy,
+                                    }: MultiSelectComboboxProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [activeIndex, setActiveIndex] = useState(-1);

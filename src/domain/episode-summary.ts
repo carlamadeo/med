@@ -32,8 +32,12 @@ export function peakTemperature(episode: Episode): number | null {
     return temps.length > 0 ? Math.max(...temps) : null;
 }
 
-export function symptomFrequency(episode: Episode): Map<string, {count: number; maxIntensity: number; descriptions: string[]}> {
-    const freq = new Map<string, {count: number; maxIntensity: number; descriptions: string[]}>();
+export function symptomFrequency(episode: Episode): Map<string, {
+    count: number;
+    maxIntensity: number;
+    descriptions: string[]
+}> {
+    const freq = new Map<string, { count: number; maxIntensity: number; descriptions: string[] }>();
     for (const obs of episode.observations) {
         for (const symptom of obs.symptoms) {
             const key = symptom.name.trim().toLowerCase();
@@ -48,7 +52,7 @@ export function symptomFrequency(episode: Episode): Map<string, {count: number; 
     return freq;
 }
 
-export function topSymptoms(episode: Episode, limit = 3): Array<{name: string; count: number; maxIntensity: number}> {
+export function topSymptoms(episode: Episode, limit = 3): Array<{ name: string; count: number; maxIntensity: number }> {
     const freq = symptomFrequency(episode);
     return [...freq.entries()]
         .map(([name, data]) => ({name, count: data.count, maxIntensity: data.maxIntensity}))

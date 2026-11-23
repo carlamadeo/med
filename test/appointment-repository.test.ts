@@ -65,9 +65,17 @@ it('recovers a retried turn creation with the original prescription bytes', asyn
     const createId = 'reserved-turn';
     const prescriptionFile = new File(['%PDF-1.7\nA'], 'receta.pdf', {type: 'application/pdf'});
     const created = await driveAppointmentRepo.save({...draft, createId, prescriptionFile});
-    await expect(driveAppointmentRepo.save({...draft, createId, prescriptionFile})).resolves.toMatchObject({id: created.id});
+    await expect(driveAppointmentRepo.save({
+        ...draft,
+        createId,
+        prescriptionFile
+    })).resolves.toMatchObject({id: created.id});
     const otherFile = new File(['%PDF-1.7\nB'], 'receta.pdf', {type: 'application/pdf'});
-    await expect(driveAppointmentRepo.save({...draft, createId, prescriptionFile: otherFile})).rejects.toBeInstanceOf(DriveConflictError);
+    await expect(driveAppointmentRepo.save({
+        ...draft,
+        createId,
+        prescriptionFile: otherFile
+    })).rejects.toBeInstanceOf(DriveConflictError);
     expect(await driveAppointmentRepo.list()).toHaveLength(1);
 });
 

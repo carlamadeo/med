@@ -9,9 +9,9 @@ import {GoogleCalendarRepository} from '@data/google-calendar';
 import {appointmentDraft, CalendarSyncPending, type DocumentRef, type Draft} from './conversation';
 import {readJson, writeJson} from './private-state';
 
-type Credentials = {client_id: string; client_secret: string};
-type Tokens = {access_token: string; refresh_token?: string; scope?: string; expires_in: number};
-type Authorization = {refreshToken: string; folderId: string; calendar: boolean};
+type Credentials = { client_id: string; client_secret: string };
+type Tokens = { access_token: string; refresh_token?: string; scope?: string; expires_in: number };
+type Authorization = { refreshToken: string; folderId: string; calendar: boolean };
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/';
 
@@ -46,7 +46,9 @@ class BotDriveClient extends DriveClient {
 }
 
 async function credentials(directory: string): Promise<Credentials> {
-    const {installed} = JSON.parse(await readFile(join(directory, 'google-client.json'), 'utf8')) as {installed?: Partial<Credentials>};
+    const {installed} = JSON.parse(await readFile(join(directory, 'google-client.json'), 'utf8')) as {
+        installed?: Partial<Credentials>
+    };
     if (!installed?.client_id || !installed.client_secret) throw new Error('El archivo google-client.json debe ser de un cliente OAuth de escritorio.');
     return {client_id: installed.client_id, client_secret: installed.client_secret};
 }
@@ -64,7 +66,11 @@ async function exchange(client: Credentials, fields: Record<string, string>): Pr
     return tokens;
 }
 
-function openAuthorization(clientId: string, calendar: boolean): Promise<{code: string; redirectUri: string; verifier: string}> {
+function openAuthorization(clientId: string, calendar: boolean): Promise<{
+    code: string;
+    redirectUri: string;
+    verifier: string
+}> {
     const verifier = randomBytes(32).toString('base64url');
     const state = randomBytes(32).toString('base64url');
     return new Promise((resolve, reject) => {
@@ -76,7 +82,10 @@ function openAuthorization(clientId: string, calendar: boolean): Promise<{code: 
                 return;
             }
             const code = callback.searchParams.get('code');
-            response.writeHead(code ? 200 : 400, {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'});
+            response.writeHead(code ? 200 : 400, {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Cache-Control': 'no-store'
+            });
             response.end(code ? 'Google devolvió el permiso. Volvé a la terminal para ver el resultado.' : 'Google no concedió el permiso.');
             server.close();
             if (code) resolve({code, redirectUri, verifier});
@@ -120,10 +129,16 @@ export async function authorizeGoogle(directory: string, calendar: boolean): Pro
     const {files} = await drive.request(drive.url(DRIVE_API, 'files', {
         q: `${drive.query('carpeta-v1')} and mimeType = 'application/vnd.google-apps.folder'`,
         fields: 'files(id)', orderBy: 'createdTime', pageSize: '1',
-    }), {signal: AbortSignal.timeout(20_000)}).then(response => response.json() as Promise<{files?: Array<{id: string}>}>);
+    }), {signal: AbortSignal.timeout(20_000)}).then(response => response.json() as Promise<{
+        files?: Array<{ id: string }>
+    }>);
     const folderId = files?.[0]?.id;
     if (!folderId) throw new Error('No encontré la carpeta que usa Mis estudios. Verificá que sea la misma cuenta y que el cliente de escritorio pertenezca al mismo proyecto de Google Cloud.');
-    const authorization = {refreshToken: tokens.refresh_token, calendar: calendar && scopes.has(CALENDAR_SCOPE), folderId};
+    const authorization = {
+        refreshToken: tokens.refresh_token,
+        calendar: calendar && scopes.has(CALENDAR_SCOPE),
+        folderId
+    };
     await writeJson(join(directory, 'google-authorization.json'), authorization);
     console.log(authorization.calendar ? 'Drive y Calendar autorizados.' : 'Drive autorizado.');
 }
@@ -133,7 +148,8 @@ export async function googleServices(directory: string, download: (document: Doc
     const auth = await readJson<Authorization>(join(directory, 'google-authorization.json'));
     if (!auth?.refreshToken || !/^[\w-]+$/.test(auth.folderId)) throw new Error('Primero autorizá Google con el comando authorize.');
     const {folderId, refreshToken, calendar} = auth;
-    let cached: {token: string; expires: number} | undefined;
+    let cached: { token: string; expires: number } | undefined;
+
     async function drive(): Promise<DriveClient> {
         if (!cached || cached.expires <= Date.now()) {
             const tokens = await exchange(client, {refresh_token: refreshToken, grant_type: 'refresh_token'});
@@ -141,6 +157,7 @@ export async function googleServices(directory: string, download: (document: Doc
         }
         return new BotDriveClient(cached.token, folderId, calendar);
     }
+
     return {
         folderId,
         reserve: async () => (await drive()).reserveId(),

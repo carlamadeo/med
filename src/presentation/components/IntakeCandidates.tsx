@@ -52,7 +52,11 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
     const generation = useRef(0);
     const owner = driveAuth.cachedAccountId();
     const [deletedSources, setDeletedSources] = useState<string[]>([]);
-    const [reservations, setReservations] = useState<{owner: string; sourceIds: string[]; error?: string} | null>(null);
+    const [reservations, setReservations] = useState<{
+        owner: string;
+        sourceIds: string[];
+        error?: string
+    } | null>(null);
     const reservationState = reservations?.owner === owner ? reservations : null;
     const editorOpen = isEditorOpen.value;
     const uncertainCandidates = intakeCandidates.value.filter(candidate => reservationState?.sourceIds.includes(candidate.id));
@@ -97,7 +101,9 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                 setReservations({owner, sourceIds: [], error: message});
             }
         });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [owner, folderId, editorOpen, refreshVersion]);
 
     useEffect(() => {
@@ -119,7 +125,10 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                 if (!cancelled && generation.current === currentGeneration) {
                     const owner = driveAuth.cachedAccountId();
                     const discarded = readDiscarded(owner);
-                    setIntakeCandidates(list.map(candidate => discarded.includes(candidate.id) ? {...candidate, status: 'discarded'} : candidate));
+                    setIntakeCandidates(list.map(candidate => discarded.includes(candidate.id) ? {
+                        ...candidate,
+                        status: 'discarded'
+                    } : candidate));
                 }
             } catch (err) {
                 if (!cancelled && generation.current === currentGeneration) {
@@ -216,7 +225,8 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                     </div>
                 </div>
                 <div className="intake-empty">
-                    <span className="intake-empty-icon"><svg className="icon" aria-hidden="true"><use href="#i-scan"/></svg></span>
+                    <span className="intake-empty-icon"><svg className="icon" aria-hidden="true"><use
+                        href="#i-scan"/></svg></span>
                     <h3>Bandeja de entrada no configurada</h3>
                     <p>Configurá una carpeta aprobada en Drive para revisar documentos candidatos antes de
                         incorporarlos.</p>
@@ -242,7 +252,8 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                 </div>
                 <div className="intake-head-actions">
                     <span className="count-badge">{candidates.length}</span>
-                    <button type="button" className="button secondary" disabled={loading} onClick={() => setRefreshVersion(version => version + 1)}>
+                    <button type="button" className="button secondary" disabled={loading}
+                            onClick={() => setRefreshVersion(version => version + 1)}>
                         <svg className="icon">
                             <use href="#i-refresh"/>
                         </svg>
@@ -298,7 +309,8 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
             {uncertainCandidates.length > 0 && (
                 <section className="intake-group" aria-label="Guardados sin confirmar">
                     <h3>Guardados sin confirmar</h3>
-                    <p>Los datos revisados quedan en este navegador al salir. Conectá la misma cuenta para confirmar el guardado o reintentarlo.</p>
+                    <p>Los datos revisados quedan en este navegador al salir. Conectá la misma cuenta para confirmar el
+                        guardado o reintentarlo.</p>
                     <ul className="intake-list">
                         {uncertainCandidates.filter(matches).map(candidate => (
                             <li key={candidate.id} className="intake-card">
@@ -308,7 +320,8 @@ export function IntakeCandidates({onOpenEditor}: IntakeCandidatesProps) {
                                 </div>
                                 <button type="button" className="button secondary button-sm"
                                         disabled={editorOpen || candidate.status === 'pending'}
-                                        onClick={() => void handleImport(candidate)}>Verificar y reintentar</button>
+                                        onClick={() => void handleImport(candidate)}>Verificar y reintentar
+                                </button>
                             </li>
                         ))}
                     </ul>

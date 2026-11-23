@@ -71,11 +71,14 @@ export class DriveStudyRepository implements StudyRepository {
         return studies;
     }
 
-    async listForLibrary(options: { force?: boolean } = {}): Promise<{studies: Study[]; skipped: number}> {
+    async listForLibrary(options: { force?: boolean } = {}): Promise<{ studies: Study[]; skipped: number }> {
         return this.readStudySnapshot(options, false);
     }
 
-    private async readStudySnapshot(options: {force?: boolean}, requireComplete: boolean): Promise<{studies: Study[]; skipped: number}> {
+    private async readStudySnapshot(options: { force?: boolean }, requireComplete: boolean): Promise<{
+        studies: Study[];
+        skipped: number
+    }> {
         const token = await this.client.getAccessToken();
         const owner = await this.cacheOwner();
         if (!options.force || !navigator.onLine) {
