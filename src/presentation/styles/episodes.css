@@ -162,7 +162,7 @@
 
 .heatmap-cell[data-active='true'] {
     border-color: var(--color-brand);
-    background: color-mix(in srgb, var(--color-brand-light), var(--color-brand) calc(var(--intensity) * 22%));
+    background: color-mix(in srgb, var(--color-brand-light), var(--color-brand) calc(var(--intensity, 0) * 22%));
     color: var(--color-text-primary);
 }
 

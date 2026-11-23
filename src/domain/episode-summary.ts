@@ -97,5 +97,3 @@ export function episodeSummary(episode: Episode) {
         isClosed: episode.closed || Boolean(episode.endDate),
     };
 }
-
-export type EpisodeSummary = ReturnType<typeof episodeSummary>;

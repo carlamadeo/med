@@ -3,7 +3,7 @@ import {cleanDoctorAddresses, cleanDoctorName} from '@domain/doctors';
 import {cleanSpecialty} from '@domain/library';
 import type {Doctor, DoctorDraft} from '@domain/repository';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
-import {isRecoverable} from './recovery-window';
+import {isRecoverable, restoreDriveRecord} from './recovery-window';
 
 const ID_PATTERN = /^[\w-]+$/;
 const MARKER = 'medico-v1';
@@ -228,49 +228,18 @@ export class DriveDoctorRepository {
     }
 
     async restore(id: string, revision: string): Promise<Doctor> {
-        if (!ID_PATTERN.test(id) || !revision) throw new Error('El médico no tiene una revisión válida.');
-        const token = await this.client.getAccessToken();
-        const owner = await this.client.cacheOwner();
-        const file = await this.client
-            .request(
-                this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {
-                    fields: ENTRY_FIELDS,
-                }),
-                {},
-                token,
-            )
-            .then((r) => r.json() as Promise<DriveFileResponse>);
-        if (file.appProperties?.misEstudios !== MARKER) throw new DriveConflictError('médico');
-        if (!file.trashed && file.appProperties.restoredRevision === revision) {
-            await this.client.assertSession(token);
-            return this.parse(file);
-        }
-        if (!file.trashed || file.version !== revision) throw new DriveConflictError('médico');
-        if (!isRecoverable(file.appProperties.deletedAt ?? '')) {
-            throw new Error('Este médico ya no está disponible para recuperación desde la aplicación.');
-        }
-        await this.client.assertSession(token);
-        const restored = await this.client
-            .request(
-                this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {
-                    fields: ENTRY_FIELDS,
-                }),
-                this.client.jsonBody('PATCH', {
-                    trashed: false,
-                    appProperties: {...file.appProperties, deletedAt: undefined, restoredRevision: revision},
-                }),
-                token,
-            )
-            .then((r) => r.json() as Promise<DriveFileResponse>);
-        await this.client.assertSession(token);
-        const doctor = this.parse(restored);
-        await storage.updateSessionDirectory<Doctor>(owner, 'doctorsCache', (cached) => [
-            ...(cached ?? []).filter((item) => item.id !== id),
-            doctor,
-        ]);
-        await storage.updateSessionDirectory<{id: string}>(owner, 'deletedDoctorsCache', (cached) =>
-            cached ? cached.filter((item) => item.id !== id) : null,
-        );
-        return doctor;
+        return restoreDriveRecord({
+            client: this.client,
+            id,
+            revision,
+            marker: MARKER,
+            fields: ENTRY_FIELDS,
+            invalidRevisionMessage: 'El médico no tiene una revisión válida.',
+            expiredMessage: 'Este médico ya no está disponible para recuperación desde la aplicación.',
+            conflictTarget: 'médico',
+            activeCacheKey: 'doctorsCache',
+            deletedCacheKey: 'deletedDoctorsCache',
+            parse: (file) => this.parse(file),
+        });
     }
 }

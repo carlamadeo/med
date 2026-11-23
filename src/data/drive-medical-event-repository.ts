@@ -1,4 +1,4 @@
-import {isRecoverable} from './recovery-window';
+import {isRecoverable, restoreDriveRecord} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage} from '@core/storage';
 import {isValidDate} from '@domain/utils';
@@ -145,30 +145,19 @@ export class DriveMedicalEventRepository {
     }
 
     async restore(id: string, revision: string): Promise<MedicalEvent> {
-        const ID_PATTERN = /^[\w-]+$/;
-        if (!ID_PATTERN.test(id) || !revision) throw new Error('El evento no tiene una revisión válida.');
-        const token = await this.client.getAccessToken();
-        const owner = await this.client.cacheOwner();
-        const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
-        if (file.appProperties?.misEstudios !== 'evento-medico-v1') throw new DriveConflictError('evento');
-        if (!file.trashed && file.appProperties.restoredRevision === revision) {
-            await this.client.assertSession(token);
-            return this.parse(file);
-        }
-        if (!file.trashed || file.version !== revision) throw new DriveConflictError('evento');
-        if (!isRecoverable(file.appProperties.deletedAt ?? '')) throw new Error('Este evento ya no está disponible para recuperación desde la aplicación.');
-        await this.client.assertSession(token);
-        const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), this.client.jsonBody('PATCH', {
-            trashed: false,
-            appProperties: {...file.appProperties, deletedAt: undefined, restoredRevision: revision}
-        }), token).then(r => r.json() as Promise<DriveFileResponse>);
-        await this.client.assertSession(token);
-        const event = this.parse(restored);
-        await storage.updateSessionDirectory<MedicalEvent>(owner, 'eventsCache', (cached) => [...(cached ?? []).filter(item => item.id !== id), event]);
-        await storage.updateSessionDirectory<{
-            id: string
-        }>(owner, 'deletedEventsCache', (cached) => cached ? cached.filter(item => item.id !== id) : null);
-        return event;
+        return restoreDriveRecord({
+            client: this.client,
+            id,
+            revision,
+            marker: 'evento-medico-v1',
+            fields: ENTRY_FIELDS,
+            invalidRevisionMessage: 'El evento no tiene una revisión válida.',
+            expiredMessage: 'Este evento ya no está disponible para recuperación desde la aplicación.',
+            conflictTarget: 'evento',
+            activeCacheKey: 'eventsCache',
+            deletedCacheKey: 'deletedEventsCache',
+            parse: (file) => this.parse(file),
+        });
     }
 }
 

@@ -56,14 +56,6 @@ export async function reloadLibrary(): Promise<void> {
     );
 }
 
-/** Tests share one document, so a dialog left open by one would change how the next one behaves. */
-export function closeDialogs(): void {
-    for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog')) dialog.close();
-    // `choose()` fakes the file picker by overriding `files`; a real form.reset() would have emptied it.
-    const report = document.querySelector<HTMLInputElement>('#editor-form [name="report"]');
-    if (report) Reflect.deleteProperty(report, 'files');
-}
-
 /** Simulates the browser's file picker. */
 export function choose(name: string, file: File | null): void {
     const input = document.querySelector<HTMLInputElement>(`#editor-form [name="${name}"]`)!;

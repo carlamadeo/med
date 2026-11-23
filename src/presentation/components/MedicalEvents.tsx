@@ -1,5 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {buildProfessionalOptions, resolveProfessionalSpecialty} from '../utils/appointmentEditor';
+import {buildProfessionalOptions, resolveProfessionalSpecialty, syncAutoField} from '../utils/appointmentEditor';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {driveAuth, driveMedicalEventRepo} from '@data';
 import {Outbox} from '@data/outbox';
@@ -89,17 +89,7 @@ export function MedicalEvents({query}: {query: string}) {
             visibleAppointments.value,
             visibleMedicalEvents.value,
         );
-        if (!specialty.trim()) {
-            if (nextSpecialty) {
-                setSpecialty(nextSpecialty);
-                autoSpecialtyRef.current = nextSpecialty;
-            } else {
-                autoSpecialtyRef.current = null;
-            }
-        } else if (autoSpecialtyRef.current !== null && specialty === autoSpecialtyRef.current) {
-            setSpecialty(nextSpecialty);
-            autoSpecialtyRef.current = nextSpecialty || null;
-        }
+        syncAutoField(specialty, nextSpecialty, autoSpecialtyRef, setSpecialty);
     };
 
     async function save(form: HTMLFormElement) {

@@ -113,11 +113,6 @@
 }
 
 /* Virtual list styles */
-.virtual-results {
-    overflow-x: hidden;
-    max-width: 100%;
-}
-
 .results {
     list-style: none;
     margin: 0;

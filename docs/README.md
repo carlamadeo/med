@@ -91,5 +91,4 @@ creada sin conexión debe sincronizarse antes de poder asociarle un estudio.
 ## Documentación técnica
 
 - [Arquitectura y flujos principales](architecture.md)
-- [Decisión sobre Drive y modo sin conexión](adr/0001-offline-drive.md)
 - [Guía de verificación por tipo de cambio](verificacion.md)

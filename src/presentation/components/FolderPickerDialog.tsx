@@ -83,7 +83,7 @@ export function FolderPickerDialog() {
         const dialog = dialogRef.current;
         if (!dialog) return;
         if (open) {
-            loadFolders();
+            void loadFolders();
             if (!dialog.open) dialog.showModal();
         } else {
             if (dialog.open) dialog.close();

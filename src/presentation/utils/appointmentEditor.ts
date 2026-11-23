@@ -63,6 +63,26 @@ export function resolveProfessionalSpecialty(
     return candidates[0]?.specialty ?? '';
 }
 
+/** Updates an auto-suggested field only if it is empty or still matches the last auto-filled value. */
+export function syncAutoField(
+    currentValue: string,
+    suggestedValue: string,
+    autoRef: {current: string | null},
+    setValue: (value: string) => void,
+): void {
+    if (!currentValue.trim()) {
+        if (suggestedValue) {
+            setValue(suggestedValue);
+            autoRef.current = suggestedValue;
+        } else {
+            autoRef.current = null;
+        }
+    } else if (autoRef.current !== null && currentValue === autoRef.current) {
+        setValue(suggestedValue);
+        autoRef.current = suggestedValue || null;
+    }
+}
+
 export function getAppointmentPrescription(appointment: Appointment): Promise<File> {
     if (!isLocalDemo.value) return driveAppointmentRepo.getPrescription(appointment);
     const file = demoPrescriptions.get(appointment);

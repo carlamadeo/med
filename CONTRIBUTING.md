@@ -67,8 +67,6 @@ src/
 
 ## Comportamiento offline y Drive
 
-El [ADR 0001](docs/adr/0001-offline-drive.md) describe las reglas de almacenamiento y sincronización.
-
 - Drive = fuente de verdad
 - Caché ligada a sesión verificada
 - Outbox serializado con Web Locks
@@ -127,5 +125,4 @@ Add OCR fallback for scanned PDFs
 ## Recursos
 
 - [README.md](README.md) — Descripción general, publicación, prueba local
-- [docs/adr/0001-offline-drive.md](docs/adr/0001-offline-drive.md) — Decisiones de arquitectura offline
 - [AGENTS.md](AGENTS.md) — Guías para agentes IA (este proyecto)

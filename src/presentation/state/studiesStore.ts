@@ -279,8 +279,7 @@ export function setIntakeError(msg: string | null): void {
 }
 
 export function updateCandidateStatus(id: string, status: IntakeCandidate['status']): void {
-    const current = intakeCandidates.value.map(c => c.id === id ? {...c, status} : c);
-    intakeCandidates.value = current;
+    intakeCandidates.value = intakeCandidates.value.map(c => c.id === id ? {...c, status} : c);
 }
 
 // ------------------------------------------------------------------

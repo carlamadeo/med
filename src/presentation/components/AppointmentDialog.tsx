@@ -20,6 +20,7 @@ import {
     deleteAppointment,
     resolveProfessionalSpecialty,
     saveAppointment,
+    syncAutoField,
 } from '../utils/appointmentEditor';
 import {useFocusTrap} from '../utils/focusTrap';
 import {AppointmentStudyPicker} from './AppointmentStudies';
@@ -86,17 +87,7 @@ function AppointmentForm({
         setProfessional(nextValue);
         const matched = findDoctorByName(directory, nextValue);
         const nextDefault = matched?.addresses[0] ?? '';
-        if (!location.trim()) {
-            if (nextDefault) {
-                setLocation(nextDefault);
-                autoLocationRef.current = nextDefault;
-            } else {
-                autoLocationRef.current = null;
-            }
-        } else if (autoLocationRef.current !== null && location === autoLocationRef.current) {
-            setLocation(nextDefault);
-            autoLocationRef.current = nextDefault || null;
-        }
+        syncAutoField(location, nextDefault, autoLocationRef, setLocation);
 
         const nextSpecialty = resolveProfessionalSpecialty(
             nextValue,
@@ -104,17 +95,7 @@ function AppointmentForm({
             visibleAppointments.value,
             visibleMedicalEvents.value,
         );
-        if (!specialty.trim()) {
-            if (nextSpecialty) {
-                setSpecialty(nextSpecialty);
-                autoSpecialtyRef.current = nextSpecialty;
-            } else {
-                autoSpecialtyRef.current = null;
-            }
-        } else if (autoSpecialtyRef.current !== null && specialty === autoSpecialtyRef.current) {
-            setSpecialty(nextSpecialty);
-            autoSpecialtyRef.current = nextSpecialty || null;
-        }
+        syncAutoField(specialty, nextSpecialty, autoSpecialtyRef, setSpecialty);
     };
 
     const specialties = !consultation

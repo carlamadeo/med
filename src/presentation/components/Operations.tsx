@@ -1,12 +1,12 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {driveAuth, driveOperationRepo, driveStudyRepo, DriveConflictError} from '@data';
 import {Outbox} from '@data/outbox';
 import {isValidDate, normalize} from '@domain/utils';
 import {formatStudyDate, sortStudies} from '@domain/library';
 import type {Operation, OperationDraft, Study} from '@domain/models';
 import {isLocalDemo, operations, visibleOperations, studies, view, resetLibraryFilters, libraryOperation} from '../state/store';
-import {useFocusTrap} from '../utils/focusTrap';
+import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {OperationStudyLinks} from './OperationStudyLinks';
 
@@ -48,13 +48,7 @@ export function Operations() {
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (formOpen && !dialog.open) dialog.showModal();
-        if (!formOpen && dialog.open) dialog.close();
-    }, [formOpen]);
+    useModalDialog(dialogRef, formOpen);
 
     const openNew = () => {
         setMessage('');

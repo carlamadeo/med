@@ -144,11 +144,6 @@ Cada repositorio comprueba la revisión y la [ventana de recuperación](../src/d
 el diálogo puede encolar la recuperación de un elemento elegible de la copia local. Al sincronizar, el repositorio
 vuelve a consultar Drive y valida la elegibilidad antes de aplicar la recuperación.
 
-## Decisiones
-
-El [ADR 0001](adr/0001-offline-drive.md) reúne las reglas de sesión, caché, sincronización y conflictos, con el
-alcance de las garantías entre pestañas y dispositivos.
-
 ## Convenciones transversales
 
 ### Imports

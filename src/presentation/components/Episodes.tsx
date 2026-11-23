@@ -1,5 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {episodeEndDateError} from '@domain/episodes';
@@ -8,7 +8,7 @@ import {normalize, todayLocal} from '@domain/utils';
 import {formatStudyDate} from '@domain/library';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
 import {episodes, isLocalDemo, visibleEpisodes} from '../state/store';
-import {useFocusTrap} from '../utils/focusTrap';
+import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {EpisodesSummary} from './EpisodesSummary';
 
@@ -100,13 +100,7 @@ export function Episodes() {
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (formOpen && !dialog.open) dialog.showModal();
-        if (!formOpen && dialog.open) dialog.close();
-    }, [formOpen]);
+    useModalDialog(dialogRef, formOpen);
 
     function openNew() {
         setMessage('');

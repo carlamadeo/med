@@ -27,14 +27,14 @@
  * <Portals />
  * ```
  */
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
 import {isLocalDemo, portals, studies} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useFocusTrap} from '../utils/focusTrap';
+import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
@@ -49,13 +49,7 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (formOpen && !dialog.open) dialog.showModal();
-        if (!formOpen && dialog.open) dialog.close();
-    }, [formOpen]);
+    useModalDialog(dialogRef, formOpen);
 
     const openNew = () => {
         setMessage('');

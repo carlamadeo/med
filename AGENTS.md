@@ -5,8 +5,8 @@
 Mis estudios is a TypeScript and Preact application built with Vite and deployed to GitHub Pages. Work from the
 `mis-estudios/` repository root. `src/domain/` contains models and pure business rules, `src/data/` implements Drive,
 IndexedDB, and outbox access, and `src/core/` holds shared infrastructure. UI components, pages, state, and CSS live
-under `src/presentation/`. PDF and OCR workers are in `src/workers/`. Static assets are in `public/`, design decisions
-in `docs/adr/`, and tests in `test/` and `test/e2e/`. Do not edit generated output such as `dist/`, `coverage/`, or
+under `src/presentation/`. PDF and OCR workers are in `src/workers/`. Static assets are in `public/`, documentation
+in `docs/`, and tests in `test/` and `test/e2e/`. Do not edit generated output such as `dist/`, `coverage/`, or
 `public/vendor/` by hand.
 
 ## Build, Test, and Development Commands
@@ -49,7 +49,7 @@ revisions, unavailable Web Locks, and sync conflicts each require distinct feedb
   component-local state for form drafts. Keep reusable business rules in `src/domain/` independent of Preact, the DOM,
   and Google APIs. Use the repositories and storage helpers for Drive and IndexedDB access. See the
   [architecture guide](docs/architecture.md) for the active entry points.
-- **Preserve Drive and offline behavior.** Follow the [offline and Drive ADR](docs/adr/0001-offline-drive.md). Keep
+- **Preserve Drive and offline behavior.** Keep
   Drive as the source of truth, the cache tied to the current session, and pending changes tied to the verified Drive
   account. Preserve the `appProperties` markers that distinguish the app folder and record types. Route
   offline mutations through the existing outbox and serialize synchronization across tabs with Web Locks. Reject stale

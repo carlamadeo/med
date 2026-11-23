@@ -86,3 +86,13 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, enabled = true)
         return () => cleanupRef.current?.();
     }, [ref, enabled]);
 }
+
+/** Synchronizes a native HTMLDialogElement's modal open state with a boolean flag. */
+export function useModalDialog(ref: RefObject<HTMLDialogElement | null>, open: boolean): void {
+    useEffect(() => {
+        const dialog = ref.current;
+        if (!dialog) return;
+        if (open && !dialog.open) dialog.showModal();
+        if (!open && dialog.open) dialog.close();
+    }, [ref, open]);
+}

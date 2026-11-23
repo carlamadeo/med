@@ -74,36 +74,21 @@ export function useEditor({
         printed: study?.printed ?? {report: false, image: false},
     });
     const {title, date, doctor, specialty, portal, viewer, types, removeReport, operationId, documentIds, printed} = draft.value;
+    const setField = <K extends keyof typeof draft.value>(key: K) => (value: (typeof draft.value)[K]) => {
+        draft.value = {...draft.value, [key]: value};
+    };
     const setPrinted = (kind: keyof typeof printed, checked: boolean) => {
         draft.value = {...draft.value, printed: {...draft.value.printed, [kind]: checked}};
     };
-    const setTitle = (value: string) => {
-        draft.value = {...draft.value, title: value};
-    };
-    const setDate = (value: string) => {
-        draft.value = {...draft.value, date: value};
-    };
-    const setDoctor = (value: string) => {
-        draft.value = {...draft.value, doctor: value};
-    };
-    const setSpecialty = (value: string) => {
-        draft.value = {...draft.value, specialty: value};
-    };
-    const setPortal = (value: string) => {
-        draft.value = {...draft.value, portal: value};
-    };
-    const setViewer = (value: string) => {
-        draft.value = {...draft.value, viewer: value};
-    };
-    const setTypes = (value: string[]) => {
-        draft.value = {...draft.value, types: value};
-    };
-    const setRemoveReport = (value: boolean) => {
-        draft.value = {...draft.value, removeReport: value};
-    };
-    const setOperationId = (value: string) => {
-        draft.value = {...draft.value, operationId: value};
-    };
+    const setTitle = setField('title');
+    const setDate = setField('date');
+    const setDoctor = setField('doctor');
+    const setSpecialty = setField('specialty');
+    const setPortal = setField('portal');
+    const setViewer = setField('viewer');
+    const setTypes = setField('types');
+    const setRemoveReport = setField('removeReport');
+    const setOperationId = setField('operationId');
     const setDocumentIds = (value: string[] | ((current: string[]) => string[])) => {
         draft.value = {
             ...draft.value,
