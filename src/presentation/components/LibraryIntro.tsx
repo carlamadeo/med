@@ -36,12 +36,16 @@ export function LibraryIntro({onAddStudy, onImport, isSignedIn, isLocalDemo, typ
             <div>
                 <p className="eyebrow">Mi archivo médico</p>
                 <h1 id="page-title" tabIndex={-1}>{isSignedIn ? titles[view] : 'Mis estudios'}</h1>
-                {!isSignedIn && <p className="lead">Tus informes, tus estudios y tus turnos, en un solo lugar privado.</p>}
+                {!isSignedIn &&
+                    <p className="lead">Tus informes, tus estudios y tus turnos, en un solo lugar privado.</p>}
             </div>
             {isSignedIn && library && (
                 <div className="intro-actions">
-                    <button className="button primary" data-add type="button" onClick={onAddStudy} disabled={!typesReady}>
-                        <svg className="icon"><use href="#i-plus"/></svg>
+                    <button className="button primary" data-add type="button" onClick={onAddStudy}
+                            disabled={!typesReady}>
+                        <svg className="icon">
+                            <use href="#i-plus"/>
+                        </svg>
                         Agregar estudio
                     </button>
                     {!isLocalDemo && <button type="button" className="button secondary" onClick={onImport}>

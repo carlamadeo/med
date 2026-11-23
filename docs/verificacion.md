@@ -1,6 +1,7 @@
 # Verificación por tipo de cambio
 
-Ejecutá los comandos desde la raíz del repositorio con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o superior. Usá datos sintéticos para archivos,
+Ejecutá los comandos desde la raíz del repositorio con Node.js 24.15 o posterior de la serie 24, o Node.js 26 o
+superior. Usá datos sintéticos para archivos,
 cuentas simuladas y capturas. Elegí las pruebas según el flujo afectado y comprobá el comportamiento desde la
 interfaz cuando el cambio llegue a ella.
 
@@ -13,7 +14,8 @@ interfaz cuando el cambio llegue a ella.
   [Migración](../test/storage-migration.test.ts)
 - **Cola y conflictos.** Probá una mutación sin conexión y la reconexión con la misma cuenta. Según el cambio,
   comprobá un reintento con el mismo ID, una revisión que queda obsoleta mientras se revisa el conflicto y un
-  navegador sin Web Locks. Para sincronización en navegador, usá `npm run test:outbox`. El escenario guarda una ficha sin conexión, verifica que queda pendiente y comprueba una única subida al reconectar y recargar.
+  navegador sin Web Locks. Para sincronización en navegador, usá `npm run test:outbox`. El escenario guarda una ficha
+  sin conexión, verifica que queda pendiente y comprueba una única subida al reconectar y recargar.
   [Cola](../test/outbox.test.ts) · [Reintento](../test/save-retry.test.ts) ·
   [Conflictos de turno](../test/app-appointment-conflict.test.ts) · [Bloqueo de encolado](../test/enqueue-offline.test.ts)
 - **Recuperación.** Comprobá eliminación, elegibilidad y restauración para la entidad afectada. Si modificás la
@@ -36,13 +38,15 @@ también retirar o reemplazar un PDF después de abrir la vista previa y cerrar 
 ## Turnos e importación histórica
 
 - **Preparar consulta.** Probá PDF, imagen, adjuntos asociados y enlaces opcionales. Descomprimí el ZIP y
-  verificá que cada fuente elegida aparezca una vez. Cambiá de cuenta mientras la descarga se prepara. [Prueba de turnos](../test/app-appointment-studies.test.ts)
+  verificá que cada fuente elegida aparezca una vez. Cambiá de cuenta mientras la descarga se
+  prepara. [Prueba de turnos](../test/app-appointment-studies.test.ts)
 - **Calendario.** Comprobá que el archivo conserve el instante del turno, que el aviso esté desactivado por
   defecto y que la hora importada sea correcta en iOS y Android. Reprogramá y reemplazá el evento anterior.
   [Prueba de navegador](../test/e2e/shell.spec.ts)
 - **Bandeja y lotes.** Probá una reserva del formato anterior con una subida incierta. Verificá que la migración
   conserve el mismo ID. Para lotes, activá la conservación local, editá los campos de un PDF, recargá y
-  verificá la restauración desde la misma cuenta. Probá cambio de cuenta y un archivo renombrado. [Reservas](../test/intake-reservation.test.ts) · [Lotes en navegador](../test/e2e/study-import.spec.ts)
+  verificá la restauración desde la misma cuenta. Probá cambio de cuenta y un archivo
+  renombrado. [Reservas](../test/intake-reservation.test.ts) · [Lotes en navegador](../test/e2e/study-import.spec.ts)
 
 ## PDF, OCR y rutas de producción
 

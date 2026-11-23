@@ -9,7 +9,12 @@ function makeEpisode(overrides: Partial<Episode> = {}): Episode {
         id: '1',
         illness: 'Gripe',
         observations: [
-            {date: `${baseDate}-10`, text: 'Síntomas', temperature: 38.0, symptoms: [{name: 'fiebre', intensity: 3}, {name: 'tos', intensity: 2}]},
+            {
+                date: `${baseDate}-10`,
+                text: 'Síntomas',
+                temperature: 38.0,
+                symptoms: [{name: 'fiebre', intensity: 3}, {name: 'tos', intensity: 2}]
+            },
             {date: `${baseDate}-11`, text: 'Mejor', temperature: 37.5, symptoms: [{name: 'fiebre', intensity: 2}]},
         ],
         medications: [{name: 'Paracetamol', frequency: 'cada 8h', instructions: ''}],
@@ -21,29 +26,45 @@ function makeEpisode(overrides: Partial<Episode> = {}): Episode {
 }
 
 
-
-
 describe('episodes-aggregate', () => {
     const now = new Date();
     const baseDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const prevMonth = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
-    
+
     const episodes = [
-        makeEpisode({id: '1', illness: 'Gripe', observations: [
-            {date: `${baseDate}-10`, text: '', temperature: 38.0, symptoms: [{name: 'fiebre', intensity: 3}]},
-            {date: `${baseDate}-11`, text: '', temperature: 37.5, symptoms: [{name: 'fiebre', intensity: 2}]},
-        ]}),
-        makeEpisode({id: '2', illness: 'Gripe', observations: [
-            {date: `${prevMonth}-01`, text: '', temperature: 39.0, symptoms: [{name: 'fiebre', intensity: 4}, {name: 'dolor cuerpo', intensity: 3}]},
-        ], closed: true, endDate: `${prevMonth}-01`}),
-        makeEpisode({id: '3', illness: 'Otitis', observations: [
-            {date: `${baseDate}-10`, text: '', temperature: 38.5, symptoms: [{name: 'dolor oido', intensity: 5}]},
-            {date: `${baseDate}-11`, text: '', temperature: 38.0, symptoms: [{name: 'dolor oido', intensity: 4}]},
-            {date: `${baseDate}-12`, text: '', temperature: 37.0, symptoms: [{name: 'dolor oido', intensity: 2}]},
-        ], medications: [{name: 'Amoxicilina', frequency: 'cada 8h', instructions: ''}]}),
-        makeEpisode({id: '4', illness: 'Lumbalgia', observations: [
-            {date: `${baseDate}-01`, text: '', temperature: undefined, symptoms: [{name: 'dolor espalda', intensity: 5}]},
-        ]}),
+        makeEpisode({
+            id: '1', illness: 'Gripe', observations: [
+                {date: `${baseDate}-10`, text: '', temperature: 38.0, symptoms: [{name: 'fiebre', intensity: 3}]},
+                {date: `${baseDate}-11`, text: '', temperature: 37.5, symptoms: [{name: 'fiebre', intensity: 2}]},
+            ]
+        }),
+        makeEpisode({
+            id: '2', illness: 'Gripe', observations: [
+                {
+                    date: `${prevMonth}-01`,
+                    text: '',
+                    temperature: 39.0,
+                    symptoms: [{name: 'fiebre', intensity: 4}, {name: 'dolor cuerpo', intensity: 3}]
+                },
+            ], closed: true, endDate: `${prevMonth}-01`
+        }),
+        makeEpisode({
+            id: '3', illness: 'Otitis', observations: [
+                {date: `${baseDate}-10`, text: '', temperature: 38.5, symptoms: [{name: 'dolor oido', intensity: 5}]},
+                {date: `${baseDate}-11`, text: '', temperature: 38.0, symptoms: [{name: 'dolor oido', intensity: 4}]},
+                {date: `${baseDate}-12`, text: '', temperature: 37.0, symptoms: [{name: 'dolor oido', intensity: 2}]},
+            ], medications: [{name: 'Amoxicilina', frequency: 'cada 8h', instructions: ''}]
+        }),
+        makeEpisode({
+            id: '4', illness: 'Lumbalgia', observations: [
+                {
+                    date: `${baseDate}-01`,
+                    text: '',
+                    temperature: undefined,
+                    symptoms: [{name: 'dolor espalda', intensity: 5}]
+                },
+            ]
+        }),
     ];
 
     describe('computeEpisodesAggregate', () => {

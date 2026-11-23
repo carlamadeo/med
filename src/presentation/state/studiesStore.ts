@@ -53,7 +53,7 @@ export const librarySpecialty = signal('');
 export const libraryQuery = signal('');
 export const libraryPortal = signal('');
 export const libraryDoctor = signal('');
-export const libraryOperation = signal<{id: string; name: string} | null>(null);
+export const libraryOperation = signal<{ id: string; name: string } | null>(null);
 
 effect(() => {
     const currentView = view.value;
@@ -279,8 +279,7 @@ export function setIntakeError(msg: string | null): void {
 }
 
 export function updateCandidateStatus(id: string, status: IntakeCandidate['status']): void {
-    const current = intakeCandidates.value.map(c => c.id === id ? {...c, status} : c);
-    intakeCandidates.value = current;
+    intakeCandidates.value = intakeCandidates.value.map(c => c.id === id ? {...c, status} : c);
 }
 
 // ------------------------------------------------------------------

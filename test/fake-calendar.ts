@@ -17,11 +17,11 @@ export interface FakeCalendarEvent {
     summary: string;
     location: string;
     description: string;
-    start: {dateTime: string; timeZone: string};
-    end: {dateTime: string; timeZone: string};
+    start: { dateTime: string; timeZone: string };
+    end: { dateTime: string; timeZone: string };
     reminders: {
         useDefault: boolean;
-        overrides?: Array<{method: string; minutes: number}>;
+        overrides?: Array<{ method: string; minutes: number }>;
     };
 }
 

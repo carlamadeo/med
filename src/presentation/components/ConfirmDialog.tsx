@@ -74,7 +74,9 @@ export function ConfirmDialog({
                         onClick={onReconnect}>Reconectar Google Drive
                 </button>
                 <div className="dialog-actions">
-                    <button type="button" className="button secondary confirm-cancel" disabled={busy} onClick={onCancel}>Cancelar</button>
+                    <button type="button" className="button secondary confirm-cancel" disabled={busy}
+                            onClick={onCancel}>Cancelar
+                    </button>
                     <button type="submit" className="button danger" id="delete"
                             disabled={busy}>{busy ? 'Eliminando…' : 'Eliminar estudio'}</button>
                 </div>

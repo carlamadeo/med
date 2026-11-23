@@ -2,19 +2,24 @@ import type {Button, DocumentRef, Incoming} from './conversation';
 import {validateDocument} from '@data/pdf-analysis';
 
 interface Message {
-    from?: {id: number};
-    chat: {id: number; type: string};
+    from?: { id: number };
+    chat: { id: number; type: string };
     text?: string;
     caption?: string;
     entities?: Entity[];
     caption_entities?: Entity[];
-    document?: {file_id: string; file_name?: string; mime_type?: string; file_size?: number};
+    document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
 }
-interface Entity {type: string; url?: string}
+
+interface Entity {
+    type: string;
+    url?: string
+}
+
 export interface Update {
     update_id: number;
     message?: Message;
-    callback_query?: {id: string; from: {id: number}; data?: string; message?: Message};
+    callback_query?: { id: string; from: { id: number }; data?: string; message?: Message };
 }
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -49,10 +54,11 @@ export function telegramClient(token: string) {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
             redirect: 'error', signal: AbortSignal.timeout(timeout),
         });
-        const body = await response.json() as {ok: boolean; result: T};
+        const body = await response.json() as { ok: boolean; result: T };
         if (!response.ok || !body.ok) throw new Error(`Telegram rechazó ${method} (${response.status}).`);
         return body.result;
     }
+
     return {
         updates: (offset?: number) => api<Update[]>('getUpdates', {
             offset, timeout: 25, allowed_updates: ['message', 'callback_query'],
@@ -66,7 +72,7 @@ export function telegramClient(token: string) {
             });
         },
         async download(ref: DocumentRef): Promise<File> {
-            const info = await api<{file_path?: string; file_size?: number}>('getFile', {file_id: ref.id});
+            const info = await api<{ file_path?: string; file_size?: number }>('getFile', {file_id: ref.id});
             if (!info.file_path || (info.file_size ?? 0) > MAX_BYTES) throw new Error('El PDF supera el límite de Telegram.');
             const path = info.file_path.split('/').map(encodeURIComponent).join('/');
             const response = await fetch(`https://api.telegram.org/file/bot${token}/${path}`, {
@@ -77,7 +83,7 @@ export function telegramClient(token: string) {
             const chunks: Uint8Array<ArrayBuffer>[] = [];
             let size = 0;
             try {
-                for (;;) {
+                for (; ;) {
                     const result = await reader.read();
                     if (result.done) break;
                     size += result.value.length;
@@ -85,7 +91,8 @@ export function telegramClient(token: string) {
                     chunks.push(Uint8Array.from(result.value));
                 }
             } finally {
-                await reader.cancel().catch(() => {});
+                await reader.cancel().catch(() => {
+                });
             }
             const file = new File(chunks, ref.name, {type: 'application/pdf'});
             if (await validateDocument(file) !== 'application/pdf') throw new Error('El adjunto tiene que ser un PDF.');

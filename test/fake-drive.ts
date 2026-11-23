@@ -120,13 +120,19 @@ function publicView(file: FakeFile) {
 }
 
 /** Parses the body produced by DriveClient.upload(): JSON metadata part + media part. */
-function parseMultipart(body: ArrayBuffer, contentType: string): { metadata: Record<string, unknown>; content: string } {
+function parseMultipart(body: ArrayBuffer, contentType: string): {
+    metadata: Record<string, unknown>;
+    content: string
+} {
     const boundary = /boundary=(.+)$/.exec(contentType)?.[1];
     if (!boundary) throw new Error('multipart boundary missing');
     const [, metadataPart, mediaPart] = Buffer.from(body).toString('latin1').split(`--${boundary}`);
     if (!metadataPart || !mediaPart) throw new Error('multipart parts missing');
     const payload = (part: string) => part.slice(part.indexOf('\r\n\r\n') + 4, -2);
-    return {metadata: JSON.parse(Buffer.from(payload(metadataPart), 'latin1').toString('utf8')), content: payload(mediaPart)};
+    return {
+        metadata: JSON.parse(Buffer.from(payload(metadataPart), 'latin1').toString('utf8')),
+        content: payload(mediaPart)
+    };
 }
 
 export const driveHandlers = [
@@ -167,14 +173,20 @@ export const driveHandlers = [
 
     http.post(`${API}/upload/drive/v3/files`, async ({request}) => {
         if (isResumable(request)) return startResumable(await request.json());
-        const {metadata, content} = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
+        const {
+            metadata,
+            content
+        } = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
         return createFile(metadata, content);
     }),
 
     http.patch(`${API}/upload/drive/v3/files/:id`, async ({params, request}) => {
         const id = String(params.id);
         if (isResumable(request)) return startResumable(await request.json(), id);
-        const {metadata, content} = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
+        const {
+            metadata,
+            content
+        } = parseMultipart(await request.arrayBuffer(), request.headers.get('content-type') ?? '');
         return updateFile(id, metadata, content);
     }),
 

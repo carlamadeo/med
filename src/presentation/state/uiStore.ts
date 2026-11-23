@@ -19,17 +19,20 @@ export const deletingStudyId = signal<string | null>(null);
 
 export const sharingStudyId = signal<string | null>(null);
 export const sharingStudyIds = signal<string[]>([]);
-export const shareSelection = signal<{ includeAttachment: boolean; includeViewer: boolean; filename: string } | null>(null);
+export const shareSelection = signal<{
+    includeAttachment: boolean;
+    includeViewer: boolean;
+    filename: string
+} | null>(null);
 
 export const exporting = signal(false);
-export const exportScope = signal<'all' | 'filtered'>('all');
 export const exportError = signal<string | null>(null);
 
 export const recoveringStudyId = signal<string | null>(null);
 export const recoveryError = signal<string | null>(null);
 type AppointmentEditor =
-    | {mode: 'appointment'; appointment: Appointment | null}
-    | {mode: 'consultation'; appointment: Appointment};
+    | { mode: 'appointment'; appointment: Appointment | null }
+    | { mode: 'consultation'; appointment: Appointment };
 
 export const appointmentEditor = signal<AppointmentEditor | null>(null);
 export const isFolderPickerOpen = signal(false);
@@ -95,10 +98,6 @@ export function setOffline(v: boolean): void {
 
 export function setExporting(v: boolean): void {
     exporting.value = v;
-}
-
-export function setExportScope(scope: 'all' | 'filtered'): void {
-    exportScope.value = scope;
 }
 
 export function setExportError(msg: string | null): void {

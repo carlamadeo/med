@@ -44,10 +44,7 @@ export function useOutbox(
         }
         const token = await driveAuth.getAccessToken();
         const previous = syncTail.current;
-        let release!: () => void;
-        const current = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const {promise: current, resolve: release} = Promise.withResolvers<void>();
         syncTail.current = current;
         await previous;
         const assertToken = async () => {

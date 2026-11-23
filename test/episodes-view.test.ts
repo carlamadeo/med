@@ -109,7 +109,7 @@ it('expands episode detail when clicking expand button', async () => {
     });
     // In collapsed view, symptom name is shown
     expect(root.textContent).toContain('fiebre');
-    
+
     const expandButton = root.querySelector<HTMLButtonElement>('button[aria-label="Ver detalle completo"]')!;
     await act(() => expandButton.click());
     // In expanded view, observation text is shown

@@ -144,7 +144,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                     const remoteAppointment = appointments.value.find(item => item.id === entry.appointmentId);
                                     return remoteAppointment ? <>
                                         <p>Versión de Drive</p><AppointmentDetails value={remoteAppointment}/>
-                                        {remoteAppointment.prescription && <p>Receta: {remoteAppointment.prescription.name}</p>}
+                                        {remoteAppointment.prescription &&
+                                            <p>Receta: {remoteAppointment.prescription.name}</p>}
                                         <p>Revisión de Drive: {remoteAppointment.revision}</p>
                                         <button type="button" className="button secondary"
                                                 disabled={isSyncing || !navigator.onLine || !remoteAppointment.revision}
@@ -176,7 +177,8 @@ export function PendingChangesSection({onDiscard, onRetrySync, onResolveConflict
                                 {'addresses' in remote && (
                                     <>
                                         <p>Especialidad en Drive: {remote.specialty || '—'}</p>
-                                        <p>Direcciones en Drive: {remote.addresses.length ? remote.addresses.join(' · ') : '—'}</p>
+                                        <p>Direcciones en
+                                            Drive: {remote.addresses.length ? remote.addresses.join(' · ') : '—'}</p>
                                         <p>Predeterminada en Drive: {remote.defaultAddress || '—'}</p>
                                     </>
                                 )}

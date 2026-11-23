@@ -13,7 +13,7 @@ interface StoredIntakeReservation extends IntakeReservation {
 }
 
 interface IntakeReservationDB extends DBSchema {
-    reservations: {key: [string, string]; value: StoredIntakeReservation; indexes: {owner: string}};
+    reservations: { key: [string, string]; value: StoredIntakeReservation; indexes: { owner: string } };
 }
 
 let database: Promise<IDBPDatabase<IntakeReservationDB>> | undefined;

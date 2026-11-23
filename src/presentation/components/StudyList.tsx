@@ -35,7 +35,9 @@ function StudySource({icon, printed = false, name, href, unavailable}: StudySour
     const action = icon === 'file' ? 'Abrir informe' : 'Abrir visor';
     const label = href ? `${action} de ${name}. ${printStatus}.` : `${printStatus}. ${unavailable}.`;
     const props = {className: 'icon-button study-source', 'data-printed': printed, 'aria-label': label, title: label};
-    const glyph = <svg className="icon" aria-hidden="true"><use href={`#i-${icon}`}/></svg>;
+    const glyph = <svg className="icon" aria-hidden="true">
+        <use href={`#i-${icon}`}/>
+    </svg>;
     return href
         ? <a {...props} href={href} target="_blank" rel="noopener noreferrer">{glyph}</a>
         : <span {...props} role="img">{glyph}</span>;
@@ -52,15 +54,15 @@ interface StudyListProps {
 }
 
 export function StudyList({
-                               onEdit,
-                               onDelete,
-                               onShare = () => {
-    },
-                               onShareMultiple,
-                               sortOrder = 'date-desc',
-                               onSortChange,
-                               studies: studiesList
-                           }: StudyListProps) {
+                              onEdit,
+                              onDelete,
+                              onShare = () => {
+                              },
+                              onShareMultiple,
+                              sortOrder = 'date-desc',
+                              onSortChange,
+                              studies: studiesList
+                          }: StudyListProps) {
     const [detailId, setDetailId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [pagination, setPagination] = useState({studies: studiesList, page: 0});
@@ -148,42 +150,42 @@ export function StudyList({
 
     return (
         <>
-        {activeSelectedStudies.length > 0 && (
-            <div className="library-selection-bar">
+            {activeSelectedStudies.length > 0 && (
+                <div className="library-selection-bar">
                 <span role="status" className="library-selection-count">
                     {activeSelectedStudies.length}{' '}
                     {activeSelectedStudies.length === 1 ? 'estudio seleccionado' : 'estudios seleccionados'}
                 </span>
-                <div className="library-selection-actions">
-                    {hasUnselectedShareable && (
-                        <button type="button" className="button secondary button-sm" onClick={selectAllShareable}>
-                            Seleccionar todos
+                    <div className="library-selection-actions">
+                        {hasUnselectedShareable && (
+                            <button type="button" className="button secondary button-sm" onClick={selectAllShareable}>
+                                Seleccionar todos
+                            </button>
+                        )}
+                        <button type="button" className="button quiet button-sm" onClick={() => setSelectedIds([])}>
+                            Limpiar selección
                         </button>
-                    )}
-                    <button type="button" className="button quiet button-sm" onClick={() => setSelectedIds([])}>
-                        Limpiar selección
-                    </button>
-                    <button
-                        type="button"
-                        id="share-selected-studies"
-                        className="button primary button-sm"
-                        onClick={() => {
-                            if (onShareMultiple) {
-                                onShareMultiple(activeSelectedStudies);
-                            } else if (activeSelectedStudies.length === 1) {
-                                onShare(activeSelectedStudies[0]!);
-                            }
-                        }}
-                    >
-                        Compartir seleccionados
-                    </button>
+                        <button
+                            type="button"
+                            id="share-selected-studies"
+                            className="button primary button-sm"
+                            onClick={() => {
+                                if (onShareMultiple) {
+                                    onShareMultiple(activeSelectedStudies);
+                                } else if (activeSelectedStudies.length === 1) {
+                                    onShare(activeSelectedStudies[0]!);
+                                }
+                            }}
+                        >
+                            Compartir seleccionados
+                        </button>
+                    </div>
                 </div>
-            </div>
-        )}
-        <div className="summary-table-scroll library-table">
-            <table ref={table} role="table" tabIndex={-1}>
-                <caption className="sr-only">Estudios guardados en el archivo</caption>
-                <thead role="rowgroup">
+            )}
+            <div className="summary-table-scroll library-table">
+                <table ref={table} role="table" tabIndex={-1}>
+                    <caption className="sr-only">Estudios guardados en el archivo</caption>
+                    <thead role="rowgroup">
                     <tr role="row">
                         {renderSortHeader('title', 'Estudio')}
                         {renderSortHeader('date', 'Fecha')}
@@ -191,8 +193,8 @@ export function StudyList({
                         {renderSortHeader('portal', 'Institución')}
                         <th scope="col" role="columnheader"><span className="sr-only">Acciones</span></th>
                     </tr>
-                </thead>
-                <tbody role="rowgroup">
+                    </thead>
+                    <tbody role="rowgroup">
                     {studiesList.length === 0 ? (
                         <tr role="row">
                             <td colSpan={5} role="cell">
@@ -240,10 +242,12 @@ export function StudyList({
                                             onChange={(event) => toggleSelect(study.id, event.currentTarget.checked)}
                                         />
                                         <span className="study-text">
-                                            <button className="study-title" type="button" aria-haspopup="dialog" title={study.title}
+                                            <button className="study-title" type="button" aria-haspopup="dialog"
+                                                    title={study.title}
                                                     aria-label={`Ver detalle de ${study.title}`}
                                                     onClick={event => openDetail(study, event.currentTarget)}>{study.title}</button>
-                                            {study.syncStatus && <span className="record-status" data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
+                                            {study.syncStatus && <span className="record-status"
+                                                                       data-tone={study.syncStatus === 'conflict' || study.syncStatus === 'failed' ? 'danger' : 'warning'}>{study.syncStatus === 'conflict' ? 'Requiere revisión' : study.syncStatus === 'failed' ? 'No se puede sincronizar' : 'Pendiente de sincronización'}</span>}
                                             <span className="study-types">
                                                 {study.types.length ? (
                                                     <>
@@ -263,20 +267,24 @@ export function StudyList({
                                                     <span className="type-badge">Sin tipo</span>
                                                 )}
                                             </span>
-                                            {study.specialty && <span className="study-specialty">{study.specialty}</span>}
+                                            {study.specialty &&
+                                                <span className="study-specialty">{study.specialty}</span>}
                                         </span>
                                     </div>
                                 </td>
                                 <td role="cell">
-                                    <time className="date-cell" dateTime={study.date}>{formatStudyDate(study.date)}</time>
+                                    <time className="date-cell"
+                                          dateTime={study.date}>{formatStudyDate(study.date)}</time>
                                 </td>
-                                <td role="cell" className="person-cell library-study-metadata" data-empty={!study.doctor}>
+                                <td role="cell" className="person-cell library-study-metadata"
+                                    data-empty={!study.doctor}>
                                     <span className="library-study-value" title={study.doctor || undefined}>
                                         <span className="library-mobile-label" aria-hidden="true">Profesional </span>
                                         {study.doctor || '—'}
                                     </span>
                                 </td>
-                                <td role="cell" className="portal-cell library-study-metadata" data-empty={!study.portal}>
+                                <td role="cell" className="portal-cell library-study-metadata"
+                                    data-empty={!study.portal}>
                                     <span className="library-study-value" title={study.portal || undefined}>
                                         <span className="library-mobile-label" aria-hidden="true">Institución </span>
                                         {study.portal || '—'}
@@ -290,9 +298,13 @@ export function StudyList({
                                         <StudySource icon="image" name={study.title} printed={study.printed?.image}
                                                      unavailable={study.viewer ? 'Visor no disponible' : 'Sin enlace al visor'}
                                                      href={viewerAvailable ? study.viewer : undefined}/>
-                                        <button className="icon-button" type="button" title="Compartir" disabled={!canShare}
-                                                aria-label={`Compartir ${study.title}`} onClick={() => onShare?.(study)}>
-                                            <svg className="icon" aria-hidden="true"><use href="#i-share"/></svg>
+                                        <button className="icon-button" type="button" title="Compartir"
+                                                disabled={!canShare}
+                                                aria-label={`Compartir ${study.title}`}
+                                                onClick={() => onShare?.(study)}>
+                                            <svg className="icon" aria-hidden="true">
+                                                <use href="#i-share"/>
+                                            </svg>
                                         </button>
                                     </div>
                                 </td>
@@ -300,20 +312,22 @@ export function StudyList({
                         );
                         return rows;
                     })}
-                </tbody>
-            </table>
-        </div>
-        {studiesList.length > PAGE_SIZE && (
-            <nav className="library-pagination" aria-label="Páginas de estudios">
-                <button type="button" className="button secondary" aria-disabled={page === 0}
-                        onClick={() => changePage(page - 1)}>Anterior</button>
-                <span role="status">{start + 1}–{end} de {studiesList.length} estudios</span>
-                <button type="button" className="button secondary" aria-disabled={end === studiesList.length}
-                        onClick={() => changePage(page + 1)}>Siguiente</button>
-            </nav>
-        )}
-        {detailStudy && <StudyDetailDialog study={detailStudy} returnFocus={detailTrigger.current}
-                                           onClose={() => setDetailId(null)} onEdit={onEdit} onDelete={onDelete}/>}
+                    </tbody>
+                </table>
+            </div>
+            {studiesList.length > PAGE_SIZE && (
+                <nav className="library-pagination" aria-label="Páginas de estudios">
+                    <button type="button" className="button secondary" aria-disabled={page === 0}
+                            onClick={() => changePage(page - 1)}>Anterior
+                    </button>
+                    <span role="status">{start + 1}–{end} de {studiesList.length} estudios</span>
+                    <button type="button" className="button secondary" aria-disabled={end === studiesList.length}
+                            onClick={() => changePage(page + 1)}>Siguiente
+                    </button>
+                </nav>
+            )}
+            {detailStudy && <StudyDetailDialog study={detailStudy} returnFocus={detailTrigger.current}
+                                               onClose={() => setDetailId(null)} onEdit={onEdit} onDelete={onDelete}/>}
         </>
     );
 }

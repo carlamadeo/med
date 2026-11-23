@@ -31,8 +31,8 @@ export interface ImportedPdf {
 }
 
 interface ImportDB extends DBSchema {
-    batches: {key: string; value: {revision: string; rows: SavedRow[]}};
-    hashes: {key: string; value: ImportedPdf[]};
+    batches: { key: string; value: { revision: string; rows: SavedRow[] } };
+    hashes: { key: string; value: ImportedPdf[] };
 }
 
 function openImportDB() {
@@ -88,7 +88,7 @@ export async function replaceImportBatch(
     previousRevision: string | null,
     rows: ImportRow[],
     imported?: ImportedPdf,
-): Promise<{revision: string | null; hashes: ImportedPdf[]}> {
+): Promise<{ revision: string | null; hashes: ImportedPdf[] }> {
     const pending: SavedRow[] = [];
     for (const row of rows) {
         if (row.status !== 'saved') pending.push(await serialize(row));
@@ -97,7 +97,8 @@ export async function replaceImportBatch(
     try {
         const tx = db.transaction(['batches', 'hashes'], 'readwrite');
         // The request can reject separately when the transaction aborts.
-        void tx.done.catch(() => {});
+        void tx.done.catch(() => {
+        });
         const batches = tx.objectStore('batches');
         const hashesStore = tx.objectStore('hashes');
         const batch = await batches.get(owner);

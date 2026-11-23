@@ -29,8 +29,10 @@ async function openConsultation(studyIds: string[]) {
 
 function captureDownload() {
     const download = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:consulta');
-    vi.stubGlobal('URL', Object.assign(class extends URL {}, {createObjectURL: download, revokeObjectURL: vi.fn()}));
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', Object.assign(class extends URL {
+    }, {createObjectURL: download, revokeObjectURL: vi.fn()}));
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
+    });
     return download;
 }
 
@@ -111,7 +113,10 @@ it('downloads one copy of each selected report and only explicitly selected view
     await act(() => viewers[1]!.click());
     const download = captureDownload();
     await act(() => {
-        dialog.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+        dialog.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', {
+            bubbles: true,
+            cancelable: true
+        }));
     });
     await vi.waitFor(() => expect(download).toHaveBeenCalledOnce());
     const zip = await JSZip.loadAsync(await download.mock.calls[0]![0].arrayBuffer());
@@ -126,10 +131,15 @@ it('discards a package still being prepared when the account signs out', async (
     const attachment = Promise.withResolvers<File>();
     const read = vi.spyOn(driveStudyRepo, 'getDocumentFile').mockReturnValue(attachment.promise);
     await act(() => {
-        dialog.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+        dialog.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', {
+            bubbles: true,
+            cancelable: true
+        }));
     });
     await vi.waitFor(() => expect(read).toHaveBeenCalledOnce());
-    await act(async () => { await driveAuth.signOut(); });
+    await act(async () => {
+        await driveAuth.signOut();
+    });
     await act(() => attachment.resolve(new File(['%PDF-consulta'], 'consulta.pdf', {type: 'application/pdf'})));
     expect(dialog.open).toBe(false);
     expect(download).not.toHaveBeenCalled();

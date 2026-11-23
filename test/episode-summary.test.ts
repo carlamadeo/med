@@ -17,7 +17,12 @@ const baseEpisode: Episode = {
     id: '1',
     illness: 'Gripe',
     observations: [
-        {date: '2024-01-10', text: 'Síntomas leves', temperature: 37.5, symptoms: [{name: 'fiebre', intensity: 2}, {name: 'dolor cabeza', intensity: 1}]},
+        {
+            date: '2024-01-10',
+            text: 'Síntomas leves',
+            temperature: 37.5,
+            symptoms: [{name: 'fiebre', intensity: 2}, {name: 'dolor cabeza', intensity: 1}]
+        },
         {date: '2024-01-11', text: 'Mejoría', temperature: 37.0, symptoms: [{name: 'fiebre', intensity: 1}]},
         {date: '2024-01-12', text: 'Bien', temperature: 36.5, symptoms: []},
     ],
@@ -34,7 +39,12 @@ const openEpisode: Episode = {
     id: '2',
     illness: 'Lumbalgia',
     observations: [
-        {date: '2024-02-01', text: 'Dolor fuerte', temperature: undefined, symptoms: [{name: 'dolor espalda', intensity: 5}, {name: 'rigidez', intensity: 3}]},
+        {
+            date: '2024-02-01',
+            text: 'Dolor fuerte',
+            temperature: undefined,
+            symptoms: [{name: 'dolor espalda', intensity: 5}, {name: 'rigidez', intensity: 3}]
+        },
         {date: '2024-02-03', text: 'Mejor', temperature: undefined, symptoms: [{name: 'dolor espalda', intensity: 3}]},
     ],
     medications: [
@@ -133,7 +143,12 @@ describe('episode-summary', () => {
         it('includes descriptions', () => {
             const ep: Episode = {
                 ...baseEpisode,
-                observations: [{date: '2024-01-10', text: '', temperature: undefined, symptoms: [{name: 'tos', intensity: 2, description: 'seca'}]}],
+                observations: [{
+                    date: '2024-01-10',
+                    text: '',
+                    temperature: undefined,
+                    symptoms: [{name: 'tos', intensity: 2, description: 'seca'}]
+                }],
             };
             const freq = symptomFrequency(ep);
             expect(freq.get('tos')?.descriptions).toEqual(['seca']);
@@ -205,7 +220,12 @@ describe('episode-summary', () => {
         it('returns medium for long duration', () => {
             const ep: Episode = {
                 ...baseEpisode,
-                observations: Array.from({length: 7}, (_, i) => ({date: `2024-01-${String(10 + i).padStart(2, '0')}`, text: '', temperature: undefined, symptoms: []})),
+                observations: Array.from({length: 7}, (_, i) => ({
+                    date: `2024-01-${String(10 + i).padStart(2, '0')}`,
+                    text: '',
+                    temperature: undefined,
+                    symptoms: []
+                })),
             };
             expect(severityIndicator(ep)).toBe('medium');
         });
@@ -213,7 +233,12 @@ describe('episode-summary', () => {
         it('returns medium for many observations', () => {
             const ep: Episode = {
                 ...baseEpisode,
-                observations: Array.from({length: 5}, (_, i) => ({date: `2024-01-${String(10 + i).padStart(2, '0')}`, text: 'x', temperature: undefined, symptoms: []})),
+                observations: Array.from({length: 5}, (_, i) => ({
+                    date: `2024-01-${String(10 + i).padStart(2, '0')}`,
+                    text: 'x',
+                    temperature: undefined,
+                    symptoms: []
+                })),
             };
             expect(severityIndicator(ep)).toBe('medium');
         });
@@ -221,7 +246,12 @@ describe('episode-summary', () => {
         it('returns low for mild episode', () => {
             const ep: Episode = {
                 ...baseEpisode,
-                observations: [{date: '2024-01-10', text: 'leve', temperature: 37.0, symptoms: [{name: 'molestia', intensity: 1}]}],
+                observations: [{
+                    date: '2024-01-10',
+                    text: 'leve',
+                    temperature: 37.0,
+                    symptoms: [{name: 'molestia', intensity: 1}]
+                }],
             };
             expect(severityIndicator(ep)).toBe('low');
         });

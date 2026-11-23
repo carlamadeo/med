@@ -4,10 +4,20 @@ import {navigateTo} from './nav';
 test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async ({page, context}) => {
     const files: Array<Record<string, unknown>> = [];
     let uploads = 0;
-    await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
+    await page.route('https://accounts.google.com/**', route => route.fulfill({
+        body: '',
+        contentType: 'text/javascript'
+    }));
     await page.route('https://www.googleapis.com/**', async route => {
         const url = new URL(route.request().url());
-        if (url.pathname === '/drive/v3/about') return route.fulfill({json: {user: {me: true, permissionId: 'test-account'}}});
+        if (url.pathname === '/drive/v3/about') return route.fulfill({
+            json: {
+                user: {
+                    me: true,
+                    permissionId: 'test-account'
+                }
+            }
+        });
         if (url.pathname === '/drive/v3/files/generateIds') return route.fulfill({json: {ids: ['study-offline']}});
         if (url.pathname === '/drive/v3/files' && route.request().method() === 'GET') {
             const query = url.searchParams.get('q') ?? '';
@@ -27,7 +37,10 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
         return route.fulfill({status: 404});
     });
     await page.addInitScript(() => {
-        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({accessToken: 'synthetic-token', expires: Date.now() + 3600000}));
+        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({
+            accessToken: 'synthetic-token',
+            expires: Date.now() + 3600000
+        }));
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
@@ -67,7 +80,10 @@ test('guarda sin conexión y sincroniza una vez al reconectar la cuenta', async 
 
 test('conserva la cola para la cuenta original al conectar otra cuenta', async ({page, context}) => {
     const reservationAccounts: string[] = [];
-    await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
+    await page.route('https://accounts.google.com/**', route => route.fulfill({
+        body: '',
+        contentType: 'text/javascript'
+    }));
     await page.route('https://www.googleapis.com/**', async route => {
         const url = new URL(route.request().url());
         const account = route.request().headers().authorization?.includes('account-b') ? 'account-b' : 'account-a';
@@ -83,7 +99,10 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     });
     await page.addInitScript(() => {
         const key = 'mis-estudios:drive-session:123-test.apps.googleusercontent.com';
-        if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify({accessToken: 'account-a-token', expires: Date.now() + 3600000}));
+        if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify({
+            accessToken: 'account-a-token',
+            expires: Date.now() + 3600000
+        }));
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');
@@ -103,7 +122,10 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     await expect(originalEntry).toBeVisible();
     await page.getByRole('button', {name: 'Salir'}).click();
     await page.evaluate(() => {
-        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({accessToken: 'account-b-token', expires: Date.now() + 3600000}));
+        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({
+            accessToken: 'account-b-token',
+            expires: Date.now() + 3600000
+        }));
     });
     await context.setOffline(false);
     await page.reload();
@@ -115,7 +137,10 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
     await context.setOffline(true);
     await page.getByRole('button', {name: 'Salir'}).click();
     await page.evaluate(() => {
-        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({accessToken: 'account-a-token', expires: Date.now() + 3600000}));
+        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({
+            accessToken: 'account-a-token',
+            expires: Date.now() + 3600000
+        }));
     });
     await context.setOffline(false);
     await page.reload();
@@ -126,13 +151,40 @@ test('conserva la cola para la cuenta original al conectar otra cuenta', async (
 });
 
 test('conserva el cambio pendiente cuando Drive tiene una revisión más reciente', async ({page, context}) => {
-    const description = JSON.stringify({title: 'Ficha original', date: '2026-01-01', types: ['Ecografía'], doctor: '', portal: '', viewer: '', reportName: ''});
-    const base = {id: 'study-1', description, name: 'ficha.json', mimeType: 'application/json', version: '1', modifiedTime: '2026-01-01T00:00:00Z', trashed: false, appProperties: {misEstudios: 'estudio-v1'}};
+    const description = JSON.stringify({
+        title: 'Ficha original',
+        date: '2026-01-01',
+        types: ['Ecografía'],
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: ''
+    });
+    const base = {
+        id: 'study-1',
+        description,
+        name: 'ficha.json',
+        mimeType: 'application/json',
+        version: '1',
+        modifiedTime: '2026-01-01T00:00:00Z',
+        trashed: false,
+        appProperties: {misEstudios: 'estudio-v1'}
+    };
     let attemptedPatches = 0;
-    await page.route('https://accounts.google.com/**', route => route.fulfill({body: '', contentType: 'text/javascript'}));
+    await page.route('https://accounts.google.com/**', route => route.fulfill({
+        body: '',
+        contentType: 'text/javascript'
+    }));
     await page.route('https://www.googleapis.com/**', async route => {
         const url = new URL(route.request().url());
-        if (url.pathname === '/drive/v3/about') return route.fulfill({json: {user: {me: true, permissionId: 'test-account'}}});
+        if (url.pathname === '/drive/v3/about') return route.fulfill({
+            json: {
+                user: {
+                    me: true,
+                    permissionId: 'test-account'
+                }
+            }
+        });
         if (url.pathname === '/drive/v3/files') return route.fulfill({json: {files: (url.searchParams.get('q') ?? '').includes('estudio-v1') ? [base] : []}});
         if (url.pathname === '/drive/v3/files/study-1') {
             if (route.request().method() === 'PATCH') attemptedPatches++;
@@ -141,7 +193,10 @@ test('conserva el cambio pendiente cuando Drive tiene una revisión más recient
         return route.fulfill({status: 404});
     });
     await page.addInitScript(() => {
-        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({accessToken: 'synthetic-token', expires: Date.now() + 3600000}));
+        sessionStorage.setItem('mis-estudios:drive-session:123-test.apps.googleusercontent.com', JSON.stringify({
+            accessToken: 'synthetic-token',
+            expires: Date.now() + 3600000
+        }));
         localStorage.setItem('mis-estudios-onboarding-seen', 'true');
     });
     await page.goto('/');

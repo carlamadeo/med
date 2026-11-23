@@ -51,7 +51,7 @@ export function buildDoctorDirectory(
     studies: readonly Study[],
     savedDoctors: readonly Doctor[],
 ): DoctorDirectoryEntry[] {
-    const counts = new Map<string, {name: string; studyCount: number; specialty?: string; specialtyDate: string}>();
+    const counts = new Map<string, { name: string; studyCount: number; specialty?: string; specialtyDate: string }>();
     for (const study of studies) {
         const name = cleanDoctorName(study.doctor);
         const key = normalizeDoctorName(name);

@@ -27,19 +27,19 @@
  * <Portals />
  * ```
  */
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {driveAuth, drivePortalRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {normalize, viewerURL} from '@domain/utils';
 import type {Portal} from '@domain/models';
 import {isLocalDemo, portals, studies} from '../state/store';
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useFocusTrap} from '../utils/focusTrap';
+import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 
 const outbox = new Outbox();
 
-export function Portals({onViewStudies}: {onViewStudies: (portal: string) => void}) {
+export function Portals({onViewStudies}: { onViewStudies: (portal: string) => void }) {
     const [editing, setEditing] = useState<Portal | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -49,13 +49,7 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (formOpen && !dialog.open) dialog.showModal();
-        if (!formOpen && dialog.open) dialog.close();
-    }, [formOpen]);
+    useModalDialog(dialogRef, formOpen);
 
     const openNew = () => {
         setMessage('');
@@ -340,10 +334,12 @@ export function Portals({onViewStudies}: {onViewStudies: (portal: string) => voi
                         <div className="portal-form-grid">
                             <label>Nombre <input id="portal-name" name="name" required maxLength={120}
                                                  defaultValue={editing?.displayName ?? ''}/></label>
-                            <label><span className="field-label">Enlace <small aria-hidden="true">Opcional</small></span> <input id="portal-url" name="url" type="url"
-                                                 defaultValue={editing?.url ?? ''}/></label>
-                            <label className="wide"><span className="field-label">Notas <small aria-hidden="true">Opcional</small></span> <textarea name="notes"
-                                                                    defaultValue={editing?.notes ?? ''}/></label>
+                            <label><span className="field-label">Enlace <small
+                                aria-hidden="true">Opcional</small></span> <input id="portal-url" name="url" type="url"
+                                                                                  defaultValue={editing?.url ?? ''}/></label>
+                            <label className="wide"><span className="field-label">Notas <small
+                                aria-hidden="true">Opcional</small></span> <textarea name="notes"
+                                                                                     defaultValue={editing?.notes ?? ''}/></label>
                         </div>
                         {formOpen && message && <p className="form-error" role="alert">{message}</p>}
                         <div className="dialog-actions">

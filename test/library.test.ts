@@ -196,7 +196,10 @@ describe('portalNames', () => {
     it('includes saved portals without duplicating existing study institutions', () => {
         const names = portalNames(
             [study('1', {portal: 'Hospital Central'})],
-            [{name: 'hospital central', displayName: 'Hospital Central'}, {name: 'laboratorio norte', displayName: 'Laboratorio Norte'}],
+            [{name: 'hospital central', displayName: 'Hospital Central'}, {
+                name: 'laboratorio norte',
+                displayName: 'Laboratorio Norte'
+            }],
         );
         expect(names).toEqual(['Hospital Central', 'Laboratorio Norte']);
     });

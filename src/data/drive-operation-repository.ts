@@ -1,4 +1,4 @@
-import {isRecoverable} from './recovery-window';
+import {isRecoverable, restoreDriveRecord} from './recovery-window';
 import {DriveStudyRepository} from './drive-study-repository';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage} from '@core/storage';
@@ -173,30 +173,19 @@ export class DriveOperationRepository {
     }
 
     async restore(id: string, revision: string): Promise<Operation> {
-        const ID_PATTERN = /^[\w-]+$/;
-        if (!ID_PATTERN.test(id) || !revision) throw new Error('La operación no tiene una revisión válida.');
-        const token = await this.client.getAccessToken();
-        const owner = await this.client.cacheOwner();
-        const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
-        if (file.appProperties?.misEstudios !== 'operacion-v1') throw new DriveConflictError('operación');
-        if (!file.trashed && file.appProperties.restoredRevision === revision) {
-            await this.client.assertSession(token);
-            return this.parse(file);
-        }
-        if (!file.trashed || file.version !== revision) throw new DriveConflictError('operación');
-        if (!isRecoverable(file.appProperties.deletedAt ?? '')) throw new Error('Esta operación ya no está disponible para recuperación desde la aplicación.');
-        await this.client.assertSession(token);
-        const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), this.client.jsonBody('PATCH', {
-            trashed: false,
-            appProperties: {...file.appProperties, deletedAt: undefined, restoredRevision: revision}
-        }), token).then(r => r.json() as Promise<DriveFileResponse>);
-        await this.client.assertSession(token);
-        const operation = this.parse(restored);
-        await storage.updateSessionDirectory<Operation>(owner, 'operationsCache', (cached) => [...(cached ?? []).filter(item => item.id !== id), operation]);
-        await storage.updateSessionDirectory<{
-            id: string
-        }>(owner, 'deletedOperationsCache', (cached) => cached ? cached.filter(item => item.id !== id) : null);
-        return operation;
+        return restoreDriveRecord({
+            client: this.client,
+            id,
+            revision,
+            marker: 'operacion-v1',
+            fields: ENTRY_FIELDS,
+            invalidRevisionMessage: 'La operación no tiene una revisión válida.',
+            expiredMessage: 'Esta operación ya no está disponible para recuperación desde la aplicación.',
+            conflictTarget: 'operación',
+            activeCacheKey: 'operationsCache',
+            deletedCacheKey: 'deletedOperationsCache',
+            parse: (file) => this.parse(file),
+        });
     }
 }
 

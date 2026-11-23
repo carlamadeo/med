@@ -1,5 +1,5 @@
 import {enqueueOffline} from '../utils/enqueueOffline';
-import {useEffect, useRef, useState} from 'preact/hooks';
+import {useRef, useState} from 'preact/hooks';
 import {driveAuth, driveEpisodeRepo} from '@data';
 import {Outbox} from '@data/outbox';
 import {episodeEndDateError} from '@domain/episodes';
@@ -8,7 +8,7 @@ import {normalize, todayLocal} from '@domain/utils';
 import {formatStudyDate} from '@domain/library';
 import type {Episode, EpisodeDraft, SymptomObservation, Medication} from '@domain/models';
 import {episodes, isLocalDemo, visibleEpisodes} from '../state/store';
-import {useFocusTrap} from '../utils/focusTrap';
+import {useFocusTrap, useModalDialog} from '../utils/focusTrap';
 import {ConfirmActionDialog} from './ConfirmActionDialog';
 import {EpisodesSummary} from './EpisodesSummary';
 
@@ -65,7 +65,12 @@ function toFormObservation(obs: SymptomObservation): FormObservation {
         date: obs.date,
         text: obs.text,
         temperature: obs.temperature,
-        symptoms: obs.symptoms.map(s => ({_key: createKey(), name: s.name, intensity: s.intensity, description: s.description})),
+        symptoms: obs.symptoms.map(s => ({
+            _key: createKey(),
+            name: s.name,
+            intensity: s.intensity,
+            description: s.description
+        })),
     };
 }
 
@@ -100,13 +105,7 @@ export function Episodes() {
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     useFocusTrap(dialogRef, formOpen);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (formOpen && !dialog.open) dialog.showModal();
-        if (!formOpen && dialog.open) dialog.close();
-    }, [formOpen]);
+    useModalDialog(dialogRef, formOpen);
 
     function openNew() {
         setMessage('');
@@ -172,7 +171,10 @@ export function Episodes() {
     function addSymptom(obsIndex: number) {
         const updated = [...observations];
         const obs = updated[obsIndex]!;
-        updated[obsIndex] = {...obs, symptoms: [...obs.symptoms, {_key: createKey(), name: '', intensity: undefined, description: ''}]};
+        updated[obsIndex] = {
+            ...obs,
+            symptoms: [...obs.symptoms, {_key: createKey(), name: '', intensity: undefined, description: ''}]
+        };
         setObservations(updated);
     }
 
@@ -193,8 +195,18 @@ export function Episodes() {
         const obs = updated[obsIndex]!;
         const nextSymptoms: FormSymptomEntry[] = obs.symptoms.map((s: FormSymptomEntry, i: number) => {
             if (i !== symptomIndex) return s;
-            if (field === 'name') return {_key: s._key, name: value as string, intensity: s.intensity, description: s.description};
-            if (field === 'description') return {_key: s._key, name: s.name, intensity: s.intensity, description: value as string};
+            if (field === 'name') return {
+                _key: s._key,
+                name: value as string,
+                intensity: s.intensity,
+                description: s.description
+            };
+            if (field === 'description') return {
+                _key: s._key,
+                name: s.name,
+                intensity: s.intensity,
+                description: value as string
+            };
             if (field === 'intensity') return {
                 _key: s._key,
                 name: s.name,
@@ -458,7 +470,7 @@ export function Episodes() {
             </div>
         </div>
 
-        <EpisodesSummary episodes={episodes.value} />
+        <EpisodesSummary episodes={episodes.value}/>
 
         <div className="episodes-toolbar">
             <label className="episodes-search">
@@ -482,7 +494,7 @@ export function Episodes() {
             </div>
         )}
 
-{visible.length ? (
+        {visible.length ? (
             <ul id="episodes-list" className="episode-list">
                 {visible.map((episode) => {
                     const summary = episodeSummary(episode);
@@ -491,7 +503,7 @@ export function Episodes() {
                         : episode.syncStatus === 'failed' ? 'No se puede sincronizar'
                             : episode.syncStatus === 'pending' ? 'Pendiente de sincronización' : '';
                     const syncTone = episode.syncStatus === 'conflict' || episode.syncStatus === 'failed' ? 'danger' : 'warning';
-                    
+
                     const toggleExpand = (e: Event) => {
                         e.stopPropagation();
                         setExpandedEpisodes(prev => {
@@ -502,9 +514,9 @@ export function Episodes() {
                         });
                     };
 
-                    const severityColor = summary.severity === 'high' ? 'var(--color-error)' 
+                    const severityColor = summary.severity === 'high' ? 'var(--color-error)'
                         : summary.severity === 'medium' ? 'var(--color-warning)' : 'var(--color-success)';
-                    
+
                     return <li className="episode-card" key={episode.id}>
                         <div className="episode-summary" onClick={toggleExpand}>
                             <div className="episode-summary-main">
@@ -518,24 +530,28 @@ export function Episodes() {
                                 <div className="episode-summary-meta">
                                     {summary.startDate && summary.endDate && (
                                         <span className="meta-item">
-                                            <time dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
+                                            <time
+                                                dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
                                             {' – '}
                                             <time dateTime={summary.endDate}>{formatStudyDate(summary.endDate)}</time>
                                         </span>
                                     )}
                                     {summary.startDate && !summary.endDate && (
                                         <span className="meta-item">
-                                            <time dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
+                                            <time
+                                                dateTime={summary.startDate}>{formatStudyDate(summary.startDate)}</time>
                                             {' – en curso'}
                                         </span>
                                     )}
                                     {summary.peakTemperature !== null && (
-                                        <span className="meta-item temp" style={{color: summary.peakTemperature >= 39 ? 'var(--color-error)' : summary.peakTemperature >= 38 ? 'var(--color-warning)' : 'var(--color-success)'}}>
+                                        <span className="meta-item temp"
+                                              style={{color: summary.peakTemperature >= 39 ? 'var(--color-error)' : summary.peakTemperature >= 38 ? 'var(--color-warning)' : 'var(--color-success)'}}>
                                             {summary.peakTemperature.toLocaleString('es-AR')} °C
                                         </span>
                                     )}
                                     {summary.medicationCount > 0 && (
-                                        <span className="meta-item">{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>
+                                        <span
+                                            className="meta-item">{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>
                                     )}
                                     <span className="meta-item severity" style={{color: severityColor}}>
                                         Severidad {summary.severity === 'high' ? 'alta' : summary.severity === 'medium' ? 'media' : 'baja'}
@@ -547,8 +563,10 @@ export function Episodes() {
                                     {summary.topSymptoms.map((symptom, idx) => (
                                         <span key={`${symptom.name}-${idx}`} className="symptom-chip">
                                             {symptom.name}
-                                            {symptom.count > 1 && <span className="symptom-count">×{symptom.count}</span>}
-                                            {symptom.maxIntensity > 0 && <span className="symptom-intensity">{symptom.maxIntensity}/5</span>}
+                                            {symptom.count > 1 &&
+                                                <span className="symptom-count">×{symptom.count}</span>}
+                                            {symptom.maxIntensity > 0 &&
+                                                <span className="symptom-intensity">{symptom.maxIntensity}/5</span>}
                                         </span>
                                     ))}
                                 </div>
@@ -561,7 +579,9 @@ export function Episodes() {
                                 aria-expanded={isExpanded}
                                 aria-label={isExpanded ? 'Ocultar detalle' : 'Ver detalle completo'}
                             >
-                                <svg className="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                                <svg className="icon" aria-hidden="true">
+                                    <use href="#i-chevron-down"/>
+                                </svg>
                             </button>
                         </div>
 
@@ -569,7 +589,8 @@ export function Episodes() {
                             <div className="episode-detail">
                                 <div className="episode-stats">
                                     <span>{summary.observationCount} {summary.observationCount === 1 ? 'observación' : 'observaciones'}</span>
-                                    {summary.medicationCount > 0 && <span>{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>}
+                                    {summary.medicationCount > 0 &&
+                                        <span>{summary.medicationCount} {summary.medicationCount === 1 ? 'medicamento' : 'medicamentos'}</span>}
                                 </div>
 
                                 {summary.duration !== null && (
@@ -583,9 +604,10 @@ export function Episodes() {
 
                                 {episode.observations.length > 0 && (
                                     <div className="episode-observations">
-                                        {[...episode.observations].sort((a, b) => a.date.localeCompare(b.date)).map((observation, index) => (
+                                        {episode.observations.toSorted((a, b) => a.date.localeCompare(b.date)).map((observation, index) => (
                                             <div className="episode-observation" key={`${observation.date}-${index}`}>
-                                                <time dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
+                                                <time
+                                                    dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
                                                 <p>{observation.text || 'Sin notas'}</p>
                                                 <div className="episode-symptoms">
                                                     {observation.temperature !== undefined && <span
@@ -602,8 +624,9 @@ export function Episodes() {
 
                                 {summary.medicationCount > 0 && (
                                     <div className="episode-meds">
-                                        {episode.medications.filter(m => m.name).map((medication, index) => <span className="episode-med"
-                                                                                                          key={`${medication.name}-${index}`}>
+                                        {episode.medications.filter(m => m.name).map((medication, index) => <span
+                                            className="episode-med"
+                                            key={`${medication.name}-${index}`}>
                                             <svg className="icon"><use href="#i-pill"/></svg>
                                             {medication.name}{medication.frequency ? ` · ${medication.frequency}` : ''}
                                         </span>)}
@@ -718,14 +741,19 @@ export function Episodes() {
                                             </button>
                                         </div>
                                     ))}
-                                    <button type="button" className="button secondary button-sm" onClick={() => addSymptom(obsIndex)}>+ Síntoma</button>
+                                    <button type="button" className="button secondary button-sm"
+                                            onClick={() => addSymptom(obsIndex)}>+ Síntoma
+                                    </button>
                                 </fieldset>
                                 {observations.length > 1 &&
-                                    <button type="button" className="button ghost button-sm episode-delete" onClick={() => removeObservation(obsIndex)}
+                                    <button type="button" className="button ghost button-sm episode-delete"
+                                            onClick={() => removeObservation(obsIndex)}
                                             aria-label="Quitar observación">Quitar esta observación</button>}
                             </div>
                         ))}
-                        <button type="button" className="button secondary button-sm" onClick={addObservation}>+ Agregar día de ocurrencia</button>
+                        <button type="button" className="button secondary button-sm" onClick={addObservation}>+ Agregar
+                            día de ocurrencia
+                        </button>
                     </fieldset>
 
                     <fieldset>
@@ -753,7 +781,9 @@ export function Episodes() {
                                     </button>}
                             </div>
                         ))}
-                        <button type="button" className="button secondary button-sm" onClick={addMedication}>+ Medicamento</button>
+                        <button type="button" className="button secondary button-sm" onClick={addMedication}>+
+                            Medicamento
+                        </button>
                     </fieldset>
 
                     {formOpen && message && <p className="form-error" role="alert">{message}</p>}

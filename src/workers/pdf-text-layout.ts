@@ -3,7 +3,7 @@ import type {TextItem} from 'pdfjs-dist/types/src/display/api';
 const isTextItem = (item: object): item is TextItem => 'str' in item;
 
 export function pageText(items: Array<TextItem | object>): string {
-    const lines: Array<{y: number; items: TextItem[]}> = [];
+    const lines: Array<{ y: number; items: TextItem[] }> = [];
     const ordered = items.filter(isTextItem).filter(item => item.str.length > 0)
         .sort((a, b) => (b.transform[5] ?? 0) - (a.transform[5] ?? 0));
     for (const item of ordered) {

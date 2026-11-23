@@ -13,15 +13,29 @@ afterEach(() => {
 
 it('shows study type filters directly and filters the library', async () => {
     view.value = 'cronologia';
-    const base = {date: '2024-01-01', doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const base = {
+        date: '2024-01-01',
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1'
+    };
     setStudies([
         {...base, id: '1', driveFileId: '1', title: 'Uno', types: ['Radiografía']},
         {...base, id: '2', driveFileId: '2', title: 'Dos', types: ['Análisis']},
         {...base, id: '3', driveFileId: '3', title: 'Tres', types: ['radiografia']},
     ]);
     await act(() => render(h(StudyListContainer, {
-        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
-        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Radiografía', 'Análisis'],
+        onEdit: () => {
+        }, onDelete: () => {
+        }, onRetryLoad: () => {
+        }, onAddStudy: () => {
+        },
+        onOpenCandidate: () => {
+        }, typesReady: true, availableTypes: ['Radiografía', 'Análisis'],
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
     expect(root.querySelector('.library-views')).toBeNull();
@@ -45,13 +59,42 @@ it('combines accent-insensitive study search with multiple selected types', asyn
     view.value = 'cronologia';
     const base = {date: '2024-01-01', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
     setStudies([
-        {...base, id: '1', driveFileId: '1', title: 'Radiografía de tórax', doctor: 'Dra. Núñez', portal: 'Clínica Sur', types: ['Radiografía']},
-        {...base, id: '2', driveFileId: '2', title: 'Hemograma', doctor: 'Dr. Méndez', portal: 'Clínica Sur', types: ['Análisis']},
-        {...base, id: '3', driveFileId: '3', title: 'Ecografía renal', doctor: 'Dra. Núñez', portal: 'Clínica Sur', types: ['Ecografía']},
+        {
+            ...base,
+            id: '1',
+            driveFileId: '1',
+            title: 'Radiografía de tórax',
+            doctor: 'Dra. Núñez',
+            portal: 'Clínica Sur',
+            types: ['Radiografía']
+        },
+        {
+            ...base,
+            id: '2',
+            driveFileId: '2',
+            title: 'Hemograma',
+            doctor: 'Dr. Méndez',
+            portal: 'Clínica Sur',
+            types: ['Análisis']
+        },
+        {
+            ...base,
+            id: '3',
+            driveFileId: '3',
+            title: 'Ecografía renal',
+            doctor: 'Dra. Núñez',
+            portal: 'Clínica Sur',
+            types: ['Ecografía']
+        },
     ]);
     await act(() => render(h(StudyListContainer, {
-        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
-        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Radiografía', 'Análisis', 'Ecografía'],
+        onEdit: () => {
+        }, onDelete: () => {
+        }, onRetryLoad: () => {
+        }, onAddStudy: () => {
+        },
+        onOpenCandidate: () => {
+        }, typesReady: true, availableTypes: ['Radiografía', 'Análisis', 'Ecografía'],
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
 
@@ -93,16 +136,23 @@ it('combines accent-insensitive study search with multiple selected types', asyn
 
 it('shows studies with and without printed copies in the same library search', async () => {
     view.value = 'cronologia';
-    const base = {date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
-        hasPdf: false, driveModifiedTime: '', revision: '1', driveFileId: ''};
+    const base = {
+        date: '2024-01-01', types: ['Otro'], doctor: '', portal: '', viewer: '', reportName: '',
+        hasPdf: false, driveModifiedTime: '', revision: '1', driveFileId: ''
+    };
     setStudies([
         {...base, id: '1', title: 'Radiografía de rodilla', printed: {report: true, image: false}},
         {...base, id: '2', title: 'Radiografía de tórax'},
         {...base, id: '3', title: 'Ecografía abdominal', printed: {report: false, image: true}},
     ]);
     await act(() => render(h(StudyListContainer, {
-        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
-        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Otro'],
+        onEdit: () => {
+        }, onDelete: () => {
+        }, onRetryLoad: () => {
+        }, onAddStudy: () => {
+        },
+        onOpenCandidate: () => {
+        }, typesReady: true, availableTypes: ['Otro'],
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
 
@@ -123,15 +173,51 @@ it('shows studies with and without printed copies in the same library search', a
 
 it('allows changing sort order by clicking table headers in the study list', async () => {
     view.value = 'cronologia';
-    const base = {driveFileId: 'drive-id', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
+    const base = {
+        driveFileId: 'drive-id',
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1'
+    };
     setStudies([
-        {...base, id: '1', date: '2024-01-01', title: 'Radiografía', doctor: 'Dr. Zorrilla', portal: 'Centro B', types: ['Radiografía']},
-        {...base, id: '2', date: '2024-03-01', title: 'Análisis', doctor: 'Dr. Álvarez', portal: 'Centro C', types: ['Análisis']},
-        {...base, id: '3', date: '2023-01-01', title: 'Ecografía', doctor: 'Dr. Méndez', portal: 'Centro A', types: ['Ecografía']},
+        {
+            ...base,
+            id: '1',
+            date: '2024-01-01',
+            title: 'Radiografía',
+            doctor: 'Dr. Zorrilla',
+            portal: 'Centro B',
+            types: ['Radiografía']
+        },
+        {
+            ...base,
+            id: '2',
+            date: '2024-03-01',
+            title: 'Análisis',
+            doctor: 'Dr. Álvarez',
+            portal: 'Centro C',
+            types: ['Análisis']
+        },
+        {
+            ...base,
+            id: '3',
+            date: '2023-01-01',
+            title: 'Ecografía',
+            doctor: 'Dr. Méndez',
+            portal: 'Centro A',
+            types: ['Ecografía']
+        },
     ]);
     await act(() => render(h(StudyListContainer, {
-        onEdit: () => {}, onDelete: () => {}, onRetryLoad: () => {}, onAddStudy: () => {},
-        onOpenCandidate: () => {}, typesReady: true, availableTypes: ['Radiografía', 'Análisis', 'Ecografía'],
+        onEdit: () => {
+        }, onDelete: () => {
+        }, onRetryLoad: () => {
+        }, onAddStudy: () => {
+        },
+        onOpenCandidate: () => {
+        }, typesReady: true, availableTypes: ['Radiografía', 'Análisis', 'Ecografía'],
         offline: false, directoryWarning: false, pendingChangesCount: 0,
     }), root));
 

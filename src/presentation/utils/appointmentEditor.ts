@@ -46,7 +46,7 @@ export function resolveProfessionalSpecialty(
     if (matched?.specialty) return matched.specialty;
     const key = normalizeDoctorName(professionalName);
     if (!key) return '';
-    const candidates: Array<{date: string; specialty: string}> = [];
+    const candidates: Array<{ date: string; specialty: string }> = [];
     for (const item of appointmentsList) {
         const specialty = cleanSpecialty(item.specialty);
         if (specialty && normalizeDoctorName(item.professional) === key) {
@@ -61,6 +61,26 @@ export function resolveProfessionalSpecialty(
     }
     candidates.sort((a, b) => b.date.localeCompare(a.date));
     return candidates[0]?.specialty ?? '';
+}
+
+/** Updates an auto-suggested field only if it is empty or still matches the last auto-filled value. */
+export function syncAutoField(
+    currentValue: string,
+    suggestedValue: string,
+    autoRef: { current: string | null },
+    setValue: (value: string) => void,
+): void {
+    if (!currentValue.trim()) {
+        if (suggestedValue) {
+            setValue(suggestedValue);
+            autoRef.current = suggestedValue;
+        } else {
+            autoRef.current = null;
+        }
+    } else if (autoRef.current !== null && currentValue === autoRef.current) {
+        setValue(suggestedValue);
+        autoRef.current = suggestedValue || null;
+    }
 }
 
 export function getAppointmentPrescription(appointment: Appointment): Promise<File> {

@@ -25,10 +25,12 @@ it('submits a new study with its selected type and specialty', async () => {
     // Open combobox and select type
     const trigger = form.querySelector<HTMLButtonElement>('[role="combobox"]')!;
     trigger.click();
-    await act(async () => {});
+    await act(async () => {
+    });
     const option = root.querySelector<HTMLLIElement>('[role="option"]')!;
     option.click();
-    await act(async () => {});
+    await act(async () => {
+    });
     const specialty = form.elements.namedItem('specialty') as HTMLInputElement;
     expect(specialty).toBeInstanceOf(HTMLInputElement);
     await act(() => specialty.focus());
@@ -39,7 +41,12 @@ it('submits a new study with its selected type and specialty', async () => {
     await act(() => {
         form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     });
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({title: 'Estudio', date: '2024-01-01', types: ['Otro'], specialty: 'Endocrinología'}));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Estudio',
+        date: '2024-01-01',
+        types: ['Otro'],
+        specialty: 'Endocrinología'
+    }));
     render(null, root);
     root.remove();
 });
@@ -86,15 +93,34 @@ it('submits an intake candidate as a new study with its selected file', async ()
 it('shows other studies of the same type in date order while editing', async () => {
     const root = document.createElement('div');
     document.body.append(root);
-    const base = {doctor: '', portal: '', viewer: '', reportName: '', hasPdf: false, driveModifiedTime: '', revision: '1'};
-    const current = {...base, id: 'current', driveFileId: 'current', title: 'Actual', date: '2024-01-01', types: ['Laboratorio']};
+    const base = {
+        doctor: '',
+        portal: '',
+        viewer: '',
+        reportName: '',
+        hasPdf: false,
+        driveModifiedTime: '',
+        revision: '1'
+    };
+    const current = {
+        ...base,
+        id: 'current',
+        driveFileId: 'current',
+        title: 'Actual',
+        date: '2024-01-01',
+        types: ['Laboratorio']
+    };
     setStudies([current,
         {...base, id: 'old', driveFileId: 'old', title: 'Anterior', date: '2020-01-01', types: ['Laboratorio']},
         {...base, id: 'new', driveFileId: 'new', title: 'Reciente', date: '2023-01-01', types: ['Laboratorio']},
         {...base, id: 'other', driveFileId: 'other', title: 'Otro', date: '2022-01-01', types: ['Ecografía']},
     ]);
-    await act(() => render(h(EditorDialog, {onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
-        error: null, busy: false, availableTypes: ['Laboratorio', 'Ecografía']}), root));
+    await act(() => render(h(EditorDialog, {
+        onClose: () => {
+        }, onSave: async () => {
+        }, verifyOwner: async () => true,
+        error: null, busy: false, availableTypes: ['Laboratorio', 'Ecografía']
+    }), root));
     await act(() => setEditingStudy(current));
     const related = root.querySelector('[aria-label="Estudios relacionados"]');
     expect(related?.textContent).toContain('Otros estudios de Laboratorio');
@@ -112,7 +138,9 @@ it('rejects files larger than 20 MB immediately on drop or select', async () => 
     const root = document.createElement('div');
     document.body.append(root);
     await act(() => render(h(EditorDialog, {
-        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        onClose: () => {
+        }, onSave: async () => {
+        }, verifyOwner: async () => true,
         error: null, busy: false, availableTypes: ['Laboratorio']
     }), root));
     await act(() => setEditingStudy(null));
@@ -142,7 +170,9 @@ it('handles drag and drop of valid files onto the dropzone', async () => {
     const root = document.createElement('div');
     document.body.append(root);
     await act(() => render(h(EditorDialog, {
-        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        onClose: () => {
+        }, onSave: async () => {
+        }, verifyOwner: async () => true,
         error: null, busy: false, availableTypes: ['Laboratorio']
     }), root));
     await act(() => setEditingStudy(null));
@@ -174,11 +204,19 @@ it('handles drag and drop of valid files onto the dropzone', async () => {
 });
 
 it('closes the portal dropdown after selecting an institution', async () => {
-    portals.value = [{id: 'p1', name: 'hospital central', displayName: 'Hospital Central', url: 'https://hospital.example', revision: '1'}];
+    portals.value = [{
+        id: 'p1',
+        name: 'hospital central',
+        displayName: 'Hospital Central',
+        url: 'https://hospital.example',
+        revision: '1'
+    }];
     const root = document.createElement('div');
     document.body.append(root);
     await act(() => render(h(EditorDialog, {
-        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        onClose: () => {
+        }, onSave: async () => {
+        }, verifyOwner: async () => true,
         error: null, busy: false, availableTypes: ['Laboratorio']
     }), root));
     await act(() => {
@@ -224,7 +262,9 @@ it('suggests previously saved doctors and closes the dropdown on selection', asy
     const root = document.createElement('div');
     document.body.append(root);
     await act(() => render(h(EditorDialog, {
-        onClose: () => {}, onSave: async () => {}, verifyOwner: async () => true,
+        onClose: () => {
+        }, onSave: async () => {
+        }, verifyOwner: async () => true,
         error: null, busy: false, availableTypes: ['Laboratorio']
     }), root));
     await act(() => {
@@ -257,7 +297,8 @@ it('allows creating and selecting a custom study type', async () => {
     const root = document.createElement('div');
     document.body.append(root);
     await act(() => render(h(EditorDialog, {
-        onClose: () => {}, onSave: save, verifyOwner: async () => true,
+        onClose: () => {
+        }, onSave: save, verifyOwner: async () => true,
         error: null, busy: false, availableTypes: ['Laboratorio']
     }), root));
     await act(() => {

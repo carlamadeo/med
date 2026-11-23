@@ -146,15 +146,16 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
 
     return (
         <div className="app-shell" data-signed-in={isSignedIn}>
-            <div ref={sidebarRef} className="sidebar" id="sidebar" aria-label="Navegación principal" hidden={!isSignedIn}
-                   role={open ? 'dialog' : 'complementary'} aria-modal={open || undefined} data-open={open}
-                   onKeyDown={event => {
-                       if (open && event.key === 'Escape' && !event.defaultPrevented &&
-                           !(event.target instanceof Element && event.target.closest('dialog[open]'))) {
-                           event.stopPropagation();
-                           setOpen(false);
-                       }
-                   }}>
+            <div ref={sidebarRef} className="sidebar" id="sidebar" aria-label="Navegación principal"
+                 hidden={!isSignedIn}
+                 role={open ? 'dialog' : 'complementary'} aria-modal={open || undefined} data-open={open}
+                 onKeyDown={event => {
+                     if (open && event.key === 'Escape' && !event.defaultPrevented &&
+                         !(event.target instanceof Element && event.target.closest('dialog[open]'))) {
+                         event.stopPropagation();
+                         setOpen(false);
+                     }
+                 }}>
                 <div className="sidebar-head">
                     <a className="brand" href="#main" onClick={() => {
                         setOpen(false);
@@ -255,7 +256,8 @@ export function AppShell({isSignedIn, onSignOut, onOpenSearch, children}: AppShe
                     )}
 
                     <div className="topbar-actions">
-                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg> {isLocalDemo.value ? 'Modo local de prueba' : 'Cuenta privada verificada'}</span>
+                        <span className="private" hidden={!isSignedIn}><svg className="icon"><use href="#i-lock"/></svg>
+                            {isLocalDemo.value ? 'Modo local de prueba' : 'Cuenta privada verificada'}</span>
                         {showArchiveActions && onOpenSearch && (
                             <button className="icon-button" id="open-command-palette" type="button"
                                     title="Buscar en el archivo (⌘K / Ctrl+K)" aria-label="Buscar en el archivo"

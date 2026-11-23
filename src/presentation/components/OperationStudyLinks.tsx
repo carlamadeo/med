@@ -13,7 +13,7 @@ interface OperationStudyLinksProps {
     onLinkChange: (study: Study, checked: boolean) => void;
 }
 
-function StudyDetails({study}: {study: Study}) {
+function StudyDetails({study}: { study: Study }) {
     return <>
         <span className="linked-title">{study.title}</span>
         <time className="linked-date" dateTime={study.date}>{formatStudyDate(study.date)}</time>
@@ -117,10 +117,12 @@ function OperationStudyPicker({operationId, busy, onLinkChange}: Omit<OperationS
         {lastPage > 0 && (
             <nav className="library-pagination" aria-label="Páginas de estudios para vincular">
                 <button className="button secondary" type="button" aria-disabled={current === 0}
-                        onClick={() => changePage(current - 1)}>Anterior</button>
+                        onClick={() => changePage(current - 1)}>Anterior
+                </button>
                 <span role="status">{first + 1}–{end} de {matches.length} estudios</span>
                 <button className="button secondary" type="button" aria-disabled={current === lastPage}
-                        onClick={() => changePage(current + 1)}>Siguiente</button>
+                        onClick={() => changePage(current + 1)}>Siguiente
+                </button>
             </nav>
         )}
     </>;

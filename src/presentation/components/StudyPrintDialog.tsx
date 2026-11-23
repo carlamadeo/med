@@ -11,9 +11,9 @@ interface StudyPrintDialogProps {
     onClose: () => void;
 }
 
-type AttachmentPreview = {pages: string[]} | {error: string};
+type AttachmentPreview = { pages: string[] } | { error: string };
 
-function StudyPrintPages({pages}: {pages: string[]}) {
+function StudyPrintPages({pages}: { pages: string[] }) {
     return <section className="study-print-pages" aria-label="Vista previa del archivo adjunto">
         {pages.map((url, index) => <img key={url} src={url} alt={`Página ${index + 1} del archivo adjunto`}/>)}
     </section>;
@@ -72,9 +72,11 @@ export function StudyPrintDialog({study, onClose}: StudyPrintDialogProps) {
             } catch (error) {
                 releaseUrls();
                 if (signal.aborted) return;
-                setAttachment({error: error instanceof DriveConflictError
-                    ? 'El archivo cambió en Drive. Actualizá la Biblioteca antes de imprimir.'
-                    : 'No se pudo preparar el archivo adjunto para imprimir.'});
+                setAttachment({
+                    error: error instanceof DriveConflictError
+                        ? 'El archivo cambió en Drive. Actualizá la Biblioteca antes de imprimir.'
+                        : 'No se pudo preparar el archivo adjunto para imprimir.'
+                });
             }
         }
 
@@ -98,27 +100,33 @@ export function StudyPrintDialog({study, onClose}: StudyPrintDialogProps) {
                     <p>{study.title}</p>
                 </div>
                 <button type="button" className="icon-button" aria-label="Cerrar" onClick={onClose}>
-                    <svg className="icon"><use href="#i-close"/></svg>
+                    <svg className="icon">
+                        <use href="#i-close"/>
+                    </svg>
                 </button>
             </div>
             <div className="study-print-source">
-                <a href={reportUrl(study.driveFileId)} target="_blank" rel="noopener noreferrer">Abrir original en Drive</a>
+                <a href={reportUrl(study.driveFileId)} target="_blank" rel="noopener noreferrer">Abrir original en
+                    Drive</a>
                 <p className="study-print-note">{studyAttachmentName(study)}</p>
                 {error ? <>
                     <p className="form-error" role="alert">{error}</p>
                     <button type="button" className="button secondary" onClick={() => {
                         setAttachment(null);
                         setAttempt(attempt + 1);
-                    }}>Reintentar</button>
+                    }}>Reintentar
+                    </button>
                 </> : !pages && <p className="study-print-note" role="status">Preparando el archivo adjunto…</p>}
             </div>
             {pages && <StudyPrintPages pages={pages}/>}
             <div className="dialog-actions">
                 <button type="button" className="button secondary" onClick={onClose}>Cancelar</button>
                 <button type="button" className="button primary" disabled={!pages}
-                        onClick={() => window.print()}>Imprimir</button>
+                        onClick={() => window.print()}>Imprimir
+                </button>
             </div>
         </dialog>
-        {createPortal(<div className="study-print-output">{pages && <StudyPrintPages pages={pages}/>}</div>, document.body)}
+        {createPortal(<div className="study-print-output">{pages &&
+            <StudyPrintPages pages={pages}/>}</div>, document.body)}
     </>;
 }

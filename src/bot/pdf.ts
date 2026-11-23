@@ -34,14 +34,18 @@ export async function readReport(file: File): Promise<ExtractedFields> {
 
         // PDF.js supplies a Node canvas. OCR works with the Spanish language data shipped with the app.
         const factory = pdf.canvasFactory as {
-            create(width: number, height: number): {canvas: HTMLCanvasElement & {toBuffer(type: 'image/png'): Buffer}};
-            destroy(image: {canvas: HTMLCanvasElement}): void;
+            create(width: number, height: number): {
+                canvas: HTMLCanvasElement & { toBuffer(type: 'image/png'): Buffer }
+            };
+            destroy(image: { canvas: HTMLCanvasElement }): void;
         };
         const {createWorker} = await import('tesseract.js');
         const langPath = join(dirname(resolve('@tesseract.js-data/spa')), '4.0.0');
-        const worker = await createWorker('spa', 1, {langPath, cacheMethod: 'none', errorHandler: () => {
-            // Tesseract rejects the OCR job separately. Avoid throwing from its message handler.
-        }});
+        const worker = await createWorker('spa', 1, {
+            langPath, cacheMethod: 'none', errorHandler: () => {
+                // Tesseract rejects the OCR job separately. Avoid throwing from its message handler.
+            }
+        });
         try {
             for (const i of scans) {
                 const page = await pdf.getPage(i + 1);
@@ -49,7 +53,11 @@ export async function readReport(file: File): Promise<ExtractedFields> {
                 const viewport = page.getViewport({scale: Math.min(2, 1800 / Math.max(normal.width, normal.height))});
                 const image = factory.create(Math.ceil(viewport.width), Math.ceil(viewport.height));
                 try {
-                    await page.render({canvas: image.canvas, viewport, annotationMode: pdfjs.AnnotationMode.DISABLE}).promise;
+                    await page.render({
+                        canvas: image.canvas,
+                        viewport,
+                        annotationMode: pdfjs.AnnotationMode.DISABLE
+                    }).promise;
                     const {data} = await worker.recognize(image.canvas.toBuffer('image/png'));
                     pages[i] += `\n${data.text}`;
                 } finally {
@@ -64,6 +72,7 @@ export async function readReport(file: File): Promise<ExtractedFields> {
         // Preserve the text already extracted if the scan is encrypted or OCR fails.
         return readable;
     } finally {
-        await loading.destroy().catch(() => {});
+        await loading.destroy().catch(() => {
+        });
     }
 }

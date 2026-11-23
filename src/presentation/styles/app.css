@@ -468,13 +468,6 @@ label input, label select {
     font-size: 0.75em;
 }
 
-.online-indicator {
-    font-size: 0.75em;
-    color: var(--color-text-tertiary);
-    margin-left: 4px;
-    opacity: 0.8;
-}
-
 .no-attachment {
     font-size: .78rem;
     color: var(--muted);
@@ -1091,7 +1084,7 @@ input::file-selector-button {
 }
 
 @media print {
-    .topbar, .sidebar, .intro button, .filters, #categories, .virtual-results, .directory form, .directory button {
+    .topbar, .sidebar, .intro button, .filters, #categories, .directory form, .directory button {
         display: none !important;
     }
 

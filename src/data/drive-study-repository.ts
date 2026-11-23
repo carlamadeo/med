@@ -1,4 +1,4 @@
-import {isRecoverable} from './recovery-window';
+import {isRecoverable, restoreDriveRecord} from './recovery-window';
 import {DriveConflictError, type DriveClient, type DriveFileResponse} from './drive-api';
 import {storage, type StudyRecord} from '@core/storage';
 import {documentAssociationIds} from '@domain/document-compatibility';
@@ -71,11 +71,14 @@ export class DriveStudyRepository implements StudyRepository {
         return studies;
     }
 
-    async listForLibrary(options: { force?: boolean } = {}): Promise<{studies: Study[]; skipped: number}> {
+    async listForLibrary(options: { force?: boolean } = {}): Promise<{ studies: Study[]; skipped: number }> {
         return this.readStudySnapshot(options, false);
     }
 
-    private async readStudySnapshot(options: {force?: boolean}, requireComplete: boolean): Promise<{studies: Study[]; skipped: number}> {
+    private async readStudySnapshot(options: { force?: boolean }, requireComplete: boolean): Promise<{
+        studies: Study[];
+        skipped: number
+    }> {
         const token = await this.client.getAccessToken();
         const owner = await this.cacheOwner();
         if (!options.force || !navigator.onLine) {
@@ -323,30 +326,20 @@ export class DriveStudyRepository implements StudyRepository {
     }
 
     async restore(id: string, revision: string): Promise<Study> {
-        const ID_PATTERN = /^[\w-]+$/;
-        if (!ID_PATTERN.test(id) || !revision) throw new Error('La ficha no tiene una revisión válida.');
-        const token = await this.client.getAccessToken();
-        const owner = await this.cacheOwner();
-        const file = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), {}, token).then(r => r.json() as Promise<DriveFileResponse>);
-        if (file.appProperties?.misEstudios !== 'estudio-v1') throw new DriveConflictError();
-        if (!file.trashed && file.appProperties.restoredRevision === revision) {
-            await this.client.assertSession(token);
-            return this.client.parseRecord(file);
-        }
-        if (!file.trashed || file.version !== revision) throw new DriveConflictError();
-        if (!isRecoverable(file.appProperties.deletedAt ?? '')) throw new Error('Este estudio ya no está disponible para recuperación desde la aplicación.');
-        await this.client.assertSession(token);
-        const restored = await this.client.request(this.client.url('https://www.googleapis.com/drive/v3/', `files/${encodeURIComponent(id)}`, {fields: ENTRY_FIELDS}), this.client.jsonBody('PATCH', {
-            trashed: false,
-            appProperties: {...file.appProperties, deletedAt: undefined, restoredRevision: revision}
-        }), token).then(r => r.json() as Promise<DriveFileResponse>);
-        await this.client.assertSession(token);
-        const study = this.client.parseRecord(restored);
-        await storage.writeSessionStudies(owner, [this.studyToRecord(study)]);
-        await storage.updateSessionDirectory<{
-            id: string
-        }>(owner, 'deletedStudiesCache', (cached) => cached ? cached.filter(item => item.id !== id) : null);
-        return study;
+        return restoreDriveRecord({
+            client: this.client,
+            id,
+            revision,
+            marker: 'estudio-v1',
+            fields: ENTRY_FIELDS,
+            invalidRevisionMessage: 'La ficha no tiene una revisión válida.',
+            expiredMessage: 'Este estudio ya no está disponible para recuperación desde la aplicación.',
+            deletedCacheKey: 'deletedStudiesCache',
+            parse: (file) => this.client.parseRecord(file),
+            onRestored: async (owner, study) => {
+                await storage.writeSessionStudies(owner, [this.studyToRecord(study)]);
+            },
+        });
     }
 
     async getPdfFile(fileId: string, expectedToken?: string): Promise<File> {

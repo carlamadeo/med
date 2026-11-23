@@ -9,7 +9,7 @@ export type ConsultationSource = {
     key: string;
     title: string;
     href: string;
-} & ({kind: 'attachment'; study: Study} | {kind: 'viewer'});
+} & ({ kind: 'attachment'; study: Study } | { kind: 'viewer' });
 
 interface Props {
     sources: ConsultationSource[];
@@ -179,8 +179,14 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
 
     return (
         <dialog ref={dialog} className="dialog" aria-label="Preparar consulta"
-                onCancel={event => { event.preventDefault(); close(); }}>
-            <form onSubmit={event => { event.preventDefault(); void prepare('zip'); }}>
+                onCancel={event => {
+                    event.preventDefault();
+                    close();
+                }}>
+            <form onSubmit={event => {
+                event.preventDefault();
+                void prepare('zip');
+            }}>
                 <div className="dialog-heading">
                     <div>
                         <h2 tabIndex={-1}>Preparar consulta</h2>
@@ -195,7 +201,8 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
                             return (
                                 <div key={source.key} className="consultation-source">
                                     <label>
-                                        <input type="checkbox" data-source={source.kind} checked={selected.has(source.key)}
+                                        <input type="checkbox" data-source={source.kind}
+                                               checked={selected.has(source.key)}
                                                onChange={event => {
                                                    const checked = event.currentTarget.checked;
                                                    setPrepared(null);
@@ -223,7 +230,7 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
                 <p className="appointment-note" role="status">
                     {action === 'zip' ? 'Verificando los archivos y preparando el ZIP…'
                         : action === 'prepare' ? 'Verificando los archivos para compartir…'
-                        : `${selected.size} ${selected.size === 1 ? 'fuente seleccionada' : 'fuentes seleccionadas'}`}
+                            : `${selected.size} ${selected.size === 1 ? 'fuente seleccionada' : 'fuentes seleccionadas'}`}
                 </p>
                 {prepared && (
                     <div>
@@ -236,7 +243,8 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
                         {prepared.files.length > 0 && (
                             <div className="share-links" role="group" aria-label="Descargar archivos individuales">
                                 {prepared.files.map(file => (
-                                    <button key={file.name} type="button" className="button secondary button-sm" disabled={action !== null}
+                                    <button key={file.name} type="button" className="button secondary button-sm"
+                                            disabled={action !== null}
                                             onClick={() => void run('file', async () => {
                                                 if (await verifyReady(prepared.token)) downloadBlob(file, file.name);
                                             })}>
@@ -254,7 +262,8 @@ export function ConsultationPackageDialog({sources, onClose}: Props) {
                         Descargar ZIP
                     </button>
                     {prepared ? canShare && (
-                        <button type="button" className="button primary" disabled={action !== null} onClick={() => void share()}>
+                        <button type="button" className="button primary" disabled={action !== null}
+                                onClick={() => void share()}>
                             {prepared.files.length ? 'Compartir archivos' : 'Compartir enlaces'}
                         </button>
                     ) : (

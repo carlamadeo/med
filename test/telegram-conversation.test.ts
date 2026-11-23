@@ -7,7 +7,10 @@ function fixture() {
     const reserve = vi.fn(async () => 'reserved');
     const save = vi.fn(async () => 'Guardado.');
     const analyze = vi.fn(async () => ({date: '2026-11-10', types: ['Ecografía'], doctor: 'Dra. Pérez'}));
-    const talk = createConversation(state, {send, reserve, save, analyze, persist: async () => {}, today: () => '2026-11-21'});
+    const talk = createConversation(state, {
+        send, reserve, save, analyze, persist: async () => {
+        }, today: () => '2026-11-21'
+    });
     const message = (text: string, id = 10) => talk({id, text});
     return {state, send, reserve, save, analyze, message, talk};
 }
@@ -23,7 +26,10 @@ describe('bot de Telegram', () => {
         await talk({id: 4, action: 'save:1:0'});
         expect(save).not.toHaveBeenCalled();
         await talk({id: 5, action: 'save:1:1'});
-        expect(save).toHaveBeenCalledWith(expect.objectContaining({recordId: 'reserved', fields: expect.objectContaining({viewer: 'https://portal.example/otro'})}));
+        expect(save).toHaveBeenCalledWith(expect.objectContaining({
+            recordId: 'reserved',
+            fields: expect.objectContaining({viewer: 'https://portal.example/otro'})
+        }));
         expect(send).toHaveBeenLastCalledWith('Guardado.');
     });
 
@@ -42,7 +48,12 @@ describe('bot de Telegram', () => {
     it('confirma un turno escrito y conserva el ID en un reintento', async () => {
         const {message, talk, state, save, reserve} = fixture();
         await message('Turno con la Dra. Pérez el martes a las 15:30 en el Hospital Italiano');
-        expect(state.draft?.fields).toMatchObject({date: '2026-11-24', time: '15:30', professional: 'Dra. Pérez', location: 'el Hospital Italiano'});
+        expect(state.draft?.fields).toMatchObject({
+            date: '2026-11-24',
+            time: '15:30',
+            professional: 'Dra. Pérez',
+            location: 'el Hospital Italiano'
+        });
         save.mockRejectedValueOnce(new Error('Prueba'));
         await talk({id: 11, action: 'save:10:0'});
         expect(save).toHaveBeenCalledTimes(1);

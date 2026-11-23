@@ -34,7 +34,8 @@ export function FolderPickerDialog() {
                 if (generation !== current) return;
                 const stored = localStorage.getItem(`${STORAGE_KEY}:${owner}`);
                 if (stored) setApprovedFolderId(stored);
-            }).catch(() => {});
+            }).catch(() => {
+            });
         };
         const unsubscribe = driveAuth.onAuthChange(restore);
         if (driveAuth.isSignedIn()) restore(true);
@@ -83,7 +84,7 @@ export function FolderPickerDialog() {
         const dialog = dialogRef.current;
         if (!dialog) return;
         if (open) {
-            loadFolders();
+            void loadFolders();
             if (!dialog.open) dialog.showModal();
         } else {
             if (dialog.open) dialog.close();
@@ -129,7 +130,9 @@ export function FolderPickerDialog() {
                 onClick={handleOpen}
                 title="Configurar carpeta de entrada"
             >
-                <svg className="icon" aria-hidden="true"><use href="#i-folder"/></svg>
+                <svg className="icon" aria-hidden="true">
+                    <use href="#i-folder"/>
+                </svg>
                 <span>Carpeta de entrada</span>
             </button>
 
@@ -177,7 +180,9 @@ export function FolderPickerDialog() {
                                     <span className="folder-picker-meta">
                                         {folder.modifiedTime ? new Date(folder.modifiedTime).toLocaleDateString('es-AR') : ''}
                                     </span>
-                                    {selectedId === folder.id && <svg className="icon check"><use href="#i-check"/></svg>}
+                                    {selectedId === folder.id && <svg className="icon check">
+                                        <use href="#i-check"/>
+                                    </svg>}
                                 </button>
                             ))
                         )}
