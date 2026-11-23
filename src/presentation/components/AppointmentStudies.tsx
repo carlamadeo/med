@@ -13,7 +13,7 @@ export function AppointmentStudyPicker({studyIds = [], disabled}: AppointmentStu
     const [query, setQuery] = useState('');
     const [limit, setLimit] = useState(30);
     const [selected, setSelected] = useState(() => new Set(studyIds));
-    const available = [...studies.value].sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR'));
+    const available = studies.value.toSorted((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'es-AR'));
     const byId = new Set(available.map(study => study.id));
     const missing = [...selected].filter(id => !byId.has(id));
     const matches = filterStudiesByQuery(available, query);

@@ -577,7 +577,7 @@ export function Episodes() {
 
                                 {episode.observations.length > 0 && (
                                     <div className="episode-observations">
-                                        {[...episode.observations].sort((a, b) => a.date.localeCompare(b.date)).map((observation, index) => (
+                                        {episode.observations.toSorted((a, b) => a.date.localeCompare(b.date)).map((observation, index) => (
                                             <div className="episode-observation" key={`${observation.date}-${index}`}>
                                                 <time dateTime={observation.date}>{formatStudyDate(observation.date)}</time>
                                                 <p>{observation.text || 'Sin notas'}</p>
