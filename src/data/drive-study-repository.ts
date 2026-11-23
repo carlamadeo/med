@@ -9,7 +9,7 @@ import {validateDocument} from './pdf-analysis';
 import {listMedicalEvents} from './drive-medical-event-list';
 
 export class DriveStudyRepository implements StudyRepository {
-    constructor(private client: DriveClient) {
+    constructor(private client: DriveClient, private cacheWrites = true) {
     }
 
     private async cacheOwner(): Promise<string> {
@@ -139,7 +139,7 @@ export class DriveStudyRepository implements StudyRepository {
         if (validationErrors.length) throw new Error(validationErrors[0]);
         const token = await this.client.getAccessToken();
         if (expectedToken !== undefined) await this.client.assertSession(expectedToken);
-        const owner = await this.cacheOwner();
+        const owner = this.cacheWrites ? await this.cacheOwner() : undefined;
         const isUpdate = Boolean(draft.driveFileId);
         // On edit we must start from what Drive has now, not from what the form remembers.
         const existing = draft.driveFileId ? await this.fetchFile(draft.driveFileId) : null;
@@ -230,7 +230,7 @@ export class DriveStudyRepository implements StudyRepository {
 
         await this.client.assertSession(token);
         const saved = this.client.parseRecord(response);
-        await storage.writeSessionStudies(owner, [this.studyToRecord(saved)]);
+        if (owner !== undefined) await storage.writeSessionStudies(owner, [this.studyToRecord(saved)]);
         return saved;
     }
 

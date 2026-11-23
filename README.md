@@ -46,12 +46,14 @@ exportación espera a que se pueda leer el historial completo.
 Desde **Próximo turno** en Resumen o desde **Turnos**, usá **Preparar consulta** para revisar los adjuntos de los
 estudios vinculados y descargarlos juntos en un ZIP. Los enlaces a visores se incluyen cuando los marcás.
 Si autorizás el acceso al calendario al conectar Google, los turnos programados se sincronizan automáticamente en un
-calendario secundario llamado **Turnos** en Google Calendar (con el nombre del profesional, especialidad,
-lugar/dirección, notas y dos avisos: 1 semana antes a las 11:00 y el día anterior a las 11:00).
+calendario secundario llamado **Turnos** en Google Calendar, con el profesional, la especialidad, el lugar y las notas.
+Los turnos cargados desde Telegram incluyen avisos una semana antes y el día anterior a las 11:00.
 
 Si una importación desde **Bandeja de entrada** queda sin confirmar, la reserva del archivo se conserva en este
 navegador para la cuenta que inició el guardado. Volvé a conectarte para que la aplicación revise el estado del
 archivo en Drive y reutilice el identificador original cuando haga falta.
+
+Para cargar estudios y turnos sin abrir la aplicación, consultá la [guía del bot de Telegram](docs/telegram.md).
 
 ## Publicar
 

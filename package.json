@@ -23,7 +23,9 @@
     "lint": "eslint . && stylelint 'src/**/*.css'",
     "typecheck": "tsc --noEmit",
     "test:a11y": "vitest run test/a11y.test.ts",
-    "docs:api": "typedoc --entryPointStrategy expand --out docs/api src/"
+    "docs:api": "typedoc --entryPointStrategy expand --out docs/api src/",
+    "bot:build": "vite build --config vite.telegram.config.ts",
+    "bot": "node --env-file-if-exists=.env.telegram .data/telegram-build/telegram.mjs"
   },
   "dependencies": {
     "@preact/signals": "^2.0.0",

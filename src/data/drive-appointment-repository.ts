@@ -9,7 +9,7 @@ import {validateDocument} from './pdf-analysis';
 type AppointmentDescription = Omit<AppointmentDraft, 'prescriptionFile' | 'removePrescription'> & {prescriptionName?: string};
 
 export class DriveAppointmentRepository {
-    constructor(private client: DriveClient) {
+    constructor(private client: DriveClient, private cacheWrites = true) {
     }
 
     private parse(file: DriveFileResponse): Appointment {
@@ -56,7 +56,7 @@ export class DriveAppointmentRepository {
         if (errors.length) throw new Error(errors[0]);
         const token = expectedToken ?? await this.client.getAccessToken();
         await this.client.assertSession(token);
-        const owner = await this.client.cacheOwner();
+        const owner = this.cacheWrites ? await this.client.cacheOwner() : undefined;
         const {date, time, timeZone, professional, notes, status, cost, coverage, reminderMinutes, studyIds,
             prescriptionFile, removePrescription} = draft;
         const specialty = cleanSpecialty(draft.specialty);
@@ -72,12 +72,14 @@ export class DriveAppointmentRepository {
 
         const previousName = removePrescription ? undefined : existing?.prescription?.name;
         const prescriptionName = prescriptionFile ? prescriptionFile.name || 'Receta' : previousName;
+        const calendarReminders = draft.calendarReminders ?? existing?.calendarReminders;
         const description = JSON.stringify({
             date, time, timeZone, professional, notes, status, cost, coverage,
             ...(specialty ? {specialty} : {}),
             ...(location ? {location} : {}),
             ...(reason ? {reason} : {}),
             ...(reminderMinutes ? {reminderMinutes} : {}),
+            ...(calendarReminders === 'standard' ? {calendarReminders} : {}),
             ...(studyIds?.length ? {studyIds: [...new Set(studyIds)]} : {}),
             ...(prescriptionName ? {prescriptionName} : {}),
         });
@@ -113,7 +115,9 @@ export class DriveAppointmentRepository {
         }
         const saved = this.parse(file);
         await this.client.assertSession(token);
-        await storage.updateSessionDirectory<Appointment>(owner, 'appointmentsCache', (cached) => cached ? [...cached.filter(item => item.id !== saved.id), saved] : null);
+        if (owner !== undefined) {
+            await storage.updateSessionDirectory<Appointment>(owner, 'appointmentsCache', (cached) => cached ? [...cached.filter(item => item.id !== saved.id), saved] : null);
+        }
         return saved;
     }
 

@@ -213,6 +213,7 @@ export interface AppointmentDraft {
     cost: number | null;
     coverage: 'all' | 'partial' | 'none' | null;
     reminderMinutes?: 15 | 60 | 1440 | null;
+    calendarReminders?: 'standard';
     studyIds?: string[];
     prescriptionFile?: File;
     removePrescription?: boolean;
